@@ -20,6 +20,7 @@ export interface ExtensionContext {
 }
 
 export interface ExtensionAPI {
+  pi?: unknown;
   setLabel?(label: string): void;
   registerCommand(
     name: string,
@@ -61,19 +62,19 @@ async function selectAnvilCommand(args: string, context: ExtensionContext): Prom
 
 export default function anvilExtension(pi: ExtensionAPI): void {
   pi.setLabel?.("Anvil · The Forge");
-  const router = new CommandRouter(async (context) => createRuntime(context.cwd, context.runtimeContext ?? context));
+  const router = new CommandRouter((context) => createRuntime(context.cwd, context.runtimeContext ?? context, undefined, context.host));
   const notifyOutput = async (context: ExtensionContext, output: string): Promise<void> => {
     if (context.ui?.notify) await context.ui.notify(output, "info");
     else await context.respond?.(output);
   };
   const forgeHandler = async (args: string, context: ExtensionContext): Promise<void> => {
     const input = args.trim().replace(/^\/forge\s*/, "");
-    await notifyOutput(context, await router.handle(input, { cwd: context.cwd, runtimeContext: context }));
+    await notifyOutput(context, await router.handle(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi }));
   };
   const anvilHandler = async (args: string, context: ExtensionContext): Promise<void> => {
     const input = await selectAnvilCommand(args, context);
     if (input === undefined) return;
-    await notifyOutput(context, await router.handleAdmin(input, { cwd: context.cwd, runtimeContext: context }));
+    await notifyOutput(context, await router.handleAdmin(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi }));
   };
   pi.registerCommand("anvil", { description: "Inspect Anvil configuration and manage updates", handler: anvilHandler });
   pi.registerCommand("forge", { description: "Run Anvil's bounded multi-agent workflow", handler: forgeHandler });

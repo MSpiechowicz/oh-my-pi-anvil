@@ -6,7 +6,7 @@ Anvil presents `/forge` as its workflow command and `/anvil` as its configuratio
 
 Anvil keeps OMP-specific child execution behind `src/runners/omp-compat.ts` and `src/runners/omp-subprocess-runner.ts`.
 
-The extension factory only requires the public `ExtensionAPI` shape: a label setter and command registration. The host context is passed to the compatibility adapter so discovery and structured child execution can follow the installed OMP release.
+Current OMP releases expose these capabilities through the SDK namespace on `ExtensionAPI.pi`. The adapter uses that namespace for agent discovery and structured subprocess execution, and uses the native `TaskTool` only when an isolated worktree is requested. Older hosts that expose the legacy context methods remain supported; hosts with neither boundary report a typed `OMP_EXECUTOR_UNAVAILABLE` failure instead of throwing during workflow setup.
 
 The workflow engine never imports `ToolSession`, does not replay parent transcripts, and does not assume one provider or model family. When OMP changes task executor signatures, update the compatibility adapter rather than the state machine.
 

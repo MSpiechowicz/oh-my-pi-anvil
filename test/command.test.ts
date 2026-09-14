@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "./test-helpers.ts";
 import anvilExtension, { type ExtensionContext } from "../src/extension.ts";
 import { CommandRouter } from "../src/commands/router.ts";
+import { renderStatus } from "../src/ui/render.ts";
 
 type SessionStartHandler = (event: unknown, context: ExtensionContext) => void | Promise<void>;
 describe("OMP command registration", () => {
@@ -111,6 +112,43 @@ describe("OMP command registration", () => {
 
     expect(receivedObjective).toBe("Add the requested change");
     expect(response).toContain("ANVIL · FORGE RUN run_test");
+  });
+  test("renders Forge status as aligned metadata with failure details", () => {
+    const response = renderStatus({
+      run: {
+        id: "run_failed",
+        status: "failed",
+        currentState: "FAILED",
+        currentRevisionId: "revision",
+        mutationEpoch: 0,
+        transitionCount: 2,
+        usedTokens: 0,
+        usedRequests: 0,
+        workspaceRoot: "/tmp",
+        failureCode: "AGENT_EXECUTION_FAILED",
+        failureMessage: "No OMP child-agent executor is available",
+      },
+      attempts: [{ state: "PLAN" }],
+      findings: [],
+    } as never);
+    const fields = [
+      ["STATUS", "FAILED"],
+      ["STAGE", "FAILED"],
+      ["REVISION", "revision"],
+      ["EPOCH", "0"],
+      ["TRANSITIONS", "2"],
+      ["FAILURE", "AGENT_EXECUTION_FAILED"],
+      ["REASON", "No OMP child-agent executor is available"],
+      ["FINDINGS", "0"],
+      ["USAGE", "0 tokens · 0 requests"],
+      ["ARTIFACTS", "/tmp/.omp/.anvil/runs/run_failed"],
+    ];
+    const aligned = fields.map(([label, value]) => {
+      const row = response.split("\n").find((line) => line.startsWith(`  ${label}`));
+      return row?.slice(16) === value;
+    });
+    expect(aligned.every(Boolean)).toBe(true);
+    expect(response.includes("OPEN FINDINGS")).toBe(false);
   });
 
   test("lists configuration locations with aligned values", async () => {

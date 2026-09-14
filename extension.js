@@ -987,11 +987,332 @@ var OmpSubprocessRunner = class {
 };
 
 // src/runners/omp-compat.ts
-function createOmpCompat(context) {
-  const candidate = context;
+var READ_ONLY_TOOL_NAMES = {
+  read: true,
+  grep: true,
+  glob: true,
+  web_search: true,
+  ast_grep: true,
+  ask: true,
+  todo: true,
+  recall: true,
+  reflect: true,
+  retain: true,
+  memory_edit: true,
+  checkpoint: true,
+  rewind: true,
+  yield: true
+};
+function asRecord(value2) {
+  if (value2 === null || typeof value2 !== "object" && typeof value2 !== "function" || Array.isArray(value2)) return void 0;
+  return value2;
+}
+function invoke(owner, name, args) {
+  const method = owner[name];
+  if (typeof method !== "function") throw new Error(`OMP compatibility method is unavailable: ${name}`);
+  return method.apply(owner, args);
+}
+function stringValue(value2) {
+  return typeof value2 === "string" && value2.trim() ? value2 : void 0;
+}
+function numberValue(value2) {
+  return typeof value2 === "number" && Number.isFinite(value2) ? value2 : void 0;
+}
+function normalizeAgentRecords(value2) {
+  const container = Array.isArray(value2) ? value2 : asRecord(value2)?.agents;
+  if (!Array.isArray(container)) throw new Error("OMP agent discovery returned no agent list");
+  return container.map(asRecord).filter((agent) => agent !== void 0 && stringValue(agent.name) !== void 0);
+}
+async function discoverNativeAgents(host, cwd) {
+  return normalizeAgentRecords(await invoke(host, "discoverAgents", [
+    cwd
+  ]));
+}
+async function loadSettings(host, cwd) {
+  const settingsType = asRecord(host.Settings);
+  if (!settingsType) throw new Error("OMP Settings API is unavailable");
+  let settings;
+  if (typeof settingsType.loadReadOnly === "function") {
+    settings = await invoke(settingsType, "loadReadOnly", [
+      {
+        cwd
+      }
+    ]);
+  } else if (typeof settingsType.isolated === "function") {
+    settings = await invoke(settingsType, "isolated", [
+      {}
+    ]);
+  }
+  const result = asRecord(settings);
+  if (!result || typeof result.get !== "function") throw new Error("OMP Settings API could not create a settings instance");
+  return result;
+}
+function applySetting(settings, path12, value2) {
+  if (typeof settings.override === "function") settings.override(path12, value2);
+}
+function configureSettings(settings, request) {
+  applySetting(settings, "async.enabled", false);
+  if (request.isolation?.requested) {
+    applySetting(settings, "task.isolation.enabled", true);
+    applySetting(settings, "task.isolation.apply", request.isolation.apply ?? true);
+    applySetting(settings, "task.isolation.merge", request.isolation.merge ?? "patch");
+  }
+}
+function currentModelSelector(context) {
+  const model = asRecord(asRecord(context)?.model);
+  const provider = stringValue(model?.provider);
+  const id = stringValue(model?.id);
+  return provider && id ? `${provider}/${id}` : void 0;
+}
+function effectiveAgent(agent, readOnly) {
+  if (!readOnly) return agent;
+  const tools = Array.isArray(agent.tools) ? agent.tools.filter((tool) => typeof tool === "string" && READ_ONLY_TOOL_NAMES[tool] === true) : [];
+  if (tools.length === 0) {
+    throw new Error(`Configured read-only agent "${String(agent.name)}" has no read-only tools`);
+  }
   return {
-    discoverAgents: candidate.discoverAgents,
-    execute: candidate.runSubprocess
+    ...agent,
+    tools
+  };
+}
+function nativeExecutorOptions(context, request, agent, settings) {
+  const contextRecord = asRecord(context);
+  const options = {
+    cwd: request.cwd,
+    agent,
+    task: request.assignment.trim(),
+    assignment: request.assignment.trim(),
+    context: request.context?.trim() || void 0,
+    index: 0,
+    id: request.attemptId,
+    outputSchema: request.outputSchema,
+    outputSchemaMode: request.schemaMode,
+    outputSchemaSource: "caller",
+    outputSchemaOverridesAgent: true,
+    taskDepth: 0,
+    enableLsp: true,
+    enableIrc: false,
+    enableMCP: false,
+    restrictToolNames: true,
+    keepAlive: false,
+    parentAgentId: "Main",
+    sessionFile: null,
+    signal: request.signal,
+    settings
+  };
+  const modelRegistry = contextRecord?.modelRegistry;
+  if (modelRegistry !== void 0) options.modelRegistry = modelRegistry;
+  const getApiKey = contextRecord?.getApiKey;
+  if (typeof getApiKey === "function") options.getApiKey = getApiKey;
+  const parentModel = currentModelSelector(context);
+  if (parentModel) options.parentActiveModelPattern = parentModel;
+  return options;
+}
+function nativeTaskSession(context, request, settings) {
+  const contextRecord = asRecord(context);
+  const session = {
+    cwd: request.cwd,
+    hasUI: false,
+    canPromptUser: false,
+    settings,
+    getSessionFile: () => null,
+    getSessionSpawns: () => "*",
+    enableLsp: true,
+    enableIrc: false,
+    enableMCP: false,
+    restrictToolNames: true,
+    suppressSpawnAdvisory: true,
+    getSessionId: () => null,
+    getAgentId: () => "Main",
+    isDisposed: () => request.signal?.aborted === true
+  };
+  if (contextRecord?.modelRegistry !== void 0) session.modelRegistry = contextRecord.modelRegistry;
+  const getApiKey = contextRecord?.getApiKey;
+  if (typeof getApiKey === "function") session.getApiKey = getApiKey;
+  const model = contextRecord?.model;
+  if (model !== void 0) {
+    session.getActiveModel = () => model;
+    session.getActiveModelString = () => currentModelSelector(context);
+    session.getModelString = () => currentModelSelector(context);
+  }
+  return session;
+}
+function parseJsonOutput(value2) {
+  if (typeof value2 !== "string" || !value2.trim()) return void 0;
+  try {
+    return JSON.parse(value2);
+  } catch {
+    return void 0;
+  }
+}
+function resultRecord(value2) {
+  const record2 = asRecord(value2);
+  const details = asRecord(record2?.details);
+  const results = details?.results;
+  if (Array.isArray(results) && results.length > 0) return asRecord(results[0]);
+  return record2;
+}
+function resultText(value2) {
+  const record2 = asRecord(value2);
+  const content = record2?.content;
+  if (!Array.isArray(content)) return void 0;
+  const text = content.map((part) => asRecord(part)?.text).filter((part) => typeof part === "string").join("\n").trim();
+  return text || void 0;
+}
+function mapNativeResult(request, value2) {
+  const result = resultRecord(value2);
+  if (!result) {
+    return failedResult(request, "OMP_TASK_EXECUTION_FAILED", resultText(value2) ?? "OMP returned no subagent result");
+  }
+  const structuredOutput = asRecord(result.structuredOutput);
+  const structuredStatus = stringValue(structuredOutput?.status);
+  const hasStructuredData = structuredOutput ? Object.hasOwn(structuredOutput, "data") : false;
+  const structuredData = hasStructuredData ? structuredOutput?.data : parseJsonOutput(result.output);
+  const exitCode = numberValue(result.exitCode) ?? 1;
+  const aborted = result.aborted === true;
+  const rawError = stringValue(result.error);
+  const schemaError = stringValue(structuredOutput?.error);
+  const failureMessage = rawError ?? schemaError ?? stringValue(result.stderr) ?? resultText(value2) ?? `OMP subagent exited with code ${exitCode}`;
+  const schemaValid = structuredStatus === "valid" || structuredStatus === void 0 && structuredData !== void 0;
+  const completed = !aborted && exitCode === 0 && !rawError && schemaValid;
+  const input = numberValue(asRecord(result.usage)?.input);
+  const output = numberValue(asRecord(result.usage)?.output);
+  const cacheRead = numberValue(asRecord(result.usage)?.cacheRead);
+  const cacheWrite = numberValue(asRecord(result.usage)?.cacheWrite);
+  const total = numberValue(asRecord(result.usage)?.totalTokens) ?? numberValue(result.tokens) ?? (input ?? 0) + (output ?? 0);
+  const requests = numberValue(result.requests) ?? numberValue(asRecord(result.usage)?.requests);
+  const usage = {
+    input,
+    output,
+    cacheRead,
+    cacheWrite,
+    total,
+    requests
+  };
+  const status = aborted ? "aborted" : completed ? "completed" : "failed";
+  return {
+    status,
+    agentName: stringValue(result.agent) ?? request.agentName,
+    resolvedModel: stringValue(result.resolvedModel),
+    usage,
+    durationMs: numberValue(result.durationMs) ?? 0,
+    ...completed ? {
+      structured: structuredData
+    } : {},
+    ...status !== "completed" ? {
+      error: {
+        code: aborted ? "OMP_TASK_ABORTED" : structuredStatus === "invalid" || structuredStatus === "unavailable" ? "OMP_SCHEMA_INVALID" : "OMP_TASK_EXECUTION_FAILED",
+        message: failureMessage
+      }
+    } : {}
+  };
+}
+function failedResult(request, code, message, status = "failed") {
+  return {
+    status,
+    agentName: request.agentName,
+    usage: {
+      requests: 0
+    },
+    durationMs: 0,
+    error: {
+      code,
+      message
+    }
+  };
+}
+async function executeNativeSubprocess(context, host, request) {
+  const agents = await discoverNativeAgents(host, request.cwd);
+  const found = agents.find((agent2) => agent2.name === request.agentName);
+  if (!found) return failedResult(request, "OMP_AGENT_NOT_FOUND", `Configured agent was not discovered: ${request.agentName}`);
+  let agent;
+  try {
+    agent = effectiveAgent(found, request.readOnly);
+  } catch (error) {
+    return failedResult(request, "OMP_READ_ONLY_AGENT_REQUIRED", error instanceof Error ? error.message : String(error));
+  }
+  const settings = await loadSettings(host, request.cwd);
+  configureSettings(settings, request);
+  const raw = await invoke(host, "runSubprocess", [
+    nativeExecutorOptions(context, request, agent, settings)
+  ]);
+  return mapNativeResult(request, raw);
+}
+async function createNativeTaskTool(host, session) {
+  const taskType = asRecord(host.TaskTool);
+  if (taskType && typeof taskType.create === "function") {
+    return await invoke(taskType, "create", [
+      session
+    ]);
+  }
+  const builtins = asRecord(host.BUILTIN_TOOLS);
+  if (builtins && typeof builtins.task === "function") {
+    return await invoke(builtins, "task", [
+      session
+    ]);
+  }
+  throw new Error("OMP TaskTool API is unavailable");
+}
+async function executeNativeTask(context, host, request) {
+  const settings = await loadSettings(host, request.cwd);
+  configureSettings(settings, request);
+  const task = await createNativeTaskTool(host, nativeTaskSession(context, request, settings));
+  const handoff = request.context?.trim();
+  const assignment = handoff ? `${request.assignment.trim()}
+
+Forge handoff:
+${handoff}` : request.assignment.trim();
+  const params = {
+    agent: request.agentName,
+    task: assignment,
+    outputSchema: request.outputSchema,
+    schemaMode: request.schemaMode
+  };
+  if (request.isolation?.requested) params.isolated = true;
+  return mapNativeResult(request, await task.execute(`anvil-${request.attemptId}`, params, request.signal));
+}
+function createOmpCompat(context, host) {
+  const direct = asRecord(context);
+  const directDiscover = direct?.discoverAgents;
+  const directExecute = direct?.runSubprocess;
+  if (direct && (typeof directDiscover === "function" || typeof directExecute === "function")) {
+    return {
+      discoverAgents: typeof directDiscover === "function" ? async (cwd) => normalizeAgentRecords(await invoke(direct, "discoverAgents", [
+        cwd
+      ])).map((agent) => ({
+        name: agent.name,
+        disabled: agent.disabled === true
+      })) : void 0,
+      execute: typeof directExecute === "function" ? async (request) => await invoke(direct, "runSubprocess", [
+        request
+      ]) : void 0
+    };
+  }
+  const native2 = asRecord(host) ?? asRecord(direct?.host) ?? asRecord(direct?.omp) ?? asRecord(direct?.pi);
+  if (!native2) return {};
+  const nativeDiscover = native2.discoverAgents;
+  const nativeExecute = native2.runSubprocess;
+  const hasTaskTool = Boolean(asRecord(native2.TaskTool)?.create || asRecord(native2.BUILTIN_TOOLS)?.task);
+  if (typeof nativeDiscover !== "function" && !hasTaskTool) return {};
+  return {
+    discoverAgents: typeof nativeDiscover === "function" ? async (cwd) => (await discoverNativeAgents(native2, cwd)).map((agent) => ({
+      name: agent.name,
+      disabled: agent.disabled === true
+    })) : void 0,
+    execute: async (request) => {
+      try {
+        if (request.isolation?.requested) {
+          if (!hasTaskTool) return failedResult(request, "OMP_ISOLATION_UNAVAILABLE", "OMP TaskTool API is unavailable for isolated Forge execution");
+          return await executeNativeTask(context, native2, request);
+        }
+        if (typeof nativeExecute !== "function") {
+          return failedResult(request, "OMP_EXECUTOR_UNAVAILABLE", "OMP subprocess executor is unavailable in this extension context");
+        }
+        return await executeNativeSubprocess(context, native2, request);
+      } catch (error) {
+        return failedResult(request, "OMP_TASK_EXECUTION_FAILED", error instanceof Error ? error.message : String(error));
+      }
+    }
   };
 }
 
@@ -2404,7 +2725,7 @@ function memoryFromContext(context) {
   if (!candidate || typeof candidate !== "object" || !("search" in candidate) || !("save" in candidate) || typeof candidate.search !== "function" || typeof candidate.save !== "function") return void 0;
   return candidate;
 }
-async function createRuntime(workspaceRoot, context, explicitConfigPath) {
+async function createRuntime(workspaceRoot, context, explicitConfigPath, host) {
   const loaded = await loadConfig(workspaceRoot, explicitConfigPath);
   const absoluteRuntimeRoot = runtimeRoot(workspaceRoot, loaded.persistence.root);
   await ensureRuntimeRoot(absoluteRuntimeRoot);
@@ -2417,7 +2738,7 @@ async function createRuntime(workspaceRoot, context, explicitConfigPath) {
   };
   const state = await StateDatabase.open(absoluteRuntimeRoot);
   const artifacts = new ArtifactStore(state, (runId) => path8.join(absoluteRuntimeRoot, "runs", runId));
-  const compat = createOmpCompat(context);
+  const compat = createOmpCompat(context, host);
   const agents = new OmpSubprocessRunner(compat);
   const discovered = Object.values(config.agents).map((agent) => agent.agent);
   await agents.validate(workspaceRoot, discovered);
@@ -2648,6 +2969,10 @@ function renderUpdate(report) {
   if (report.message) return `Anvil ${report.currentVersion}: ${report.message}`;
   return `Anvil ${report.currentVersion}: No newer release available.`;
 }
+var STATUS_LABEL_WIDTH = 14;
+function statusRow(label, value2) {
+  return `  ${label.padEnd(STATUS_LABEL_WIDTH)}${value2}`;
+}
 function renderStatus(summary) {
   const run = summary.run;
   const attempts = summary.attempts.reduce((counts, attempt) => {
@@ -2655,25 +2980,29 @@ function renderStatus(summary) {
     return counts;
   }, {});
   const open2 = summary.findings.filter((finding) => finding.status === "open");
+  const failure = run.failureCode || run.failureMessage || run.blockedReason ? [
+    "",
+    statusRow("FAILURE", run.failureCode ?? run.status.toUpperCase()),
+    statusRow("REASON", run.failureMessage ?? run.blockedReason ?? "No details recorded")
+  ] : [];
   return [
     `ANVIL \xB7 FORGE RUN ${run.id}`,
     "",
-    `STATUS       ${run.status.toUpperCase()}`,
-    `STAGE        ${displayState(run.currentState).toUpperCase()}`,
-    `REVISION     ${run.currentRevisionId}`,
-    `EPOCH        ${run.mutationEpoch}`,
-    `TRANSITIONS  ${run.transitionCount}`,
+    statusRow("STATUS", run.status.toUpperCase()),
+    statusRow("STAGE", displayState(run.currentState).toUpperCase()),
+    statusRow("REVISION", run.currentRevisionId),
+    statusRow("EPOCH", String(run.mutationEpoch)),
+    statusRow("TRANSITIONS", String(run.transitionCount)),
+    ...failure,
     "",
     "ATTEMPTS",
-    ...Object.entries(attempts).map(([state, count]) => `  ${(STAGE_LABELS[state] ?? state).padEnd(12)} ${count}`),
+    ...Object.entries(attempts).map(([state, count]) => statusRow(STAGE_LABELS[state] ?? state, String(count))),
     "",
-    `OPEN FINDINGS ${open2.length}`,
-    ...open2.slice(0, 8).map((finding) => `  ${finding.id}  ${finding.severity.toUpperCase()}  ${finding.title}`),
+    statusRow("FINDINGS", String(open2.length)),
+    ...open2.slice(0, 8).map((finding) => `    ${finding.id}  ${finding.severity.toUpperCase()}  ${finding.title}`),
     "",
-    "USAGE",
-    `  ${run.usedTokens.toLocaleString()} tokens \xB7 ${run.usedRequests} requests`,
-    "",
-    `ARTIFACTS    ${run.workspaceRoot}/.omp/.anvil/runs/${run.id}`
+    statusRow("USAGE", `${run.usedTokens.toLocaleString()} tokens \xB7 ${run.usedRequests} requests`),
+    statusRow("ARTIFACTS", `${run.workspaceRoot}/.omp/.anvil/runs/${run.id}`)
   ].join("\n");
 }
 function renderFindings(summary) {
@@ -3040,7 +3369,7 @@ async function selectAnvilCommand(args, context) {
 }
 function anvilExtension(pi) {
   pi.setLabel?.("Anvil \xB7 The Forge");
-  const router = new CommandRouter(async (context) => createRuntime(context.cwd, context.runtimeContext ?? context));
+  const router = new CommandRouter((context) => createRuntime(context.cwd, context.runtimeContext ?? context, void 0, context.host));
   const notifyOutput = async (context, output) => {
     if (context.ui?.notify) await context.ui.notify(output, "info");
     else await context.respond?.(output);
@@ -3049,7 +3378,8 @@ function anvilExtension(pi) {
     const input = args.trim().replace(/^\/forge\s*/, "");
     await notifyOutput(context, await router.handle(input, {
       cwd: context.cwd,
-      runtimeContext: context
+      runtimeContext: context,
+      host: pi.pi
     }));
   };
   const anvilHandler = async (args, context) => {
@@ -3057,7 +3387,8 @@ function anvilExtension(pi) {
     if (input === void 0) return;
     await notifyOutput(context, await router.handleAdmin(input, {
       cwd: context.cwd,
-      runtimeContext: context
+      runtimeContext: context,
+      host: pi.pi
     }));
   };
   pi.registerCommand("anvil", {

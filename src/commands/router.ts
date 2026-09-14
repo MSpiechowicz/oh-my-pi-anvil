@@ -26,7 +26,7 @@ import { runUpdate, UpdateError, type UpdateAction } from "../update.ts";
 import type { WorkflowEngine } from "../workflow/engine.ts";
 import type { WorkspaceLock } from "../state/lock.ts";
 
-export interface CommandContext { cwd: string; runtimeContext?: unknown; respond?: (message: string) => void | Promise<void>; }
+export interface CommandContext { cwd: string; runtimeContext?: unknown; host?: unknown; respond?: (message: string) => void | Promise<void>; }
 interface RuntimeHandle { engine: WorkflowEngine; state: { close(): void }; lock: WorkspaceLock; runtimeRoot?: string; }
 
 async function configurationLocations(cwd: string): Promise<ConfigurationLocations> {

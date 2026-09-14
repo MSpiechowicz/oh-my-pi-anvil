@@ -141,6 +141,12 @@ export function renderUpdate(report: UpdateReport): string {
   return `Anvil ${report.currentVersion}: No newer release available.`;
 }
 
+const STATUS_LABEL_WIDTH = 14;
+
+function statusRow(label: string, value: string): string {
+  return `  ${label.padEnd(STATUS_LABEL_WIDTH)}${value}`;
+}
+
 export function renderStatus(summary: RunSummary): string {
   const run = summary.run;
   const attempts = summary.attempts.reduce<Record<string, number>>((counts, attempt) => {
@@ -148,25 +154,31 @@ export function renderStatus(summary: RunSummary): string {
     return counts;
   }, {});
   const open = summary.findings.filter((finding) => finding.status === "open");
+  const failure = run.failureCode || run.failureMessage || run.blockedReason
+    ? [
+        "",
+        statusRow("FAILURE", run.failureCode ?? run.status.toUpperCase()),
+        statusRow("REASON", run.failureMessage ?? run.blockedReason ?? "No details recorded"),
+      ]
+    : [];
   return [
     `ANVIL · FORGE RUN ${run.id}`,
     "",
-    `STATUS       ${run.status.toUpperCase()}`,
-    `STAGE        ${displayState(run.currentState).toUpperCase()}`,
-    `REVISION     ${run.currentRevisionId}`,
-    `EPOCH        ${run.mutationEpoch}`,
-    `TRANSITIONS  ${run.transitionCount}`,
+    statusRow("STATUS", run.status.toUpperCase()),
+    statusRow("STAGE", displayState(run.currentState).toUpperCase()),
+    statusRow("REVISION", run.currentRevisionId),
+    statusRow("EPOCH", String(run.mutationEpoch)),
+    statusRow("TRANSITIONS", String(run.transitionCount)),
+    ...failure,
     "",
     "ATTEMPTS",
-    ...Object.entries(attempts).map(([state, count]) => `  ${(STAGE_LABELS[state] ?? state).padEnd(12)} ${count}`),
+    ...Object.entries(attempts).map(([state, count]) => statusRow(STAGE_LABELS[state] ?? state, String(count))),
     "",
-    `OPEN FINDINGS ${open.length}`,
-    ...open.slice(0, 8).map((finding) => `  ${finding.id}  ${finding.severity.toUpperCase()}  ${finding.title}`),
+    statusRow("FINDINGS", String(open.length)),
+    ...open.slice(0, 8).map((finding) => `    ${finding.id}  ${finding.severity.toUpperCase()}  ${finding.title}`),
     "",
-    "USAGE",
-    `  ${run.usedTokens.toLocaleString()} tokens · ${run.usedRequests} requests`,
-    "",
-    `ARTIFACTS    ${run.workspaceRoot}/.omp/.anvil/runs/${run.id}`,
+    statusRow("USAGE", `${run.usedTokens.toLocaleString()} tokens · ${run.usedRequests} requests`),
+    statusRow("ARTIFACTS", `${run.workspaceRoot}/.omp/.anvil/runs/${run.id}`),
   ].join("\n");
 }
 

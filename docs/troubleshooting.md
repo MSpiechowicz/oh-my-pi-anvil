@@ -20,6 +20,8 @@ It creates the missing editable global file and creates `.omp/anvil.yml` at the 
 
 Confirm that the four configured agent names are discoverable from the project or user OMP agent paths. Forge validates every role mapping before it spends model tokens. The user-facing roles are Architect, Smith, Sentinel, and Inquisitor; Warden runs deterministic checks. Shared mappings usually belong in `$XDG_CONFIG_HOME/omp/anvil.yml` (or `~/.config/omp/anvil.yml`), and repository-specific replacements belong in `.omp/anvil.yml`.
 
+If `/anvil doctor` reports `RUNTIME UNAVAILABLE`, the installed host is not exposing either the current OMP SDK bridge or the legacy subprocess compatibility methods. Reload the extension after updating OMP or Anvil, then run `/anvil doctor` again. Do not start `/forge` until the runtime reports `AVAILABLE`; the run will otherwise fail before the first model request.
+
 ## A run is blocked
 
 Inspect the run and its findings:
