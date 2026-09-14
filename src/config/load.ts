@@ -92,6 +92,9 @@ function parseScalar(value: string): unknown {
   if (value === "true") return true; if (value === "false") return false; if (value === "null") return null;
   if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
   if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) return value.slice(1, -1);
-  if (value.startsWith("[") && value.endsWith("]")) return value.slice(1, -1).split(",").map((part) => parseScalar(part.trim()));
+  if (value.startsWith("[") && value.endsWith("]")) {
+    const items = value.slice(1, -1).trim();
+    return items ? items.split(",").map((part) => parseScalar(part.trim())) : [];
+  }
   return value;
 }

@@ -6,6 +6,8 @@ import { describe, expect, test } from "./test-helpers.ts";
 import anvilExtension, { type ExtensionContext } from "../src/extension.ts";
 import { CommandRouter } from "../src/commands/router.ts";
 import { renderStatus } from "../src/ui/render.ts";
+import { WorkspaceLock } from "../src/state/lock.ts";
+import type { WorkflowState } from "../src/workflow/types.ts";
 
 type SessionStartHandler = (event: unknown, context: ExtensionContext) => void | Promise<void>;
 describe("OMP command registration", () => {
@@ -113,6 +115,37 @@ describe("OMP command registration", () => {
 
     expect(receivedObjective).toBe("Add the requested change");
     expect(response).toContain("ANVIL · FORGE RUN run_test");
+  });
+
+  test("reclaims a paused run lock without reclaiming an active run lock", async () => {
+    const root = await mkdtemp("/tmp/anvil-command-paused-lock-");
+    const lockPath = path.join(root, "lock.json");
+    const owner = new WorkspaceLock(lockPath);
+    let currentState: WorkflowState = "BLOCKED";
+    let resumes = 0;
+    const summary = () => ({
+      run: { id: "run_existing", status: currentState === "BLOCKED" ? "blocked" : "running", currentState, currentRevisionId: "revision", mutationEpoch: 0, transitionCount: 3, usedTokens: 2, usedRequests: 2, workspaceRoot: root },
+      attempts: [], findings: [],
+    } as never);
+    const router = new CommandRouter(async () => ({
+      engine: { status: summary, resume: async () => { resumes += 1; return summary(); } } as never,
+      state: { close() {} },
+      lock: new WorkspaceLock(lockPath),
+    }));
+    try {
+      await owner.acquire("run_existing");
+      const resumed = await router.handleAdmin("resume run_existing", { cwd: root });
+      expect(resumed).toContain("ANVIL · FORGE RUN run_existing");
+      expect(resumes).toBe(1);
+      currentState = "CHECKS";
+      await owner.acquire("run_existing");
+      const locked = await router.handleAdmin("resume run_existing", { cwd: root });
+      expect(locked).toContain("RUN_LOCKED");
+      expect(resumes).toBe(1);
+    } finally {
+      await owner.release();
+      await rm(root, { recursive: true, force: true });
+    }
   });
   test("renders Forge status as aligned metadata with failure details", () => {
     const response = renderStatus({

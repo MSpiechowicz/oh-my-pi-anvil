@@ -222,7 +222,8 @@ implementation:
   maxAttempts: 6
 
 budgets:
-  maxTotalTokens: 250000
+  # Token caps are optional and disabled by default.
+  # maxTotalTokens: 250000
   maxTotalRequests: 120
   maxTransitions: 40
 
@@ -276,6 +277,8 @@ Recovery is state-aware:
 - interrupted implementation recomputes the revision and runs checks if files changed;
 - interrupted checks rerun checks;
 - interrupted security or review reruns the read-only gate after revision validation.
+- blocked runs are paused: resolve the blocker, then `/anvil resume <run-id>` returns to the saved stage without repeating completed planning or implementation;
+- resume applies current budget settings without resetting usage or attempts; other workflow settings must match the saved effective configuration.
 
 Anvil never resets the repository, cleans user files, stages changes, commits, or pushes.
 
@@ -288,7 +291,7 @@ A run cannot reach `DONE` (**Sealed**) unless all of these are true:
 3. security has a passing result for that exact revision and policy;
 4. review has a passing result for that exact revision and policy;
 5. no blocking findings remain open;
-6. budgets and transition limits were not exceeded.
+6. any configured budgets and transition limits were not exceeded.
 
 Security and review are read-only by contract and by before/after fingerprint verification. A mutation invalidates the result and routes the run back through Warden.
 

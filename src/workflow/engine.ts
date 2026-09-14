@@ -6,7 +6,7 @@ import { BudgetManager } from "../budget/ledger.ts";
 import { AnvilError, asAnvilError } from "../util/errors.ts";
 import { assertCanComplete } from "./invariants.ts";
 import { assertLegalTransition, nextAfterReview, nextAfterSecurity } from "./transitions.ts";
-import { isTerminal, statusForState } from "./state.ts";
+import { ACTIVE_STATES, isTerminal, statusForState } from "./state.ts";
 import type { AgentRunner, ArtifactPointer, AttemptRecord, CheckResult, CheckRunner, Clock, FindingRecord, MemoryAdapter, PlanOutput, ReviewOutput, RunRecord, SecurityOutput, WorkflowConfig, WorkflowProgressHandler, WorkflowProgressKind, WorkflowState, RevisionProvider } from "./types.ts";
 import { StateDatabase } from "../state/database.ts";
 import { ArtifactStore } from "../state/artifact-store.ts";
@@ -49,10 +49,40 @@ export class WorkflowEngine {
   }
   async resume(runId: string, progress?: WorkflowProgressHandler): Promise<RunSummary> {
     let run = this.runs.require(runId); if (isTerminal(run.currentState)) return this.summary(run);
+    await this.assertResumeConfig(run);
+    const limits = this.deps.config.budgets;
+    run = this.runs.update(runId, { max_total_tokens: limits.maxTotalTokens ?? null, max_total_requests: limits.maxTotalRequests ?? null, max_transitions: limits.maxTransitions ?? null, max_wall_clock_ms: limits.maxWallClockMs ?? null });
+    if (run.currentState === "BLOCKED") {
+      const blocked = this.events.list(runId).findLast((event) => event.type === "RUN_BLOCKED");
+      const previous = blocked?.state_before as WorkflowState | undefined;
+      if (!previous || !ACTIVE_STATES.has(previous)) throw new AnvilError("INVARIANT_VIOLATION", "Blocked run has no recoverable RUN_BLOCKED stage");
+      try {
+        this.budget.assertMayContinue(run);
+        const role = previous === "PLAN" ? "planner" : previous === "IMPLEMENT" ? "implementation" : previous === "SECURITY" ? "security" : previous === "REVIEW" ? "review" : undefined;
+        if (role) {
+          const attempts = this.runs.attemptsFor(runId, previous);
+          this.budget.assertRoleMayRun(run, role, attempts.length, attempts.reduce((total, attempt) => total + attempt.tokens, 0));
+        }
+      } catch (error) {
+        const typed = asAnvilError(error);
+        if (typed.code !== "BUDGET_EXHAUSTED" && typed.code !== "MAX_ATTEMPTS_EXCEEDED") throw error;
+        return this.summary(this.runs.update(runId, { blocked_reason: typed.message, failure_code: typed.code, failure_message: null, finished_at: null }));
+      }
+      assertLegalTransition("BLOCKED", previous);
+      run = this.runs.update(runId, { current_state: previous, status: "running", blocked_reason: null, failure_code: null, failure_message: null, finished_at: null, active_attempt_id: null }, { type: "RUN_UNBLOCKED", stateBefore: "BLOCKED", stateAfter: previous, revisionId: run.currentRevisionId });
+    }
     this.runs.markRunningInterrupted(runId); const current = await this.deps.revisions.current(); const changedDuringImplementation = run.currentState === "IMPLEMENT" && current.id !== run.currentRevisionId;
     if (changedDuringImplementation) { run = this.updateRevision(run, current.id, "IMPLEMENTATION_INTERRUPTED_WITH_CHANGES"); run = this.transition(run, "CHECKS", "IMPLEMENTATION_INTERRUPTED_WITH_CHANGES", { revisionId: current.id }); }
     if (progress) this.progress.set(runId, progress);
     this.controllers.set(runId, new AbortController()); try { return await this.drive(this.runs.require(runId), this.controllers.get(runId)!.signal); } finally { this.controllers.delete(runId); this.progress.delete(runId); }
+  }
+
+  private async assertResumeConfig(run: RunRecord): Promise<void> {
+    if (configHash(this.deps.config) === run.configHash) return;
+    const artifact = this.deps.state.db.query<{ id: string; relative_path: string; sha256: string }>("SELECT id, relative_path, sha256 FROM artifacts WHERE run_id = ? AND kind = 'config' AND relative_path = 'effective-config.json' ORDER BY created_at DESC LIMIT 1").get(run.id);
+    if (!artifact) throw new AnvilError("CONFIG_INVALID", "Cannot resume with changed configuration without the saved effective config");
+    const saved = await this.deps.artifacts.readJson<WorkflowConfig>(run.id, { id: artifact.id, path: artifact.relative_path, sha256: artifact.sha256 });
+    if (configHash(saved) !== run.configHash || configHash({ ...saved, budgets: this.deps.config.budgets }) !== configHash(this.deps.config)) throw new AnvilError("CONFIG_INVALID", "Only budget configuration may change when resuming a run; restore the saved workflow policy or start a new run");
   }
 
 
@@ -61,7 +91,7 @@ export class WorkflowEngine {
 
   private async drive(initial: RunRecord, signal: AbortSignal): Promise<RunSummary> {
     let run = initial;
-    while (!isTerminal(run.currentState)) {
+    while (!isTerminal(run.currentState) && run.currentState !== "BLOCKED") {
       try { this.budget.assertMayContinue(run); } catch (error) { run = this.block(run, asAnvilError(error, "BUDGET_EXHAUSTED")); break; }
       if (signal.aborted) { run = this.transition(run, "CANCELLED", "RUN_CANCELLED"); break; }
       try {
@@ -131,9 +161,9 @@ export class WorkflowEngine {
   }
 
   private transition(run: RunRecord, next: WorkflowState, type: string, payload?: unknown): RunRecord { assertLegalTransition(run.currentState, next); const updated = this.runs.update(run.id, { current_state: next, status: statusForState(next), transition_count: run.transitionCount + 1, finished_at: isTerminal(next) ? this.clock.now().toISOString() : null }, { type, stateBefore: run.currentState, stateAfter: next, revisionId: run.currentRevisionId, payload }); return updated; }
-  private mutation(run: RunRecord, revisionId: string, event: string, next: WorkflowState = "CHECKS"): RunRecord { const updated = this.updateRevision(run, revisionId, event); return this.transition(updated, next, event, { revisionId }); }
+  private mutation(run: RunRecord, revisionId: string, event: string, next: WorkflowState = "CHECKS"): RunRecord { const updated = this.updateRevision(run, revisionId, event); return updated.currentState === next ? updated : this.transition(updated, next, event, { revisionId }); }
   private updateRevision(run: RunRecord, revisionId: string, event?: string): RunRecord { return this.runs.update(run.id, { current_revision_id: revisionId, mutation_epoch: run.mutationEpoch + 1 }, event ? { type: "WORKSPACE_REVISION_CHANGED", stateBefore: run.currentState, stateAfter: run.currentState, revisionId, payload: { reason: event } } : undefined); }
-  private block(run: RunRecord, error: AnvilError): RunRecord { return this.runs.update(run.id, { blocked_reason: error.message, failure_code: error.code, status: "blocked", current_state: "BLOCKED", finished_at: this.clock.now().toISOString(), transition_count: run.transitionCount + 1 }, { type: "RUN_BLOCKED", stateBefore: run.currentState, stateAfter: "BLOCKED", payload: { code: error.code, message: error.message } }); }
+  private block(run: RunRecord, error: AnvilError): RunRecord { return this.runs.update(run.id, { blocked_reason: error.message, failure_code: error.code, status: "blocked", current_state: "BLOCKED", finished_at: null }, { type: "RUN_BLOCKED", stateBefore: run.currentState, stateAfter: "BLOCKED", payload: { code: error.code, message: error.message } }); }
   private fail(run: RunRecord, error: AnvilError): RunRecord { return this.runs.update(run.id, { failure_code: error.code, failure_message: error.message, status: "failed", current_state: "FAILED", finished_at: this.clock.now().toISOString(), transition_count: run.transitionCount + 1 }, { type: "RUN_FAILED", stateBefore: run.currentState, stateAfter: "FAILED", payload: { code: error.code, message: error.message } }); }
   private objective(run: RunRecord): ArtifactPointer { return this.objectivePointers.get(run.id) ?? { id: "objective", path: run.objectivePath, sha256: "" }; }
   private summary(run: RunRecord): RunSummary { return { run, events: this.events.list(run.id), findings: this.findings.list(run.id), attempts: this.runs.attempts(run.id) }; }

@@ -102,7 +102,7 @@ The V1 configuration controls:
 - deterministic Warden checks, requiredness, and per-check timeouts;
 - Sentinel and Inquisitor policies and retry limits;
 - Smith retry limits;
-- total token, request, transition, and wall-clock budgets;
+- optional total and per-role token caps, plus request, transition, and wall-clock budgets;
 - handoff and durable-memory limits;
 - persistence options and safety flags.
 
@@ -131,6 +131,32 @@ agents:
 ```
 
 All four configured names are checked by `/anvil doctor` and at Forge run startup. A missing agent is reported before model work begins.
+
+## Optional token limits
+
+Total and per-role token caps are disabled by default. Token usage is still recorded, including cache reads reported by OMP; it is separate from your provider's remaining subscription allowance. Request, transition, wall-clock, and attempt guardrails remain enabled.
+
+Set a positive numeric cap only when you want one. Omitted values inherit a configured global cap; use `null` in the project overlay to disable it:
+
+```yaml
+budgets:
+  maxTotalTokens: null
+  perRole:
+    planner:
+      maxTokens: null
+    implementation:
+      maxTokens: null
+    security:
+      maxTokens: null
+    review:
+      maxTokens: null
+```
+
+Budgets are checked between stages and before another role attempt, not during individual model calls. An attempt can therefore exceed an explicitly configured cap before the run pauses.
+
+If a run pauses on a budget, raise or remove the relevant cap and use `/anvil resume <run-id>`. Resume applies the current `budgets` settings while preserving all accumulated usage, attempts, and completed work. If another configured cap remains exhausted, the run stays paused and reports that blocker. Pausing and unblocking do not consume workflow transitions.
+
+Other workflow settings must still match the saved effective configuration; budget changes do not invalidate prior gate evidence or authorize changes to checks and review policy.
 
 ## Revision and gate behavior
 

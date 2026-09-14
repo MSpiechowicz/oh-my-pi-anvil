@@ -21,7 +21,6 @@ implementation:
 planning:
   maxGenerations: 2
 budgets:
-  maxTotalTokens: 250000
   maxTotalRequests: 120
   maxTransitions: 40
 context:

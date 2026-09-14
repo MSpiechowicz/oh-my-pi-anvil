@@ -26,7 +26,7 @@ If `/anvil doctor` reports `RUNTIME UNAVAILABLE`, the installed host is not expo
 
 Interactive OMP sessions show one themed Forge progress panel above the input while `/forge` runs, with a blank line separating the panel from the editor. The panel shows a shortened run ID and a vertical timeline through Architect, Smith, Warden, Sentinel, and Inquisitor, with aligned activity descriptions on the right. Checkmarks identify completed stages, an animated spinner follows the active stage down the timeline, and an exclamation mark identifies an interrupted stage. Progress is not repeated below the input; hosts without widgets use a single status or working-message fallback. The spinner is only presentation; the persisted SQLite state remains authoritative. Use `/anvil status` for full run IDs and details.
 
-Forge also refreshes the workspace lock heartbeat during long runs. If a previous OMP process exited after a run reached a terminal state, the next Forge command checks that persisted state and safely reclaims the lock. A live run remains protected; inspect it with `/anvil status <run-id>` instead of deleting `lock.json`.
+Forge also refreshes the workspace lock heartbeat during long runs. If a previous OMP process left a lock after a run paused or reached a terminal state, the next Forge command checks that persisted state and safely reclaims the lock. A live run remains protected; inspect it with `/anvil status <run-id>` instead of deleting `lock.json`.
 
 ## A run is blocked
 
@@ -39,7 +39,11 @@ Inspect the run and its findings:
 
 Blocked and failed runs include a typed reason. Common reasons include budget exhaustion, repeated attempts, schema errors, a read-only mutation, or an unavailable agent. Schema errors identify the role and failing field, such as `Smith output /claimedChangedFiles`. Forge uses the same complete output schemas for OMP and local validation; do not disable strict validation to work around a malformed report.
 
-A run already marked `FAILED` or `BLOCKED` is terminal: `/anvil resume` shows its status without restarting stages. Resolve the reported issue, inspect any existing workspace changes, and start a new `/forge` run from that workspace. Forge does not reset those changes. The resume procedure below applies to interrupted, nonterminal runs.
+`BLOCKED` means paused, not terminal. Resolve the reported issue, then run `/anvil resume <run-id>`. Forge recovers the blocked stage from its event history, preserving the plan, completed attempts, workspace changes, and usage. A run blocked before Warden resumes at Warden rather than starting Architect and Smith again. Workspace changes still invalidate stale gate evidence.
+
+Token caps are disabled by default. If you explicitly configured a total or per-role token cap, raise it or set it to `null` before resuming. Current budget settings apply to the existing run, but counters are never reset; unchanged exhausted limits keep the run paused. Other workflow settings must match the saved configuration. See [Optional token limits](configuration.md#optional-token-limits).
+
+`DONE`, `FAILED`, and `CANCELLED` remain terminal. Resuming one shows its status without restarting stages. A paused run can also be cancelled with `/anvil cancel <run-id>`.
 
 ## A run stopped during implementation
 

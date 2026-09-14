@@ -32,7 +32,8 @@ export interface CommandContext { cwd: string; runtimeContext?: unknown; host?: 
 function isRunActive(runtime: RuntimeHandle, lockRunId: string): boolean {
   try {
     const runId = lockRunId.startsWith("pending_") ? undefined : lockRunId;
-    return !isTerminal(runtime.engine.status(runId).run.currentState);
+    const state = runtime.engine.status(runId).run.currentState;
+    return state !== "BLOCKED" && !isTerminal(state);
   } catch {
     return true;
   }

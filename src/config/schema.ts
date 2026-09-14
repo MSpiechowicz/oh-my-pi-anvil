@@ -6,6 +6,12 @@ const SEVERITIES = ["critical", "high", "medium", "low", "info"] as const;
 const TOP_LEVEL_KEYS = ["version", "workflow", "agents", "checks", "checksFailFast", "security", "review", "implementation", "planning", "budgets", "context", "memory", "persistence", "safety"] as const;
 function rejectUnknownKeys(value: object, allowed: readonly string[], label: string): void { for (const key of Object.keys(value)) if (!allowed.includes(key)) throw new AnvilError("CONFIG_INVALID", `Unknown ${label} key: ${key}`); }
 
+function normalizeTokenLimit(value: unknown, label: string): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) throw new AnvilError("CONFIG_INVALID", `${label} must be a positive finite number or null`);
+  return value;
+}
+
 export function validateConfig(config: WorkflowConfig): WorkflowConfig {
   rejectUnknownKeys(config, TOP_LEVEL_KEYS, "top-level config");
   rejectUnknownKeys(config.workflow, ["name"], "workflow");
@@ -32,7 +38,12 @@ export function validateConfig(config: WorkflowConfig): WorkflowConfig {
   const severities = new Set<string>(SEVERITIES);
   for (const severity of config.security.failOn) if (!severities.has(severity)) throw new AnvilError("CONFIG_INVALID", `Unknown security severity ${severity}`);
   if (config.implementation.maxAttempts <= 0 || config.security.maxAttempts <= 0 || config.review.maxAttempts <= 0 || config.planning.maxAttempts <= 0) throw new AnvilError("CONFIG_INVALID", "Attempt limits must be positive");
-  for (const value of [config.budgets.maxTotalTokens, config.budgets.maxTotalRequests, config.budgets.maxTransitions, config.budgets.maxWallClockMs]) if (value !== undefined && value <= 0) throw new AnvilError("CONFIG_INVALID", "Budget limits must be positive");
+  config.budgets.maxTotalTokens = normalizeTokenLimit(config.budgets.maxTotalTokens, "budgets.maxTotalTokens");
+  for (const role of ROLES) {
+    const policy = config.budgets.perRole[role];
+    if (policy) policy.maxTokens = normalizeTokenLimit(policy.maxTokens, `budgets.perRole.${role}.maxTokens`);
+  }
+  for (const value of [config.budgets.maxTotalRequests, config.budgets.maxTransitions, config.budgets.maxWallClockMs]) if (value !== undefined && value <= 0) throw new AnvilError("CONFIG_INVALID", "Budget limits must be positive");
   if (config.context.maxInlineChars <= 0 || config.context.maxChangedFiles <= 0) throw new AnvilError("CONFIG_INVALID", "Context limits must be positive");
   return config;
 }

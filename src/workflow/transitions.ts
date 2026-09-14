@@ -2,7 +2,7 @@ import { AnvilError } from "../util/errors.ts";
 import type { ReviewOutput, SecurityOutput, WorkflowState } from "./types.ts";
 
 const LEGAL: Record<WorkflowState, WorkflowState[]> = {
-  INIT: ["PLAN", "FAILED", "CANCELLED"], PLAN: ["IMPLEMENT", "PLAN", "BLOCKED", "FAILED", "CANCELLED"], IMPLEMENT: ["CHECKS", "PLAN", "BLOCKED", "FAILED", "CANCELLED"], CHECKS: ["SECURITY", "IMPLEMENT", "BLOCKED", "FAILED", "CANCELLED"], SECURITY: ["REVIEW", "IMPLEMENT", "CHECKS", "BLOCKED", "FAILED", "CANCELLED"], REVIEW: ["DONE", "IMPLEMENT", "CHECKS", "BLOCKED", "FAILED", "CANCELLED"], DONE: [], BLOCKED: [], FAILED: [], CANCELLED: [],
+  INIT: ["PLAN", "FAILED", "CANCELLED"], PLAN: ["IMPLEMENT", "PLAN", "BLOCKED", "FAILED", "CANCELLED"], IMPLEMENT: ["CHECKS", "PLAN", "BLOCKED", "FAILED", "CANCELLED"], CHECKS: ["SECURITY", "IMPLEMENT", "BLOCKED", "FAILED", "CANCELLED"], SECURITY: ["REVIEW", "IMPLEMENT", "CHECKS", "BLOCKED", "FAILED", "CANCELLED"], REVIEW: ["DONE", "IMPLEMENT", "CHECKS", "BLOCKED", "FAILED", "CANCELLED"], DONE: [], BLOCKED: ["PLAN", "IMPLEMENT", "CHECKS", "SECURITY", "REVIEW", "CANCELLED"], FAILED: [], CANCELLED: [],
 };
 
 export function assertLegalTransition(from: WorkflowState, to: WorkflowState): void {

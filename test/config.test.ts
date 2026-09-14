@@ -1,9 +1,14 @@
+import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "./test-helpers.ts";
 import { initConfig } from "../src/config/init.ts";
 import { loadConfig } from "../src/config/load.ts";
+import { DEFAULT_CONFIG } from "../src/config/defaults.ts";
+import { validateConfig } from "../src/config/schema.ts";
+import { BudgetManager } from "../src/budget/ledger.ts";
+import type { RunRecord } from "../src/workflow/types.ts";
 
 describe("workflow configuration", () => {
   test("uses global config values when no project overlay exists", async () => {
@@ -62,14 +67,23 @@ describe("workflow configuration", () => {
       await mkdir(path.join(repository, ".git"));
       await mkdir(path.join(repository, "workspace"));
       const report = await initConfig(path.join(repository, "workspace"));
-      const globalPath = path.join(configHome, "omp", "anvil.yml");
-      const projectPath = path.join(repository, ".omp", "anvil.yml");
 
       expect(report.global.status).toBe("created");
       expect(report.project?.status).toBe("created");
       expect(report.repositoryRoot).toBe(repository);
-      expect(await readFile(globalPath, "utf8")).toContain("version: 1");
-      expect(await readFile(projectPath, "utf8")).toContain("version: 1");
+      const config = await loadConfig(path.join(repository, "workspace"));
+      const budget = new BudgetManager(config);
+      const run = budgetRun();
+      expect(config.budgets.maxTotalTokens).toBe(undefined);
+      assert.doesNotThrow(() => budget.assertMayContinue(run));
+      for (const role of ["planner", "implementation", "security", "review"] as const) {
+        expect(config.budgets.perRole[role]?.maxTokens).toBe(undefined);
+        assert.doesNotThrow(() => budget.assertRoleMayRun(run, role, 0, run.usedTokens));
+        assert.throws(() => budget.assertRoleMayRun(run, role, config.budgets.perRole[role]!.maxAttempts!, run.usedTokens), { code: "MAX_ATTEMPTS_EXCEEDED" });
+      }
+      assert.throws(() => budget.assertMayContinue({ ...run, usedRequests: config.budgets.maxTotalRequests! }), { code: "BUDGET_EXHAUSTED" });
+      assert.throws(() => budget.assertMayContinue({ ...run, transitionCount: config.budgets.maxTransitions! }), { code: "BUDGET_EXHAUSTED" });
+      assert.throws(() => budget.assertMayContinue({ ...run, createdAt: "2000-01-01T00:00:00.000Z" }), { code: "BUDGET_EXHAUSTED" });
     } finally {
       if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousXdg;
@@ -121,6 +135,8 @@ describe("workflow configuration", () => {
       expect(config.checks).toHaveLength(1);
       expect(config.checks[0].id).toBe("typecheck");
       expect(config.checks[0].command).toEqual(["deno", "task", "typecheck"]);
+      await writeFile(path.join(root, ".omp", "anvil.yml"), "checks: []\n");
+      expect((await loadConfig(root)).checks).toEqual([]);
     } finally {
       if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousXdg;
@@ -137,13 +153,7 @@ describe("workflow configuration", () => {
       process.env.XDG_CONFIG_HOME = configHome;
       await mkdir(path.join(root, ".omp"), { recursive: true });
       await writeFile(path.join(root, ".omp", "anvil.yml"), "version: 1\nunknown: true\n");
-      let rejected = false;
-      try {
-        await loadConfig(root);
-      } catch (error) {
-        rejected = error instanceof Error && error.message.includes("Unknown top-level config key");
-      }
-      expect(rejected).toBe(true);
+      await assert.rejects(loadConfig(root), { code: "CONFIG_INVALID" });
     } finally {
       if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousXdg;
@@ -152,4 +162,86 @@ describe("workflow configuration", () => {
     }
   });
 
+  test("inherits configured token caps and lets YAML and JSON overlays disable them without removing guardrails", async () => {
+    const repository = await mkdtemp("/tmp/anvil-config-token-caps-");
+    const configHome = await mkdtemp("/tmp/anvil-config-home-");
+    const previousXdg = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = configHome;
+      await mkdir(path.join(repository, ".git"));
+      const globalPath = path.join(configHome, "omp", "anvil.yml");
+      const projectPath = path.join(repository, ".omp", "anvil.yml");
+      await mkdir(path.dirname(globalPath), { recursive: true });
+      await mkdir(path.dirname(projectPath), { recursive: true });
+      const roles = ["planner", "implementation", "security", "review"] as const;
+      await writeFile(globalPath, "budgets:\n  maxTotalTokens: 100\n  maxTotalRequests: 17\n  maxTransitions: 21\n  maxWallClockMs: 60000\n  perRole:\n" + roles.map((role) => `    ${role}:\n      maxTokens: 10.5\n      maxAttempts: 2\n      maxRequests: 7\n`).join(""));
+      await writeFile(projectPath, "workflow:\n  name: inherited-token-caps\n");
+      const inherited = await loadConfig(repository);
+      const run = budgetRun();
+      const capped = new BudgetManager(inherited);
+      assert.doesNotThrow(() => capped.assertMayContinue({ ...run, usedTokens: 99 }));
+      assert.throws(() => capped.assertMayContinue({ ...run, usedTokens: 100 }), { code: "BUDGET_EXHAUSTED" });
+      for (const role of roles) {
+        assert.doesNotThrow(() => capped.assertRoleMayRun(run, role, 0, 10));
+        assert.throws(() => capped.assertRoleMayRun(run, role, 0, 10.5), { code: "BUDGET_EXHAUSTED" });
+      }
+
+      await writeFile(projectPath, "budgets:\n  maxTotalTokens: 200\n  perRole:\n    implementation:\n      maxTokens: 30\n");
+      const overridden = new BudgetManager(await loadConfig(repository));
+      assert.doesNotThrow(() => overridden.assertMayContinue({ ...run, usedTokens: 199 }));
+      assert.throws(() => overridden.assertMayContinue({ ...run, usedTokens: 200 }), { code: "BUDGET_EXHAUSTED" });
+      assert.doesNotThrow(() => overridden.assertRoleMayRun(run, "implementation", 0, 29));
+      assert.throws(() => overridden.assertRoleMayRun(run, "implementation", 0, 30), { code: "BUDGET_EXHAUSTED" });
+      assert.throws(() => overridden.assertRoleMayRun(run, "planner", 0, 10.5), { code: "BUDGET_EXHAUSTED" });
+
+      for (const overlay of [
+        "budgets:\n  maxTotalTokens: null\n  perRole:\n" + roles.map((role) => `    ${role}:\n      maxTokens: null\n`).join(""),
+        JSON.stringify({ budgets: { maxTotalTokens: null, perRole: Object.fromEntries(roles.map((role) => [role, { maxTokens: null }])) } }),
+      ]) {
+        await writeFile(projectPath, overlay);
+        const config = await loadConfig(repository);
+        const unlimited = new BudgetManager(config);
+        expect(config.budgets.maxTotalTokens).toBe(undefined);
+        assert.doesNotThrow(() => unlimited.assertMayContinue(run));
+        for (const role of roles) {
+          expect(config.budgets.perRole[role]?.maxTokens).toBe(undefined);
+          expect(config.budgets.perRole[role]?.maxRequests).toBe(7);
+          assert.doesNotThrow(() => unlimited.assertRoleMayRun(run, role, 1, run.usedTokens));
+          assert.throws(() => unlimited.assertRoleMayRun(run, role, 2, run.usedTokens), { code: "MAX_ATTEMPTS_EXCEEDED" });
+        }
+        assert.throws(() => unlimited.assertMayContinue({ ...run, usedRequests: 17 }), { code: "BUDGET_EXHAUSTED" });
+        assert.throws(() => unlimited.assertMayContinue({ ...run, transitionCount: 21 }), { code: "BUDGET_EXHAUSTED" });
+        assert.throws(() => unlimited.assertMayContinue({ ...run, createdAt: new Date(Date.now() - 60001).toISOString() }), { code: "BUDGET_EXHAUSTED" });
+      }
+    } finally {
+      if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previousXdg;
+      await rm(repository, { recursive: true, force: true });
+      await rm(configHome, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects non-positive, non-finite and non-number token limits", () => {
+    for (const value of [0, -1, NaN, Infinity, -Infinity, "100", true, {}, []]) {
+      const totalConfig = structuredClone(DEFAULT_CONFIG);
+      Object.assign(totalConfig.budgets, { maxTotalTokens: value });
+      assert.throws(() => validateConfig(totalConfig), { code: "CONFIG_INVALID" });
+      for (const role of ["planner", "implementation", "security", "review"] as const) {
+        const roleConfig = structuredClone(DEFAULT_CONFIG);
+        Object.assign(roleConfig.budgets.perRole[role]!, { maxTokens: value });
+        assert.throws(() => validateConfig(roleConfig), { code: "CONFIG_INVALID" });
+      }
+    }
+  });
+
 });
+
+function budgetRun(): RunRecord {
+  return {
+    id: "budget-run", workflowName: "secure-code-change", workflowVersion: 1, configHash: "config",
+    workspaceRoot: "/tmp", objectivePath: "objective.md", baseRevisionId: "base", currentRevisionId: "base",
+    mutationEpoch: 0, currentState: "PLAN", status: "running", initialHead: "head",
+    usedTokens: 1_000_000_000, usedInputTokens: 1_000_000_000, usedOutputTokens: 0, usedCacheReadTokens: 0, usedCacheWriteTokens: 0,
+    usedRequests: 0, transitionCount: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+  };
+}
