@@ -80,6 +80,7 @@ describe("OMP command registration", () => {
     }
   });
 
+
   test("passes Forge text directly to the workflow as its objective", async () => {
     let receivedObjective = "";
     const summary = {

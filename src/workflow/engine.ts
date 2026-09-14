@@ -7,7 +7,7 @@ import { AnvilError, asAnvilError } from "../util/errors.ts";
 import { assertCanComplete } from "./invariants.ts";
 import { assertLegalTransition, nextAfterReview, nextAfterSecurity } from "./transitions.ts";
 import { isTerminal, statusForState } from "./state.ts";
-import type { AgentRunner, ArtifactPointer, AttemptRecord, CheckResult, CheckRunner, Clock, FindingRecord, MemoryAdapter, PlanOutput, ReviewOutput, RunRecord, SecurityOutput, WorkflowConfig, WorkflowState, RevisionProvider } from "./types.ts";
+import type { AgentRunner, ArtifactPointer, AttemptRecord, CheckResult, CheckRunner, Clock, FindingRecord, MemoryAdapter, PlanOutput, ReviewOutput, RunRecord, SecurityOutput, WorkflowConfig, WorkflowProgressHandler, WorkflowProgressKind, WorkflowState, RevisionProvider } from "./types.ts";
 import { StateDatabase } from "../state/database.ts";
 import { ArtifactStore } from "../state/artifact-store.ts";
 import { EventStore } from "../state/event-store.ts";
@@ -15,7 +15,7 @@ import { FindingRepository, GateRepository, RunRepository } from "../state/repos
 import { requireImplementation, requirePlan, requireReview, requireSecurity } from "../schemas/validate.ts";
 
 export interface WorkflowEngineDependencies { config: WorkflowConfig; state: StateDatabase; artifacts: ArtifactStore; revisions: RevisionProvider; agents: AgentRunner; checks: CheckRunner; memory?: MemoryAdapter; clock?: Clock; }
-export interface StartRunInput { objective: string; workspaceRoot: string; }
+export interface StartRunInput { objective: string; workspaceRoot: string; progress?: WorkflowProgressHandler; }
 export interface RunSummary { run: RunRecord; events: Array<Record<string, unknown>>; findings: FindingRecord[]; attempts: AttemptRecord[]; }
 
 const SYSTEM_CLOCK: Clock = { now: () => new Date() };
@@ -32,6 +32,7 @@ export class WorkflowEngine {
   private readonly objectivePointers = new Map<string, ArtifactPointer>();
   private readonly lessons = new Map<string, Array<{ content: string; importance: number }>>();
   private readonly controllers = new Map<string, AbortController>();
+  private readonly progress = new Map<string, WorkflowProgressHandler>();
 
   constructor(private readonly deps: WorkflowEngineDependencies) {
     this.runs = new RunRepository(deps.state); this.gates = new GateRepository(deps.state); this.findings = new FindingRepository(deps.state); this.events = new EventStore(deps.state); this.context = new ContextBuilder(deps.config); this.budget = new BudgetManager(deps.config); this.lifecycle = new FindingLifecycle(this.findings); this.clock = deps.clock ?? SYSTEM_CLOCK;
@@ -42,16 +43,17 @@ export class WorkflowEngine {
     const revision = await this.deps.revisions.current(); const runId = `run_${crypto.randomUUID()}`;
     const run = this.runs.create({ id: runId, workflowName: this.deps.config.workflow.name, workflowVersion: 1, configHash: configHash(this.deps.config), workspaceRoot: input.workspaceRoot, objectivePath: path.join("runs", runId, "objective.md"), baseRevisionId: revision.id, currentRevisionId: revision.id, mutationEpoch: 0, initialHead: revision.head, maxTotalTokens: this.deps.config.budgets.maxTotalTokens, maxTotalRequests: this.deps.config.budgets.maxTotalRequests, maxTransitions: this.deps.config.budgets.maxTransitions, maxWallClockMs: this.deps.config.budgets.maxWallClockMs });
     const pointer = await this.deps.artifacts.putText(run.id, "objective", "objective.md", objective, "text/markdown"); this.objectivePointers.set(run.id, pointer); await this.deps.artifacts.putJson(run.id, "config", "effective-config.json", this.deps.config);
-    const started = this.transition(run, "PLAN", "RUN_STARTED", { objective: pointer.path }); this.controllers.set(run.id, new AbortController());
-    try { return await this.drive(started, this.controllers.get(run.id)!.signal); } finally { this.controllers.delete(run.id); }
+    const started = this.transition(run, "PLAN", "RUN_STARTED", { objective: pointer.path }); if (input.progress) this.progress.set(run.id, input.progress); await this.report(started, "started"); this.controllers.set(run.id, new AbortController());
+    try { return await this.drive(started, this.controllers.get(run.id)!.signal); } finally { this.controllers.delete(run.id); this.progress.delete(run.id); }
   }
-
-  async resume(runId: string): Promise<RunSummary> {
+  async resume(runId: string, progress?: WorkflowProgressHandler): Promise<RunSummary> {
     let run = this.runs.require(runId); if (isTerminal(run.currentState)) return this.summary(run);
     this.runs.markRunningInterrupted(runId); const current = await this.deps.revisions.current(); const changedDuringImplementation = run.currentState === "IMPLEMENT" && current.id !== run.currentRevisionId;
     if (changedDuringImplementation) { run = this.updateRevision(run, current.id, "IMPLEMENTATION_INTERRUPTED_WITH_CHANGES"); run = this.transition(run, "CHECKS", "IMPLEMENTATION_INTERRUPTED_WITH_CHANGES", { revisionId: current.id }); }
-    this.controllers.set(runId, new AbortController()); try { return await this.drive(this.runs.require(runId), this.controllers.get(runId)!.signal); } finally { this.controllers.delete(runId); }
+    if (progress) this.progress.set(runId, progress);
+    this.controllers.set(runId, new AbortController()); try { return await this.drive(this.runs.require(runId), this.controllers.get(runId)!.signal); } finally { this.controllers.delete(runId); this.progress.delete(runId); }
   }
+
 
   async cancel(runId: string): Promise<void> { const controller = this.controllers.get(runId); controller?.abort(); const run = this.runs.require(runId); if (!isTerminal(run.currentState)) this.transition(run, "CANCELLED", "RUN_CANCELLED"); }
   status(runId?: string): RunSummary { const run = runId ? this.runs.require(runId) : this.runs.latest(); if (!run) throw new AnvilError("RUN_NOT_FOUND", "No Anvil runs exist"); return this.summary(run); }
@@ -62,6 +64,7 @@ export class WorkflowEngine {
       try { this.budget.assertMayContinue(run); } catch (error) { run = this.block(run, asAnvilError(error, "BUDGET_EXHAUSTED")); break; }
       if (signal.aborted) { run = this.transition(run, "CANCELLED", "RUN_CANCELLED"); break; }
       try {
+        await this.report(run, "stage");
         switch (run.currentState) {
           case "PLAN": run = await this.executePlan(run, signal); break;
           case "IMPLEMENT": run = await this.executeImplementation(run, signal); break;
@@ -72,6 +75,7 @@ export class WorkflowEngine {
         }
       } catch (error) { const typed = asAnvilError(error); run = typed.code === "BUDGET_EXHAUSTED" || typed.code === "MAX_ATTEMPTS_EXCEEDED" ? this.block(run, typed) : this.fail(run, typed); }
     }
+    await this.report(run, "finished");
     return this.summary(run);
   }
 
@@ -115,6 +119,10 @@ export class WorkflowEngine {
     const next = nextAfterSecurity(output, this.deps.config.security.failOn); if (next === "IMPLEMENT") return this.transition(run, "IMPLEMENT", "SECURITY_FINDINGS", { revisionId: before.id }); this.findings.resolveGate(run.id, "security", attempt.id); this.gates.save({ runId: run.id, gate: "security", revisionId: before.id, mutationEpoch: run.mutationEpoch, configHash: run.configHash, gatePolicyHash: JSON.stringify(this.deps.config.security), verdict: "pass", attemptId: attempt.id, artifactId: artifact.id, startedAt: new Date().toISOString(), endedAt: new Date().toISOString() }); return this.transition(run, "REVIEW", "SECURITY_PASSED", { revisionId: before.id });
   }
 
+  private async report(run: RunRecord, kind: WorkflowProgressKind): Promise<void> {
+    const handler = this.progress.get(run.id); if (!handler) return;
+    try { await handler({ kind, run }); } catch { /* UI progress must never change workflow outcome. */ }
+  }
   private async executeReview(run: RunRecord, signal: AbortSignal): Promise<RunRecord> {
     const reviewAttempts = this.runs.attemptsFor(run.id, "REVIEW"); this.budget.assertRoleMayRun(run, "review", reviewAttempts.length, reviewAttempts.reduce((total, attempt) => total + attempt.tokens, 0)); const before = await this.deps.revisions.current(); if (before.id !== run.currentRevisionId) return this.mutation(run, before.id, "REVIEW_EXTERNAL_MUTATION", "CHECKS"); if (!this.gates.currentPass(run.id, "checks", before.id, run.configHash, JSON.stringify(this.deps.config.checks)) || !this.gates.currentPass(run.id, "security", before.id, run.configHash, JSON.stringify(this.deps.config.security))) return this.transition(run, "CHECKS", "STALE_GATE_PASS_REJECTED");
     const attempt = this.runs.beginAttempt(run, "REVIEW", "review", this.deps.config.agents.review.agent); const handoff = this.context.build("review", { run, objective: this.objective(run), plan: run.planPath ? { id: "plan", path: run.planPath, sha256: "" } : undefined, findings: this.findings.list(run.id, "open"), changedFiles: await this.deps.revisions.changedFiles(run.baseRevisionId, run.currentRevisionId), evidence: [] }); await this.deps.artifacts.putJson(run.id, "handoff", `artifacts/review/handoff-${attempt.sequence}.json`, handoff.envelope, attempt.id);

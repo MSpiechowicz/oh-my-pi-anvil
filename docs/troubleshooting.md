@@ -22,6 +22,12 @@ Confirm that the four configured agent names are discoverable from the project o
 
 If `/anvil doctor` reports `RUNTIME UNAVAILABLE`, the installed host is not exposing either the current OMP SDK bridge or the legacy subprocess compatibility methods. Reload the extension after updating OMP or Anvil, then run `/anvil doctor` again. Do not start `/forge` until the runtime reports `AVAILABLE`; the run will otherwise fail before the first model request.
 
+## Watch a running Forge
+
+Interactive OMP sessions show a Forge-owned status line and progress widget while `/forge` runs. The widget identifies the active run, marks the current specialist, and advances through Architect, Smith, Warden, Sentinel, and Inquisitor. Its spinner is only presentation; the persisted SQLite state remains authoritative.
+
+Forge also refreshes the workspace lock heartbeat during long runs. If a previous OMP process exited after a run reached a terminal state, the next Forge command checks that persisted state and safely reclaims the lock. A live run remains protected; inspect it with `/anvil status <run-id>` instead of deleting `lock.json`.
+
 ## A run is blocked
 
 Inspect the run and its findings:

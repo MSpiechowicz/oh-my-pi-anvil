@@ -688,16 +688,37 @@ var ArtifactStore = class {
 // src/state/lock.ts
 import { mkdir as mkdir4, readFile as readFile3, unlink, open, writeFile as writeFile2, rename as rename2 } from "node:fs/promises";
 import path5 from "node:path";
-var WorkspaceLock = class _WorkspaceLock {
+function localHostname() {
+  return process.env.HOSTNAME ?? "unknown";
+}
+function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (!(error instanceof Error) || !("code" in error)) return true;
+    return error.code !== "ESRCH" && error.code !== "EINVAL";
+  }
+}
+function isValidRecord(value2) {
+  if (!value2 || typeof value2 !== "object" || Array.isArray(value2)) return false;
+  const record2 = value2;
+  return typeof record2.runId === "string" && typeof record2.pid === "number" && typeof record2.hostname === "string" && typeof record2.startedAt === "string" && typeof record2.heartbeatAt === "string" && (record2.token === void 0 || typeof record2.token === "string");
+}
+function lockMessage(root, record2) {
+  const run = record2?.runId && !record2.runId.startsWith("pending_") ? ` ${record2.runId}` : "";
+  const status = run ? `/anvil status${run}` : "/anvil status";
+  return `Workspace already has an active Anvil run${run}: ${root}. Check ${status} for its current stage.`;
+}
+var WorkspaceLock = class {
   root;
-  static active = /* @__PURE__ */ new Set();
   held;
+  token;
   constructor(root) {
     this.root = root;
     this.held = false;
   }
-  async acquire(runId, staleAfterMs = 30 * 60 * 1e3) {
-    if (_WorkspaceLock.active.has(this.root)) throw new AnvilError("RUN_LOCKED", `Workspace already has an active Anvil run: ${this.root}`);
+  async acquire(runId, staleAfterMs = 30 * 60 * 1e3, isRunActive2) {
     await mkdir4(path5.dirname(this.root), {
       recursive: true
     });
@@ -705,48 +726,82 @@ var WorkspaceLock = class _WorkspaceLock {
     const record2 = {
       runId,
       pid: process.pid,
-      hostname: process.env.HOSTNAME ?? "unknown",
+      hostname: localHostname(),
       startedAt: now2,
-      heartbeatAt: now2
+      heartbeatAt: now2,
+      token: crypto.randomUUID()
     };
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const handle = await open(this.root, "wx");
-        await handle.writeFile(JSON.stringify(record2, null, 2));
-        await handle.close();
-        _WorkspaceLock.active.add(this.root);
+        await this.writeNewRecord(record2);
+        this.token = record2.token;
         this.held = true;
         return;
       } catch (error) {
         if (!(error instanceof Error) || !("code" in error) || error.code !== "EEXIST") throw error;
-        let existing;
-        try {
-          existing = JSON.parse(await readFile3(this.root, "utf8"));
-        } catch {
-          existing = void 0;
-        }
-        if (existing && Date.now() - Date.parse(existing.heartbeatAt) < staleAfterMs) throw new AnvilError("RUN_LOCKED", `Workspace locked by run ${existing.runId}`);
+        const existing = await this.readRecord();
+        if (existing && await this.isActive(existing, staleAfterMs, isRunActive2)) throw new AnvilError("RUN_LOCKED", lockMessage(this.root, existing));
         await unlink(this.root).catch(() => void 0);
       }
     }
     throw new AnvilError("RUN_LOCKED", `Workspace lock changed while acquiring: ${this.root}`);
   }
+  async bindRun(runId) {
+    if (!this.held) return;
+    const record2 = await this.readRecord();
+    if (!record2 || !this.owns(record2)) return;
+    record2.runId = runId;
+    await this.writeRecord(record2);
+  }
   async heartbeat() {
     if (!this.held) return;
-    const record2 = JSON.parse(await readFile3(this.root, "utf8"));
+    const record2 = await this.readRecord();
+    if (!record2 || !this.owns(record2)) return;
     record2.heartbeatAt = (/* @__PURE__ */ new Date()).toISOString();
-    const temporary = `${this.root}.${process.pid}.tmp`;
-    await writeFile2(temporary, JSON.stringify(record2, null, 2));
-    await rename2(temporary, this.root);
+    await this.writeRecord(record2);
   }
   async release() {
     if (!this.held) return;
-    _WorkspaceLock.active.delete(this.root);
+    const record2 = await this.readRecord();
+    if (record2 && this.owns(record2)) await unlink(this.root).catch(() => void 0);
     this.held = false;
+    this.token = void 0;
+  }
+  async readRecord() {
     try {
-      await unlink(this.root);
+      const parsed = JSON.parse(await readFile3(this.root, "utf8"));
+      return isValidRecord(parsed) ? parsed : void 0;
     } catch {
+      return void 0;
     }
+  }
+  async writeNewRecord(record2) {
+    const handle = await open(this.root, "wx");
+    try {
+      await handle.writeFile(JSON.stringify(record2, null, 2));
+    } finally {
+      await handle.close();
+    }
+  }
+  async writeRecord(record2) {
+    const temporary = `${this.root}.${process.pid}.${this.token ?? "update"}.tmp`;
+    await writeFile2(temporary, JSON.stringify(record2, null, 2));
+    await rename2(temporary, this.root);
+  }
+  owns(record2) {
+    return record2.token ? record2.token === this.token : record2.pid === process.pid && record2.hostname === localHostname();
+  }
+  async isActive(record2, staleAfterMs, isRunActive2) {
+    if (isRunActive2) {
+      try {
+        if (!await isRunActive2(record2.runId)) return false;
+      } catch {
+        return true;
+      }
+    }
+    if (record2.hostname === localHostname()) return processIsAlive(record2.pid);
+    const age = Date.now() - Date.parse(record2.heartbeatAt);
+    return Number.isFinite(age) && age < staleAfterMs;
   }
 };
 
@@ -2163,11 +2218,13 @@ var WorkflowEngine = class {
   objectivePointers;
   lessons;
   controllers;
+  progress;
   constructor(deps) {
     this.deps = deps;
     this.objectivePointers = /* @__PURE__ */ new Map();
     this.lessons = /* @__PURE__ */ new Map();
     this.controllers = /* @__PURE__ */ new Map();
+    this.progress = /* @__PURE__ */ new Map();
     this.runs = new RunRepository(deps.state);
     this.gates = new GateRepository(deps.state);
     this.findings = new FindingRepository(deps.state);
@@ -2204,14 +2261,17 @@ var WorkflowEngine = class {
     const started = this.transition(run, "PLAN", "RUN_STARTED", {
       objective: pointer.path
     });
+    if (input.progress) this.progress.set(run.id, input.progress);
+    await this.report(started, "started");
     this.controllers.set(run.id, new AbortController());
     try {
       return await this.drive(started, this.controllers.get(run.id).signal);
     } finally {
       this.controllers.delete(run.id);
+      this.progress.delete(run.id);
     }
   }
-  async resume(runId) {
+  async resume(runId, progress) {
     let run = this.runs.require(runId);
     if (isTerminal(run.currentState)) return this.summary(run);
     this.runs.markRunningInterrupted(runId);
@@ -2223,11 +2283,13 @@ var WorkflowEngine = class {
         revisionId: current.id
       });
     }
+    if (progress) this.progress.set(runId, progress);
     this.controllers.set(runId, new AbortController());
     try {
       return await this.drive(this.runs.require(runId), this.controllers.get(runId).signal);
     } finally {
       this.controllers.delete(runId);
+      this.progress.delete(runId);
     }
   }
   async cancel(runId) {
@@ -2255,6 +2317,7 @@ var WorkflowEngine = class {
         break;
       }
       try {
+        await this.report(run, "stage");
         switch (run.currentState) {
           case "PLAN":
             run = await this.executePlan(run, signal);
@@ -2279,6 +2342,7 @@ var WorkflowEngine = class {
         run = typed.code === "BUDGET_EXHAUSTED" || typed.code === "MAX_ATTEMPTS_EXCEEDED" ? this.block(run, typed) : this.fail(run, typed);
       }
     }
+    await this.report(run, "finished");
     return this.summary(run);
   }
   async executePlan(run, signal) {
@@ -2537,6 +2601,17 @@ var WorkflowEngine = class {
     return this.transition(run, "REVIEW", "SECURITY_PASSED", {
       revisionId: before.id
     });
+  }
+  async report(run, kind) {
+    const handler = this.progress.get(run.id);
+    if (!handler) return;
+    try {
+      await handler({
+        kind,
+        run
+      });
+    } catch {
+    }
   }
   async executeReview(run, signal) {
     const reviewAttempts = this.runs.attemptsFor(run.id, "REVIEW");
@@ -3202,6 +3277,14 @@ async function runUpdate(action, profile, cwd = process.cwd()) {
 }
 
 // src/commands/router.ts
+function isRunActive(runtime, lockRunId) {
+  try {
+    const runId = lockRunId.startsWith("pending_") ? void 0 : lockRunId;
+    return !isTerminal(runtime.engine.status(runId).run.currentState);
+  } catch {
+    return true;
+  }
+}
 async function configurationLocations(cwd) {
   const projectRoot = await findRepositoryRoot(cwd);
   const existingProject = await nearestProjectConfigPath(cwd);
@@ -3244,13 +3327,27 @@ var CommandRouter = class {
     if (!objective || objective === "help") return renderForgeHelp();
     let runtime;
     let lockHeld = false;
+    let heartbeatTimer;
     try {
       runtime = await this.engineFactory(context);
-      await runtime.lock.acquire(`pending_${crypto.randomUUID()}`);
+      await runtime.lock.acquire(`pending_${crypto.randomUUID()}`, void 0, (lockRunId) => isRunActive(runtime, lockRunId));
       lockHeld = true;
+      heartbeatTimer = setInterval(() => {
+        void runtime?.lock.heartbeat().catch(() => void 0);
+      }, 1e4);
+      const progress = async (update) => {
+        if (update.kind === "started") {
+          try {
+            await runtime?.lock.bindRun(update.run.id);
+          } catch {
+          }
+        }
+        await context.progress?.(update);
+      };
       return renderStatus(await runtime.engine.start({
         objective,
-        workspaceRoot: context.cwd
+        workspaceRoot: context.cwd,
+        progress
       }));
     } catch (error) {
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
@@ -3258,6 +3355,7 @@ var CommandRouter = class {
 
 ${typed.message}`;
     } finally {
+      clearInterval(heartbeatTimer);
       if (runtime) {
         if (lockHeld) await runtime.lock.release();
         runtime.state.close();
@@ -3269,6 +3367,7 @@ ${typed.message}`;
     if (!command || command === "help") return renderAnvilHelp();
     let runtime;
     let lockHeld = false;
+    let heartbeatTimer;
     try {
       if (command === "config") {
         if (rest.length > 0 && !(rest.length === 1 && rest[0] === "show")) throw new AnvilError("CONFIG_INVALID", "Usage: /anvil config");
@@ -3300,9 +3399,12 @@ ${typed.message}`;
       if (command === "resume" || command === "cancel") {
         if (rest.length !== 1) throw new AnvilError("CONFIG_INVALID", `Usage: /anvil ${command} <run-id>`);
         runtime = await this.engineFactory(context);
-        await runtime.lock.acquire(rest[0]);
+        await runtime.lock.acquire(rest[0], void 0, (lockRunId) => isRunActive(runtime, lockRunId));
         lockHeld = true;
-        if (command === "resume") return renderStatus(await runtime.engine.resume(rest[0]));
+        heartbeatTimer = setInterval(() => {
+          void runtime?.lock.heartbeat().catch(() => void 0);
+        }, 1e4);
+        if (command === "resume") return renderStatus(await runtime.engine.resume(rest[0], context.progress));
         await runtime.engine.cancel(rest[0]);
         return renderStatus(runtime.engine.status(rest[0]));
       }
@@ -3314,6 +3416,7 @@ ${typed.message}`;
 
 ${typed.message}`;
     } finally {
+      clearInterval(heartbeatTimer);
       if (runtime) {
         if (lockHeld) await runtime.lock.release();
         runtime.state.close();
@@ -3321,6 +3424,145 @@ ${typed.message}`;
     }
   }
 };
+
+// src/ui/progress.ts
+var STATUS_KEY = "anvil-forge";
+var WIDGET_KEY = "anvil-forge-progress";
+var REFRESH_MS = 800;
+var SPINNER_FRAMES = [
+  "|",
+  "/",
+  "-",
+  "\\"
+];
+var STAGES = [
+  "PLAN",
+  "IMPLEMENT",
+  "CHECKS",
+  "SECURITY",
+  "REVIEW"
+];
+var ACTIVITIES = {
+  INIT: "initializing the workspace",
+  PLAN: "planning the objective",
+  IMPLEMENT: "implementing the planned change",
+  CHECKS: "running deterministic checks",
+  SECURITY: "auditing the current revision",
+  REVIEW: "reviewing acceptance criteria",
+  DONE: "workflow sealed",
+  BLOCKED: "workflow blocked",
+  FAILED: "workflow failed",
+  CANCELLED: "workflow cancelled"
+};
+function ignoreUiFailure(action) {
+  try {
+    const result = action();
+    if (result && typeof result === "object" && "catch" in result && typeof result.catch === "function") {
+      void result.catch(() => void 0);
+    }
+  } catch {
+  }
+}
+function stageMarker(state, current) {
+  const currentIndex = STAGES.indexOf(current);
+  const stageIndex = STAGES.indexOf(state);
+  if (current === state) return ">";
+  if (currentIndex >= 0 && stageIndex >= 0 && stageIndex < currentIndex) return "x";
+  if (current === "DONE") return "x";
+  return " ";
+}
+function statusText(update, frame, activeStage) {
+  const failedDuring = update.kind === "finished" && update.run.status !== "done" && activeStage && activeStage !== update.run.currentState;
+  const activity = failedDuring ? `${ACTIVITIES[update.run.currentState]} (during ${displayState(activeStage)})` : ACTIVITIES[update.run.currentState];
+  if (update.kind === "finished") {
+    return `${update.run.status === "done" ? "x" : "!"} ${displayState(update.run.currentState)} \xB7 ${activity}`;
+  }
+  return `${frame} ${displayState(update.run.currentState)} \xB7 ${activity}`;
+}
+function widgetLines(update, frame, activeStage) {
+  const stage = update.kind === "finished" && update.run.status !== "done" ? activeStage ?? update.run.currentState : update.run.currentState;
+  return [
+    `ANVIL \xB7 FORGE RUN ${update.run.id}`,
+    statusText(update, frame, activeStage),
+    "",
+    "STAGES",
+    ...STAGES.map((state) => `  [${stageMarker(state, stage)}] ${displayState(state)}`)
+  ];
+}
+function createForgeProgressReporter(ui) {
+  const persistent = Boolean(ui?.setStatus || ui?.setWidget || ui?.setWorkingMessage);
+  let closed = false;
+  let frameIndex = 0;
+  let timer;
+  let current;
+  let activeStage;
+  const renderStarting = () => {
+    const frame = SPINNER_FRAMES[frameIndex];
+    ignoreUiFailure(() => ui?.setStatus?.(STATUS_KEY, `${frame} Forge \xB7 acquiring workspace lock`));
+    ignoreUiFailure(() => ui?.setWorkingMessage?.(`${frame} Forge \xB7 acquiring workspace lock`));
+    ignoreUiFailure(() => ui?.setWidget?.(WIDGET_KEY, [
+      "ANVIL \xB7 FORGE",
+      `${frame} Acquiring workspace lock`
+    ], {
+      placement: "aboveEditor"
+    }));
+  };
+  const render = () => {
+    if (closed) return;
+    const frame = SPINNER_FRAMES[frameIndex];
+    const update = current;
+    if (!update) return renderStarting();
+    const text = statusText(update, frame, activeStage);
+    ignoreUiFailure(() => ui?.setStatus?.(STATUS_KEY, text));
+    ignoreUiFailure(() => ui?.setWorkingMessage?.(text));
+    ignoreUiFailure(() => ui?.setWidget?.(WIDGET_KEY, widgetLines(update, frame, activeStage), {
+      placement: "aboveEditor"
+    }));
+  };
+  const schedule = () => {
+    if (closed || !persistent || timer !== void 0) return;
+    timer = setTimeout(() => {
+      timer = void 0;
+      if (closed) return;
+      frameIndex = (frameIndex + 1) % SPINNER_FRAMES.length;
+      render();
+      schedule();
+    }, REFRESH_MS);
+  };
+  return {
+    begin() {
+      if (closed) return;
+      renderStarting();
+      if (!persistent && ui?.notify) {
+        ignoreUiFailure(() => ui.notify("ANVIL \xB7 FORGE STARTING\n\nAcquiring workspace lock and preparing Forge.", "info"));
+      }
+      schedule();
+    },
+    onProgress: (update) => {
+      if (closed) return;
+      if (update.kind === "stage") activeStage = update.run.currentState;
+      current = update;
+      render();
+      if (!persistent && ui?.notify && (update.kind === "stage" || update.kind === "finished")) {
+        ignoreUiFailure(() => ui.notify(`ANVIL \xB7 FORGE
+
+${statusText(update, SPINNER_FRAMES[frameIndex], activeStage)}`, "info"));
+      }
+      schedule();
+    },
+    close() {
+      if (closed) return;
+      closed = true;
+      if (timer !== void 0) {
+        clearTimeout(timer);
+        timer = void 0;
+      }
+      ignoreUiFailure(() => ui?.setStatus?.(STATUS_KEY, void 0));
+      ignoreUiFailure(() => ui?.setWidget?.(WIDGET_KEY, void 0));
+      ignoreUiFailure(() => ui?.setWorkingMessage?.());
+    }
+  };
+}
 
 // src/extension.ts
 async function selectAnvilCommand(args, context) {
@@ -3376,20 +3618,34 @@ function anvilExtension(pi) {
   };
   const forgeHandler = async (args, context) => {
     const input = args.trim().replace(/^\/forge\s*/, "");
-    await notifyOutput(context, await router.handle(input, {
-      cwd: context.cwd,
-      runtimeContext: context,
-      host: pi.pi
-    }));
+    const progress = input && input !== "help" ? createForgeProgressReporter(context.ui) : void 0;
+    progress?.begin();
+    try {
+      await notifyOutput(context, await router.handle(input, {
+        cwd: context.cwd,
+        runtimeContext: context,
+        host: pi.pi,
+        progress: progress?.onProgress
+      }));
+    } finally {
+      progress?.close();
+    }
   };
   const anvilHandler = async (args, context) => {
     const input = await selectAnvilCommand(args, context);
     if (input === void 0) return;
-    await notifyOutput(context, await router.handleAdmin(input, {
-      cwd: context.cwd,
-      runtimeContext: context,
-      host: pi.pi
-    }));
+    const progress = /^resume\s+\S+$/.test(input) ? createForgeProgressReporter(context.ui) : void 0;
+    progress?.begin();
+    try {
+      await notifyOutput(context, await router.handleAdmin(input, {
+        cwd: context.cwd,
+        runtimeContext: context,
+        host: pi.pi,
+        progress: progress?.onProgress
+      }));
+    } finally {
+      progress?.close();
+    }
   };
   pi.registerCommand("anvil", {
     description: "Inspect Anvil configuration and manage updates",

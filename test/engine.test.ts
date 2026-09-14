@@ -28,7 +28,7 @@ describe("WorkflowEngine", () => {
       { role: "security", structured: securityPass },
       { role: "review", structured: reviewPass },
     ]);
-    const summary = await engine.start({ objective: "Add a change", workspaceRoot: root }); expect(summary.run.currentState).toBe("DONE"); expect(summary.run.currentRevisionId).toBe("rev1"); expect(summary.events.filter((event) => event.type === "STATE_TRANSITION")).toHaveLength(0); expect(summary.events.some((event) => event.type === "RUN_DONE")).toBeTruthy(); await rm(root, { recursive: true, force: true });
+    const progress: string[] = []; const summary = await engine.start({ objective: "Add a change", workspaceRoot: root, progress: (update) => { progress.push(`${update.kind}:${update.run.currentState}`); } }); expect(summary.run.currentState).toBe("DONE"); expect(summary.run.currentRevisionId).toBe("rev1"); expect(summary.events.filter((event) => event.type === "STATE_TRANSITION")).toHaveLength(0); expect(summary.events.some((event) => event.type === "RUN_DONE")).toBeTruthy(); expect(progress).toEqual(["started:PLAN", "stage:PLAN", "stage:IMPLEMENT", "stage:CHECKS", "stage:SECURITY", "stage:REVIEW", "finished:DONE"]); await rm(root, { recursive: true, force: true });
   });
 
   test("routes a security finding through implementation and re-runs every gate", async () => {

@@ -19,6 +19,13 @@ export interface RunRecord {
   initialHead: string;
 }
 
+export type WorkflowProgressKind = "started" | "stage" | "finished";
+export interface WorkflowProgressUpdate {
+  kind: WorkflowProgressKind;
+  run: RunRecord;
+}
+export type WorkflowProgressHandler = (update: WorkflowProgressUpdate) => void | Promise<void>;
+
 export interface AttemptRecord {
   id: string; runId: string; sequence: number; state: WorkflowState; role?: AgentRole; agentName?: string; modelSelector?: string;
   inputArtifactId?: string; outputArtifactId?: string; baseRevisionId: string; resultRevisionId?: string;

@@ -10,6 +10,7 @@ import {
   projectConfigPath,
   runtimeRoot,
 } from "../state/paths.ts";
+import { isTerminal } from "../workflow/state.ts";
 import {
   renderAnvilHelp,
   renderConfiguration,
@@ -24,9 +25,18 @@ import {
 import { AnvilError } from "../util/errors.ts";
 import { runUpdate, UpdateError, type UpdateAction } from "../update.ts";
 import type { WorkflowEngine } from "../workflow/engine.ts";
+import type { WorkflowProgressHandler, WorkflowProgressUpdate } from "../workflow/types.ts";
 import type { WorkspaceLock } from "../state/lock.ts";
 
-export interface CommandContext { cwd: string; runtimeContext?: unknown; host?: unknown; respond?: (message: string) => void | Promise<void>; }
+export interface CommandContext { cwd: string; runtimeContext?: unknown; host?: unknown; respond?: (message: string) => void | Promise<void>; progress?: WorkflowProgressHandler; }
+function isRunActive(runtime: RuntimeHandle, lockRunId: string): boolean {
+  try {
+    const runId = lockRunId.startsWith("pending_") ? undefined : lockRunId;
+    return !isTerminal(runtime.engine.status(runId).run.currentState);
+  } catch {
+    return true;
+  }
+}
 interface RuntimeHandle { engine: WorkflowEngine; state: { close(): void }; lock: WorkspaceLock; runtimeRoot?: string; }
 
 async function configurationLocations(cwd: string): Promise<ConfigurationLocations> {
@@ -71,15 +81,24 @@ export class CommandRouter {
     if (!objective || objective === "help") return renderForgeHelp();
     let runtime: RuntimeHandle | undefined;
     let lockHeld = false;
+    let heartbeatTimer: NodeJS.Timeout | undefined;
     try {
       runtime = await this.engineFactory(context);
-      await runtime.lock.acquire(`pending_${crypto.randomUUID()}`);
+      await runtime.lock.acquire(`pending_${crypto.randomUUID()}`, undefined, (lockRunId) => isRunActive(runtime!, lockRunId));
       lockHeld = true;
-      return renderStatus(await runtime.engine.start({ objective, workspaceRoot: context.cwd }));
+      heartbeatTimer = setInterval(() => { void runtime?.lock.heartbeat().catch(() => undefined); }, 10_000);
+      const progress: WorkflowProgressHandler = async (update: WorkflowProgressUpdate): Promise<void> => {
+        if (update.kind === "started") {
+          try { await runtime?.lock.bindRun(update.run.id); } catch { /* Lock metadata is best effort. */ }
+        }
+        await context.progress?.(update);
+      };
+      return renderStatus(await runtime.engine.start({ objective, workspaceRoot: context.cwd, progress }));
     } catch (error) {
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL · ${typed.code}\n\n${typed.message}`;
     } finally {
+      clearInterval(heartbeatTimer);
       if (runtime) {
         if (lockHeld) await runtime.lock.release();
         runtime.state.close();
@@ -92,6 +111,7 @@ export class CommandRouter {
     if (!command || command === "help") return renderAnvilHelp();
     let runtime: RuntimeHandle | undefined;
     let lockHeld = false;
+    let heartbeatTimer: NodeJS.Timeout | undefined;
     try {
       if (command === "config") {
         if (rest.length > 0 && !(rest.length === 1 && rest[0] === "show")) throw new AnvilError("CONFIG_INVALID", "Usage: /anvil config");
@@ -120,9 +140,10 @@ export class CommandRouter {
       if (command === "resume" || command === "cancel") {
         if (rest.length !== 1) throw new AnvilError("CONFIG_INVALID", `Usage: /anvil ${command} <run-id>`);
         runtime = await this.engineFactory(context);
-        await runtime.lock.acquire(rest[0]);
+        await runtime.lock.acquire(rest[0], undefined, (lockRunId) => isRunActive(runtime!, lockRunId));
         lockHeld = true;
-        if (command === "resume") return renderStatus(await runtime.engine.resume(rest[0]));
+        heartbeatTimer = setInterval(() => { void runtime?.lock.heartbeat().catch(() => undefined); }, 10_000);
+        if (command === "resume") return renderStatus(await runtime.engine.resume(rest[0], context.progress));
         await runtime.engine.cancel(rest[0]);
         return renderStatus(runtime.engine.status(rest[0]));
       }
@@ -132,6 +153,7 @@ export class CommandRouter {
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL · ${typed.code}\n\n${typed.message}`;
     } finally {
+      clearInterval(heartbeatTimer);
       if (runtime) {
         if (lockHeld) await runtime.lock.release();
         runtime.state.close();

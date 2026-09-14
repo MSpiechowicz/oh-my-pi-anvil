@@ -2,9 +2,9 @@ import { createRuntime } from "./runtime.ts";
 import { CommandRouter } from "./commands/router.ts";
 import { ensureGlobalConfig } from "./config/init.ts";
 import { checkUpdate } from "./update.ts";
+import { createForgeProgressReporter, type ForgeProgressUI } from "./ui/progress.ts";
 
-export interface ExtensionUI {
-  notify?: (message: string, level?: string) => unknown;
+export interface ExtensionUI extends ForgeProgressUI {
   select?: (title: string, options: string[]) => Promise<string | undefined>;
   input?: (prompt: string, defaultValue?: string) => Promise<string | undefined>;
 }
@@ -69,12 +69,24 @@ export default function anvilExtension(pi: ExtensionAPI): void {
   };
   const forgeHandler = async (args: string, context: ExtensionContext): Promise<void> => {
     const input = args.trim().replace(/^\/forge\s*/, "");
-    await notifyOutput(context, await router.handle(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi }));
+    const progress = input && input !== "help" ? createForgeProgressReporter(context.ui) : undefined;
+    progress?.begin();
+    try {
+      await notifyOutput(context, await router.handle(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi, progress: progress?.onProgress }));
+    } finally {
+      progress?.close();
+    }
   };
   const anvilHandler = async (args: string, context: ExtensionContext): Promise<void> => {
     const input = await selectAnvilCommand(args, context);
     if (input === undefined) return;
-    await notifyOutput(context, await router.handleAdmin(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi }));
+    const progress = /^resume\s+\S+$/.test(input) ? createForgeProgressReporter(context.ui) : undefined;
+    progress?.begin();
+    try {
+      await notifyOutput(context, await router.handleAdmin(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi, progress: progress?.onProgress }));
+    } finally {
+      progress?.close();
+    }
   };
   pi.registerCommand("anvil", { description: "Inspect Anvil configuration and manage updates", handler: anvilHandler });
   pi.registerCommand("forge", { description: "Run Anvil's bounded multi-agent workflow", handler: forgeHandler });
