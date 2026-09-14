@@ -45,6 +45,12 @@ Token caps are disabled by default. If you explicitly configured a total or per-
 
 `DONE`, `FAILED`, and `CANCELLED` remain terminal. Resuming one shows its status without restarting stages. A paused run can also be cancelled with `/anvil cancel <run-id>`.
 
+### `ARTIFACT_CORRUPT` after Warden retries
+
+Warden logs are unique per invocation, including retries at the same mutation epoch. Older builds reused `logs/check-<id>-<epoch>.stdout` and `.stderr`; an environment-only repair could leave the epoch unchanged, causing the next check to overwrite the original logs and replace their database identities. Findings referencing those earlier results then failed with `Required run artifact is missing (id = ?)`.
+
+Update Anvil and restart OMP before another run. The fix preserves future evidence; it cannot recover overwritten historical bytes. Do not substitute newer logs, edit artifact hashes, or change SQLite state to force a resume. A `FAILED` run is terminal: preserve its artifacts and existing workspace changes, then start a new `/forge <objective>` describing the remaining work. For a `BLOCKED` run, restore the exact original database and artifact bytes from a consistent backup before resuming, or start a new run if that evidence is unavailable.
+
 ## A run stopped during implementation
 
 Resume the persisted run:

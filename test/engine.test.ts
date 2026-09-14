@@ -11,6 +11,7 @@ import { GitRevisionProvider, StaticRevisionProvider } from "../src/git/revision
 import { MockAgentRunner } from "../src/runners/mock-agent-runner.ts";
 import { createOmpCompat } from "../src/runners/omp-compat.ts";
 import { OmpSubprocessRunner } from "../src/runners/omp-subprocess-runner.ts";
+import { DeterministicCheckRunner } from "../src/runners/check-runner.ts";
 import { WorkflowEngine } from "../src/workflow/engine.ts";
 import type { ArtifactPointer, CheckRunner, CheckResult, HandoffEnvelope, RevisionProvider, RevisionSnapshot, WorkflowConfig, WorkspaceRevision } from "../src/workflow/types.ts";
 import { serializeHandoff } from "../src/context/serializers.ts";
@@ -41,6 +42,55 @@ async function initializeReviewWorkspace(root: string) {
 }
 
 describe("WorkflowEngine", () => {
+  test("preserves finding logs across Warden retries without a revision change", async () => {
+    const root = await mkdtemp("/tmp/anvil-check-retry-");
+    const state = await StateDatabase.open(path.join(root, ".omp"));
+    try {
+      const artifacts = new ArtifactStore(state, (id) => path.join(root, ".omp", "runs", id));
+      const runner = new DeterministicCheckRunner(artifacts);
+      let buildCalls = 0;
+      let checkCalls = 0;
+      const engine = await makeEngine(root, new StaticRevisionProvider(revision("rev0")), [
+        { role: "planner", structured: plan },
+        { role: "implementation", structured: implementation },
+        { role: "implementation", structured: implementation },
+        { role: "implementation", structured: implementation },
+        { role: "security", structured: securityPass },
+        { role: "review", structured: reviewPass },
+      ], (config) => {
+        config.checks = ["build", "check"].map((id) => ({ id, command: ["sh"], required: true, timeoutMs: 10000 }));
+        config.checksFailFast = true;
+      }, {
+        run(check, input) {
+          const call = check.id === "build" ? ++buildCalls : ++checkCalls;
+          return runner.run({ ...check, command: ["sh", "-c", `printf '${check.id}-${call}'; printf 'stderr-${check.id}-${call}' >&2; exit ${call === 1 ? 1 : 0}`] }, input);
+        },
+      });
+      const summary = await engine.start({ objective: "Repair environment without changing source", workspaceRoot: root });
+      expect(summary.run.currentState).toBe("DONE");
+      expect(summary.run.mutationEpoch).toBe(0);
+      const rows = state.db.query<{ id: string; relative_path: string; sha256: string }>("SELECT id, relative_path, sha256 FROM artifacts WHERE run_id = ? AND kind = 'checks' ORDER BY rowid").all(summary.run.id);
+      const observed: string[][] = [];
+      for (const row of rows) {
+        const evidence = await artifacts.readJson<{ results: CheckResult[] }>(summary.run.id, { id: row.id, path: row.relative_path, sha256: row.sha256 });
+        const logs: string[] = [];
+        for (const result of evidence.results) {
+          for (const pointer of [result.stdoutArtifact!, result.stderrArtifact!]) {
+            const saved = state.db.query<{ relative_path: string }>("SELECT relative_path FROM artifacts WHERE id = ?").get(pointer.id);
+            expect(saved !== undefined).toBe(true);
+            logs.push(await artifacts.readText(summary.run.id, { ...pointer, path: saved!.relative_path }));
+          }
+        }
+        observed.push(logs);
+      }
+      expect(observed).toEqual([
+        ["build-1", "stderr-build-1"],
+        ["build-2", "stderr-build-2", "check-1", "stderr-check-1"],
+        ["build-3", "stderr-build-3", "check-2", "stderr-check-2"],
+      ]);
+    } finally { state.close(); await rm(root, { recursive: true, force: true }); }
+  });
+
   test("retains review obligations with bounded evidence or rejects an oversized mandatory handoff", () => {
     const artifact = { id: "evidence", path: "/workspace/.omp/runs/run/changes.patch", sha256: "digest" };
     const handoff: HandoffEnvelope = {
