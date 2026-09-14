@@ -25,7 +25,7 @@ Inspect the active paths and verify the installation:
 
 
 Initialization creates the missing global file and, at the repository root, creates a small editable `.omp/anvil.yml` overlay. It never overwrites existing global or project settings. Running initialization from a repository subdirectory still targets that repository root. If either file already exists, initialization reports it instead of replacing it.
-`/anvil config` reports schema-valid settings as `STATUS VALID` even when the optional global file is absent. That does not establish execution readiness: configure Warden checks before `/forge`. It also marks the global file and project overlay as `present` or `not present`; run `/anvil init` when this repository needs its `.omp/anvil.yml` overlay.
+`/anvil config` reports schema-valid settings as `STATUS VALID` even when the optional global file is absent. That does not establish execution readiness: Warden still needs explicit or automatically discovered checks before `/forge` can proceed. It also marks the global file and project overlay as `present` or `not present`; run `/anvil init` when this repository needs its `.omp/anvil.yml` overlay.
 
 
 The generated project overlay is intentionally sparse so shared global values continue to apply. Add only repository-specific overrides, for example:
@@ -59,11 +59,23 @@ Here the project-specific agent replaces the global implementation agent, and th
 
 ## Warden verification requirements
 
-Warden is a command runner, not a model agent. Built-in checks are empty because Forge cannot safely assume which commands a repository should execute. Configure them explicitly; Forge does not discover or run `package.json` scripts automatically. An empty list stops a run with `CONFIG_INVALID` before any model invocation instead of recording an empty passing gate.
+Warden is a command runner, not a model agent. After merging defaults, global settings, and the project overlay, Forge automatically discovers supported verification commands when the effective `checks` list is empty. A nonempty explicit list is preserved unchanged and disables discovery. A project `checks: []` replaces inherited checks and requests discovery rather than disabling verification.
 
-At least one configured check must be required, either through `required: true` or Architect's `requiredChecks`. Architect receives the configured IDs; an unknown plan-required ID or a plan with no effective required check is rejected before Smith starts. A plan-required check is authoritative even if its configured `required` flag is false: its failure stops the gate and participates in fail-fast behavior. Browser/manual verification belongs in acceptance criteria and Smith's verification evidence, not an invented Warden command ID.
+Discovery only reads project manifests and lockfiles; it does not execute scripts during configuration loading or write discovered checks into either settings file. The discovered list becomes part of the effective configuration before validation, hashing, and planning. If it is still empty, a run stops with `CONFIG_INVALID` before any model invocation instead of recording an empty passing gate. For unsupported projects, configure executable commands explicitly.
 
-For a repository that exposes Yarn `check` and `build` scripts, a project overlay can use:
+Discovery supports these root manifests, not a recursive workspace scan:
+
+- **`package.json` scripts:** verification names such as `check`, `typecheck`, `type-check`, `type_check`, `lint`, `test`, and `build`, including conventional colon-, hyphen-, or underscore-separated variants. Only nonempty commands without detected watch, development-server, interactive UI, or mutation modes are eligible; watch/dev/serve/start/fix/format/write/update variants are excluded.
+- **`deno.json` or `deno.jsonc` tasks:** the same verification-name and finite-command rules apply. `deno.json` takes precedence over `deno.jsonc`. Native Deno tasks take precedence over same-name package scripts, and package wrappers for those tasks are not duplicated.
+- **Package-manager choice:** a recognized `packageManager` declaration (`npm`, `pnpm`, `yarn`, or `bun`) wins. When that declaration is absent, Forge checks lockfiles in this order: `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`/`bun.lockb`, then `package-lock.json`/`npm-shrinkwrap.json`; without a match it uses `npm`. An invalid or unsupported declaration causes `CONFIG_INVALID` instead of silently choosing another manager. Deno tasks use `deno task`.
+- **Finite command filtering:** simple commands and `&&` chains are supported. Opaque shell constructs such as command substitution, background execution, pipelines, and redirection, as well as known watch/process orchestrators and unsafe flags, are excluded. Referenced scripts and package lifecycle hooks are inspected too.
+- **One-shot tests:** a direct bare Vitest command receives `run`; Vitest with options receives `--run`; a direct Jest command receives `--ci`. npm forwards these arguments through `--`. Wrappers that would need runner arguments injected into a nested command are skipped in favor of discovering the eligible leaf script. Explicit watch or mutation modes are excluded rather than silently run. Discovery is a conservative filter, not a sandbox or a proof that arbitrary script bodies and their dependencies are safe.
+- **Check definitions:** IDs are the original script/task names, such as `check`, `test`, or `test:unit`, with `required: true` and `timeoutMs: 180000`. Deno tasks appear in name order, followed by unmatched package scripts in name order.
+- **Manifest errors:** missing optional manifests are ignored, but malformed manifests or invalid script/task entries cause `CONFIG_INVALID`. An explicit nonempty checks list bypasses discovery, including these manifest checks.
+
+At least one effective check must be required, either through `required: true` or Architect's `requiredChecks`. Architect receives the effective IDs, including discovered checks; an unknown plan-required ID or a plan with no effective required check is rejected before Smith starts. A plan-required check is authoritative even if its configured `required` flag is false: its failure stops the gate and participates in fail-fast behavior. Browser/manual verification belongs in acceptance criteria and Smith's verification evidence, not an invented Warden command ID.
+
+To override discovery for a repository that exposes Yarn `check` and `build` scripts, a project overlay can use:
 
 ```yaml
 checks:

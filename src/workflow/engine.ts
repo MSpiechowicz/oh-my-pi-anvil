@@ -315,7 +315,8 @@ export class WorkflowEngine {
 
   private assertConfiguredChecks(): void {
     const checks = this.deps.config.checks;
-    if (!checks.length || checks.some((check) => !check.id.trim() || !check.command.length || !check.command[0]?.trim()) || new Set(checks.map((check) => check.id)).size !== checks.length) throw new AnvilError("CONFIG_INVALID", "Warden requires configured deterministic checks with unique IDs and nonempty commands. Configure checks in Anvil; package scripts are never discovered or executed automatically.");
+    if (!checks.length) throw new AnvilError("CONFIG_INVALID", "Warden requires deterministic checks, but none were configured or discovered from root package.json scripts or deno.json/deno.jsonc tasks. Add finite verification scripts/tasks or configure checks explicitly in Anvil.");
+    if (checks.some((check) => !check.id.trim() || !check.command.length || !check.command[0]?.trim()) || new Set(checks.map((check) => check.id)).size !== checks.length) throw new AnvilError("CONFIG_INVALID", "Warden requires deterministic checks with unique IDs and nonempty commands. Correct the checks configured in Anvil.");
   }
 
   private requiredChecks(plan?: PlanOutput): CheckDefinition[] {

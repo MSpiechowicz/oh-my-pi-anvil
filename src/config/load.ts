@@ -2,6 +2,7 @@ import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { DEFAULT_CONFIG } from "./defaults.ts";
 import { validateConfig } from "./schema.ts";
+import { discoverChecks } from "./discover.ts";
 import type { WorkflowConfig } from "../workflow/types.ts";
 import { AnvilError } from "../util/errors.ts";
 import { globalConfigPath, nearestProjectConfigPath } from "../state/paths.ts";
@@ -14,6 +15,7 @@ export async function loadConfig(root: string, explicitPath?: string): Promise<W
   if (configPath) layers.push(await readConfigFile(configPath));
   let merged = structuredClone(DEFAULT_CONFIG);
   for (const layer of layers) if (layer) merged = mergeConfig(merged, layer);
+  if (Array.isArray(merged.checks) && merged.checks.length === 0) merged.checks = await discoverChecks(root);
   return validateConfig(merged);
 }
 function mergeConfig(base: WorkflowConfig, input: Record<string, unknown>): WorkflowConfig {

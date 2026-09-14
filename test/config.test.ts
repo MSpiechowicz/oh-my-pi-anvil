@@ -145,6 +145,81 @@ describe("workflow configuration", () => {
     }
   });
 
+  test("discovers package checks without an overlay and honors the declared manager over lockfiles", async () => {
+    const root = await mkdtemp("/tmp/anvil-config-discovery-");
+    const configHome = await mkdtemp("/tmp/anvil-config-home-");
+    const previousXdg = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = configHome;
+      await writeFile(path.join(root, "bun.lockb"), "");
+      await writeFile(path.join(root, "package.json"), JSON.stringify({
+        packageManager: "yarn@1.22.21",
+        scripts: {
+          dev: "vite dev", check: "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+          "check:watch": "svelte-check --watch", test: "vitest", build: "vite build",
+          lint: "prettier --check . && eslint .", "lint:fix": "eslint --fix .", format: "prettier --write .",
+        },
+      }));
+      const config = await loadConfig(root);
+      const commands = Object.fromEntries(config.checks.map((check) => [check.id, check.command]));
+      assert.deepEqual(commands, {
+        check: ["yarn", "run", "check"], test: ["yarn", "run", "test", "run"],
+        build: ["yarn", "run", "build"], lint: ["yarn", "run", "lint"],
+      });
+      await assert.rejects(readFile(path.join(root, ".omp", "anvil.yml")), { code: "ENOENT" });
+    } finally {
+      if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previousXdg;
+      await rm(root, { recursive: true, force: true });
+      await rm(configHome, { recursive: true, force: true });
+    }
+  });
+
+  test("explicit checks bypass discovery while an empty overlay enables it", async () => {
+    const root = await mkdtemp("/tmp/anvil-config-discovery-override-");
+    const configHome = await mkdtemp("/tmp/anvil-config-home-");
+    const previousXdg = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = configHome;
+      const globalPath = path.join(configHome, "omp", "anvil.yml");
+      await mkdir(path.dirname(globalPath), { recursive: true });
+      await writeFile(globalPath, JSON.stringify({ checks: [
+        { id: "custom", command: ["custom-validator"], required: true, timeoutMs: 1000 },
+      ] }));
+      await writeFile(path.join(root, "package.json"), "{ invalid manifest");
+      assert.deepEqual((await loadConfig(root)).checks.map((check) => check.command), [["custom-validator"]]);
+      await mkdir(path.join(root, ".omp"));
+      await writeFile(path.join(root, ".omp", "anvil.yml"), "checks: []\n");
+      await assert.rejects(loadConfig(root), { code: "CONFIG_INVALID" });
+      await writeFile(path.join(root, "package.json"), JSON.stringify({ scripts: { check: "tsc --noEmit" } }));
+      assert.deepEqual((await loadConfig(root)).checks.map((check) => check.command), [["npm", "run", "check"]]);
+    } finally {
+      if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previousXdg;
+      await rm(root, { recursive: true, force: true });
+      await rm(configHome, { recursive: true, force: true });
+    }
+  });
+
+  test("does not infer verification from mutating or persistent scripts", async () => {
+    const root = await mkdtemp("/tmp/anvil-config-discovery-modes-");
+    const configHome = await mkdtemp("/tmp/anvil-config-home-");
+    const previousXdg = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = configHome;
+      await writeFile(path.join(root, "package.json"), JSON.stringify({ scripts: {
+        check: "tsc --watch", lint: "eslint --fix .", test: "vitest --watch",
+        build: "vite build --watch", dev: "vite", format: "prettier --write .",
+      } }));
+      assert.deepEqual((await loadConfig(root)).checks, []);
+    } finally {
+      if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previousXdg;
+      await rm(root, { recursive: true, force: true });
+      await rm(configHome, { recursive: true, force: true });
+    }
+  });
+
   test("rejects unknown configuration keys", async () => {
     const root = await mkdtemp("/tmp/anvil-config-unknown-");
     const configHome = await mkdtemp("/tmp/anvil-config-home-");

@@ -99,7 +99,7 @@ Forge loads settings in this order, with later values taking precedence:
 
 The project overlay is intentionally small: put shared checks and agent choices in the global file, then add only repository-specific overrides to `.omp/anvil.yml`.
 
-Configure Warden commands before starting `/forge`: built-in checks are empty, and an empty list now stops before model work instead of passing without verification. Architect can require only configured check IDs; browser/manual proof belongs in acceptance evidence. See [Warden verification requirements](docs/configuration.md#warden-verification-requirements).
+When the merged `checks` list is empty, Forge automatically discovers supported finite verification scripts from the repository; a nonempty explicit list overrides discovery. Discovered checks populate only the effective configuration, without editing your settings. If no supported checks are found, the run stops before model work rather than passing without verification. Architect can require only effective check IDs; browser/manual proof belongs in acceptance evidence. See [Warden verification requirements](docs/configuration.md#warden-verification-requirements) for supported manifests, package-manager selection, and overrides.
 
 With an interactive OMP UI, `/anvil` without arguments opens a management menu; the explicit subcommands remain available for scripts and non-interactive sessions.
 

@@ -24,9 +24,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/code.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/code.js
 var require_code = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/code.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/code.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -176,9 +176,9 @@ var require_code = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/scope.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/scope.js
 var require_scope = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/scope.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/scope.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -325,9 +325,9 @@ var require_scope = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/index.js
 var require_codegen = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/index.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1058,9 +1058,9 @@ var require_codegen = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/util.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/util.js
 var require_util = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/util.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/util.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1210,9 +1210,9 @@ var require_util = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/names.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/names.js
 var require_names = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/names.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/names.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1245,9 +1245,9 @@ var require_names = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/errors.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/errors.js
 var require_errors = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/errors.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/errors.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1392,9 +1392,9 @@ var require_errors = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/boolSchema.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/boolSchema.js
 var require_boolSchema = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/boolSchema.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/boolSchema.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1445,9 +1445,9 @@ var require_boolSchema = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/rules.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/rules.js
 var require_rules = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/rules.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/rules.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1513,9 +1513,9 @@ var require_rules = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/applicability.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/applicability.js
 var require_applicability = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/applicability.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/applicability.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1538,9 +1538,9 @@ var require_applicability = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/dataType.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/dataType.js
 var require_dataType = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/dataType.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/dataType.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1725,9 +1725,9 @@ var require_dataType = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/defaults.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/defaults.js
 var require_defaults = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/defaults.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/defaults.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1763,9 +1763,9 @@ var require_defaults = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/code.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/code.js
 var require_code2 = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/code.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/code.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -1913,9 +1913,9 @@ var require_code2 = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/keyword.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/keyword.js
 var require_keyword = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/keyword.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/keyword.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -2031,9 +2031,9 @@ var require_keyword = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/subschema.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/subschema.js
 var require_subschema = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/subschema.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/subschema.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -2117,9 +2117,9 @@ var require_subschema = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/fast-deep-equal/3.1.3/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/fast-deep-equal/3.1.3/index.js
 var require__ = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/fast-deep-equal/3.1.3/index.js"(exports, module) {
+  "../../.cache/deno/npm/registry.npmjs.org/fast-deep-equal/3.1.3/index.js"(exports, module) {
     "use strict";
     module.exports = function equal(a, b) {
       if (a === b) return true;
@@ -2150,9 +2150,9 @@ var require__ = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/json-schema-traverse/1.0.0/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/json-schema-traverse/1.0.0/index.js
 var require__2 = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/json-schema-traverse/1.0.0/index.js"(exports, module) {
+  "../../.cache/deno/npm/registry.npmjs.org/json-schema-traverse/1.0.0/index.js"(exports, module) {
     "use strict";
     var traverse = module.exports = function(schema, opts, cb) {
       if (typeof opts == "function") {
@@ -2236,9 +2236,9 @@ var require__2 = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/resolve.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/resolve.js
 var require_resolve = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/resolve.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/resolve.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -2381,9 +2381,9 @@ var require_resolve = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/index.js
 var require_validate = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/index.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/validate/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -2854,9 +2854,9 @@ var require_validate = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/validation_error.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/validation_error.js
 var require_validation_error = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/validation_error.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/validation_error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -2872,9 +2872,9 @@ var require_validation_error = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/ref_error.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/ref_error.js
 var require_ref_error = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/ref_error.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/ref_error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -2891,9 +2891,9 @@ var require_ref_error = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/index.js
 var require_compile = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/index.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -3130,9 +3130,9 @@ var require_compile = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/refs/data.json
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/refs/data.json
 var require_data = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/refs/data.json"(exports, module) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/refs/data.json"(exports, module) {
     module.exports = {
       $id: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
       description: "Meta-schema for $data reference (JSON AnySchema extension proposal)",
@@ -3149,9 +3149,9 @@ var require_data = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/lib/utils.js
+// ../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/lib/utils.js
 var require_utils = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/lib/utils.js"(exports, module) {
+  "../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/lib/utils.js"(exports, module) {
     "use strict";
     var isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
     var isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u);
@@ -3329,8 +3329,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path12) {
-      let input = path12;
+    function removeDotSegments(path13) {
+      let input = path13;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3678,9 +3678,9 @@ var require_utils = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/lib/schemes.js
+// ../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/lib/schemes.js
 var require_schemes = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/lib/schemes.js"(exports, module) {
+  "../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/lib/schemes.js"(exports, module) {
     "use strict";
     var { isUUID } = require_utils();
     var URN_REG = /^([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-./:;=@]|%[\da-f]{2})+)$/iu;
@@ -3745,8 +3745,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path12 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path12 && path12 !== "/" ? path12 : void 0;
+        const path13 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -3889,9 +3889,9 @@ var require_schemes = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/index.js
 var require__3 = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/index.js"(exports, module) {
+  "../../.cache/deno/npm/registry.npmjs.org/fast-uri/3.1.7/index.js"(exports, module) {
     "use strict";
     var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, serializePathEncoding, normalizeQueryFragmentEncoding, encodeQuery, encodeFragment, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
@@ -4291,9 +4291,9 @@ var require__3 = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/uri.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/uri.js
 var require_uri = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/uri.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/uri.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -4304,9 +4304,9 @@ var require_uri = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/core.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/core.js
 var require_core = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/core.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/core.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -4932,9 +4932,9 @@ var require_core = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/id.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/id.js
 var require_id = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/id.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/id.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -4949,9 +4949,9 @@ var require_id = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/ref.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/ref.js
 var require_ref = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/ref.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/ref.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5074,9 +5074,9 @@ var require_ref = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/index.js
 var require_core2 = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/index.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/core/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5099,9 +5099,9 @@ var require_core2 = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitNumber.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitNumber.js
 var require_limitNumber = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitNumber.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitNumber.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5149,9 +5149,9 @@ var require_limitNumber = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/multipleOf.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/multipleOf.js
 var require_multipleOf = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/multipleOf.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/multipleOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5179,9 +5179,9 @@ var require_multipleOf = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/ucs2length.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/ucs2length.js
 var require_ucs2length = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/ucs2length.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/ucs2length.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5206,9 +5206,9 @@ var require_ucs2length = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitLength.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitLength.js
 var require_limitLength = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitLength.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitLength.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5243,9 +5243,9 @@ var require_limitLength = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/pattern.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/pattern.js
 var require_pattern = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/pattern.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/pattern.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5273,9 +5273,9 @@ var require_pattern = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitProperties.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitProperties.js
 var require_limitProperties = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitProperties.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5307,9 +5307,9 @@ var require_limitProperties = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/required.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/required.js
 var require_required = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/required.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/required.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5392,9 +5392,9 @@ var require_required = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitItems.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitItems.js
 var require_limitItems = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitItems.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/limitItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5426,9 +5426,9 @@ var require_limitItems = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/equal.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/equal.js
 var require_equal = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/equal.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/runtime/equal.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5439,9 +5439,9 @@ var require_equal = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/uniqueItems.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/uniqueItems.js
 var require_uniqueItems = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/uniqueItems.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/uniqueItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5509,9 +5509,9 @@ var require_uniqueItems = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/const.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/const.js
 var require_const = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/const.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/const.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5540,9 +5540,9 @@ var require_const = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/enum.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/enum.js
 var require_enum = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/enum.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/enum.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5589,9 +5589,9 @@ var require_enum = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/index.js
 var require_validation = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/index.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/validation/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5638,9 +5638,9 @@ var require_validation = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/additionalItems.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/additionalItems.js
 var require_additionalItems = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/additionalItems.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/additionalItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5701,9 +5701,9 @@ var require_additionalItems = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/items.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/items.js
 var require_items = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/items.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/items.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5761,9 +5761,9 @@ var require_items = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/prefixItems.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/prefixItems.js
 var require_prefixItems = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/prefixItems.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/prefixItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5782,9 +5782,9 @@ var require_prefixItems = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/items2020.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/items2020.js
 var require_items2020 = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/items2020.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/items2020.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5819,9 +5819,9 @@ var require_items2020 = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/contains.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/contains.js
 var require_contains = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/contains.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/contains.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -5917,9 +5917,9 @@ var require_contains = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/dependencies.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/dependencies.js
 var require_dependencies = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/dependencies.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/dependencies.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6014,9 +6014,9 @@ var require_dependencies = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/propertyNames.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/propertyNames.js
 var require_propertyNames = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/propertyNames.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/propertyNames.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6064,9 +6064,9 @@ var require_propertyNames = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/additionalProperties.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/additionalProperties.js
 var require_additionalProperties = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/additionalProperties.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/additionalProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6173,9 +6173,9 @@ var require_additionalProperties = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/properties.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/properties.js
 var require_properties = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/properties.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/properties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6231,9 +6231,9 @@ var require_properties = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/patternProperties.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/patternProperties.js
 var require_patternProperties = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/patternProperties.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/patternProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6306,9 +6306,9 @@ var require_patternProperties = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/not.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/not.js
 var require_not = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/not.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/not.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6344,9 +6344,9 @@ var require_not = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/anyOf.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/anyOf.js
 var require_anyOf = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/anyOf.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/anyOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6365,9 +6365,9 @@ var require_anyOf = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/oneOf.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/oneOf.js
 var require_oneOf = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/oneOf.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/oneOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6424,9 +6424,9 @@ var require_oneOf = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/allOf.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/allOf.js
 var require_allOf = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/allOf.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/allOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6454,9 +6454,9 @@ var require_allOf = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/if.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/if.js
 var require_if = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/if.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/if.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6531,9 +6531,9 @@ var require_if = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/thenElse.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/thenElse.js
 var require_thenElse = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/thenElse.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/thenElse.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6556,9 +6556,9 @@ var require_thenElse = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/index.js
 var require_applicator = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/index.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/applicator/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6604,9 +6604,9 @@ var require_applicator = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/format/format.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/format/format.js
 var require_format = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/format/format.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/format/format.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6704,9 +6704,9 @@ var require_format = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/format/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/format/index.js
 var require_format2 = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/format/index.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/format/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6719,9 +6719,9 @@ var require_format2 = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/metadata.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/metadata.js
 var require_metadata = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/metadata.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/metadata.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6744,9 +6744,9 @@ var require_metadata = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/draft7.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/draft7.js
 var require_draft7 = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/draft7.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/draft7.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6768,9 +6768,9 @@ var require_draft7 = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/discriminator/types.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/discriminator/types.js
 var require_types = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/discriminator/types.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/discriminator/types.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6784,9 +6784,9 @@ var require_types = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/discriminator/index.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/discriminator/index.js
 var require_discriminator = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/discriminator/index.js"(exports) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/vocabularies/discriminator/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -6896,9 +6896,9 @@ var require_discriminator = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/refs/json-schema-draft-07.json
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/refs/json-schema-draft-07.json
 var require_json_schema_draft_07 = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/refs/json-schema-draft-07.json"(exports, module) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/refs/json-schema-draft-07.json"(exports, module) {
     module.exports = {
       $schema: "http://json-schema.org/draft-07/schema#",
       $id: "http://json-schema.org/draft-07/schema#",
@@ -7053,9 +7053,9 @@ var require_json_schema_draft_07 = __commonJS({
   }
 });
 
-// ../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/ajv.js
+// ../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/ajv.js
 var require_ajv = __commonJS({
-  "../../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/ajv.js"(exports, module) {
+  "../../.cache/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/ajv.js"(exports, module) {
     "use strict";
     Object.defineProperty(exports, "__esModule", {
       value: true
@@ -7155,11 +7155,11 @@ var require_ajv = __commonJS({
 });
 
 // src/runtime.ts
-import path8 from "node:path";
+import path9 from "node:path";
 
 // src/config/load.ts
-import { access as access2, readFile } from "node:fs/promises";
-import path2 from "node:path";
+import { access as access3, readFile as readFile2 } from "node:fs/promises";
+import path3 from "node:path";
 
 // src/config/defaults.ts
 var DEFAULT_CONFIG = {
@@ -7409,11 +7409,224 @@ function validateConfig(config) {
   return config;
 }
 
+// src/config/discover.ts
+import { access, readFile } from "node:fs/promises";
+import path from "node:path";
+var CHECK_NAME = /^(?:check|typecheck|type[-_]check|lint|test|build)(?:[:_-][a-z0-9][a-z0-9:_-]*)?$/i;
+var UNSAFE_NAME = /(?:^|[:_-])(?:watch|dev|serve|start|fix|format|write|update|interactive|ui)(?:$|[:_-])/i;
+var UNSAFE_ARGUMENT = /^(?:--(?:watch[^=]*|fix[^=]*|write|update[^=]*|hot|ui|interactive)(?:=.*)?|-[wu]+)$/i;
+var MANAGERS = [
+  "npm",
+  "pnpm",
+  "yarn",
+  "bun"
+];
+async function discoverChecks(root) {
+  const [pkg, denoJson] = await Promise.all([
+    readManifest(path.join(root, "package.json")),
+    readManifest(path.join(root, "deno.json"), true)
+  ]);
+  const deno = denoJson ?? await readManifest(path.join(root, "deno.jsonc"), true);
+  const scripts = commandsFrom(pkg, "scripts", path.join(root, "package.json"));
+  const tasks = commandsFrom(deno, "tasks", path.join(root, denoJson ? "deno.json" : "deno.jsonc"));
+  const checks = [];
+  const nativeNames = /* @__PURE__ */ new Set();
+  for (const name of Object.keys(tasks).sort()) {
+    if (!CHECK_NAME.test(name) || UNSAFE_NAME.test(name)) continue;
+    const args = finiteArguments(tasks[name], scripts, tasks, /* @__PURE__ */ new Set([
+      name
+    ]));
+    if (!args) continue;
+    nativeNames.add(name);
+    checks.push({
+      id: name,
+      command: [
+        "deno",
+        "task",
+        name,
+        ...args
+      ],
+      required: true,
+      timeoutMs: 18e4
+    });
+  }
+  if (!pkg) return checks;
+  const manager = await packageManager(root, pkg.packageManager);
+  for (const name of Object.keys(scripts).sort()) {
+    if (!CHECK_NAME.test(name) || UNSAFE_NAME.test(name) || nativeNames.has(name)) continue;
+    if (deno && /(?:^|\s)deno\s+task(?:\s|$)/.test(scripts[name])) continue;
+    const args = finiteArguments(scripts[name], scripts, tasks, /* @__PURE__ */ new Set([
+      name
+    ]));
+    if (!args || !safeLifecycle(name, scripts, tasks, /* @__PURE__ */ new Set([
+      name
+    ]))) continue;
+    const forwarded = args.length && manager === "npm" ? [
+      "--",
+      ...args
+    ] : args;
+    checks.push({
+      id: name,
+      command: [
+        manager,
+        "run",
+        name,
+        ...forwarded
+      ],
+      required: true,
+      timeoutMs: 18e4
+    });
+  }
+  return checks;
+}
+async function readManifest(file, jsonc = false) {
+  let raw;
+  try {
+    raw = await readFile(file, "utf8");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return void 0;
+    throw new AnvilError("CONFIG_INVALID", `Cannot read discovery manifest ${file}; fix its permissions or configure explicit checks.`, error);
+  }
+  try {
+    if (jsonc) raw = raw.replace(/"(?:\\.|[^"\\])*"|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g, (token) => token.startsWith("/") ? " " : token).replace(/"(?:\\.|[^"\\])*"|,(?=\s*[}\]])/g, (token) => token === "," ? "" : token);
+    const value2 = JSON.parse(raw);
+    if (!value2 || typeof value2 !== "object" || Array.isArray(value2)) throw new Error("manifest must be an object");
+    return value2;
+  } catch (error) {
+    throw new AnvilError("CONFIG_INVALID", `Invalid discovery manifest ${file}: ${error instanceof Error ? error.message : String(error)}. Fix the manifest or configure explicit checks.`, error);
+  }
+}
+function commandsFrom(manifest, key, file) {
+  const value2 = manifest?.[key];
+  if (value2 === void 0) return {};
+  if (!value2 || typeof value2 !== "object" || Array.isArray(value2)) throw new AnvilError("CONFIG_INVALID", `${file}: ${key} must be an object; fix the manifest or configure explicit checks.`);
+  const commands = {};
+  for (const [name, entry] of Object.entries(value2)) {
+    const command = key === "tasks" && entry && typeof entry === "object" && !Array.isArray(entry) && "command" in entry ? entry.command : entry;
+    if (typeof command !== "string" || !command.trim()) throw new AnvilError("CONFIG_INVALID", `${file}: ${key}.${name} must contain a nonempty command string; fix the manifest or configure explicit checks.`);
+    commands[name] = command;
+  }
+  return commands;
+}
+async function packageManager(root, declared) {
+  if (declared !== void 0) {
+    if (typeof declared !== "string" || !/^(npm|pnpm|yarn|bun)(?:@[^\s]+)?$/.test(declared)) {
+      throw new AnvilError("CONFIG_INVALID", "package.json packageManager must name npm, pnpm, yarn, or bun (optionally @version); configure explicit checks for other managers.");
+    }
+    return declared.split("@")[0];
+  }
+  for (const [file, manager] of [
+    [
+      "pnpm-lock.yaml",
+      "pnpm"
+    ],
+    [
+      "yarn.lock",
+      "yarn"
+    ],
+    [
+      "bun.lock",
+      "bun"
+    ],
+    [
+      "bun.lockb",
+      "bun"
+    ],
+    [
+      "package-lock.json",
+      "npm"
+    ],
+    [
+      "npm-shrinkwrap.json",
+      "npm"
+    ]
+  ]) {
+    try {
+      await access(path.join(root, file));
+      return manager;
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+    }
+  }
+  return "npm";
+}
+function finiteArguments(command, scripts, tasks, visiting) {
+  if (/[`$\r\n]/.test(command)) return void 0;
+  const tokenPattern = /\s+|"[^"\\]*"|'[^']*'|&&|[^\s"'&;|<>\\]+/gy;
+  const segments = [
+    []
+  ];
+  let position = 0;
+  for (let match = tokenPattern.exec(command); match; match = tokenPattern.exec(command)) {
+    position = tokenPattern.lastIndex;
+    const token = match[0];
+    if (!token.trim()) continue;
+    if (token === "&&") segments.push([]);
+    else segments.at(-1).push(token.replace(/^(["'])(.*)\1$/, "$2"));
+  }
+  if (position !== command.length) return void 0;
+  let extra = [];
+  for (const segment of segments) {
+    if (!segment.length || segment.some((token) => UNSAFE_ARGUMENT.test(token))) return void 0;
+    let offset = 0;
+    while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(segment[offset] ?? "")) offset++;
+    if (segment[offset] === "cross-env" || segment[offset] === "env") {
+      offset++;
+      while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(segment[offset] ?? "")) offset++;
+    }
+    const executable = segment[offset]?.replace(/^.*[\\/]/, "");
+    const args = segment.slice(offset + 1);
+    if (!executable || /^(?:watch|nodemon|concurrently|npm-run-all|run-p|sh|bash|zsh|fish)$/.test(executable)) return void 0;
+    if (args.some((arg) => /^(?:watch|dev|serve|start|fix|write|update|ui)$/.test(arg))) return void 0;
+    if (executable === "vite" && args[0] !== "build") return void 0;
+    const manager = MANAGERS.some((name) => name === executable);
+    if (manager || executable === "deno" && args[0] === "task") {
+      const native2 = executable === "deno";
+      const name = args[0] === "run" || args[0] === "task" ? args[1] : args[0];
+      const available = native2 ? tasks : scripts;
+      if (!name || UNSAFE_NAME.test(name) || !Object.hasOwn(available, name) || visiting.has(name)) return void 0;
+      const next = new Set(visiting).add(name);
+      const nested = finiteArguments(available[name], scripts, tasks, next);
+      if (!nested || nested.length || !native2 && !safeLifecycle(name, scripts, tasks, next)) return void 0;
+    }
+    if (executable === "vitest") {
+      if (args[0] && !args[0].startsWith("-") && args[0] !== "run" && args[0] !== "related") return void 0;
+      if (args[0] !== "run" && !args.includes("--run")) extra = args.length ? [
+        "--run"
+      ] : [
+        "run"
+      ];
+    } else if (executable === "jest" && !args.includes("--ci")) extra = [
+      "--ci"
+    ];
+    if (extra.length && segments.length !== 1) return void 0;
+    if (executable === "prettier" && !args.some((arg) => [
+      "--check",
+      "--list-different",
+      "-c",
+      "-l"
+    ].includes(arg))) return void 0;
+  }
+  return extra;
+}
+function safeLifecycle(name, scripts, tasks, visiting) {
+  for (const hook of [
+    `pre${name}`,
+    `post${name}`
+  ]) {
+    if (!Object.hasOwn(scripts, hook)) continue;
+    if (visiting.has(hook)) return false;
+    const args = finiteArguments(scripts[hook], scripts, tasks, new Set(visiting).add(hook));
+    if (!args || args.length) return false;
+  }
+  return true;
+}
+
 // src/state/paths.ts
-import { access, mkdir, realpath, lstat } from "node:fs/promises";
+import { access as access2, mkdir, realpath, lstat } from "node:fs/promises";
 import { homedir } from "node:os";
 import process2 from "node:process";
-import path from "node:path";
+import path2 from "node:path";
 function environment(name) {
   try {
     return process2.env[name] || void 0;
@@ -7423,16 +7636,16 @@ function environment(name) {
 }
 function globalConfigPath() {
   const xdg = environment("XDG_CONFIG_HOME");
-  if (xdg) return path.resolve(xdg, "omp", "anvil.yml");
+  if (xdg) return path2.resolve(xdg, "omp", "anvil.yml");
   let home = environment("HOME");
   if (!home) {
     try {
       home = homedir();
     } catch {
-      home = path.resolve(".");
+      home = path2.resolve(".");
     }
   }
-  return path.resolve(home, ".config", "omp", "anvil.yml");
+  return path2.resolve(home, ".config", "omp", "anvil.yml");
 }
 function globalModelsConfigPath() {
   const profile = environment("OMP_PROFILE") ?? environment("PI_PROFILE");
@@ -7441,33 +7654,33 @@ function globalModelsConfigPath() {
     try {
       home = homedir();
     } catch {
-      home = path.resolve(".");
+      home = path2.resolve(".");
     }
   }
-  if (profile && profile !== "default") return path.resolve(home, ".omp", "profiles", profile, "agent", "config.yml");
+  if (profile && profile !== "default") return path2.resolve(home, ".omp", "profiles", profile, "agent", "config.yml");
   const agentDirectory = environment("PI_CODING_AGENT_DIR");
-  if (agentDirectory) return path.resolve(agentDirectory, "config.yml");
-  return path.resolve(home, ".omp", "agent", "config.yml");
+  if (agentDirectory) return path2.resolve(agentDirectory, "config.yml");
+  return path2.resolve(home, ".omp", "agent", "config.yml");
 }
 function projectConfigPath(repositoryRoot) {
-  return path.join(path.resolve(repositoryRoot), ".omp", "anvil.yml");
+  return path2.join(path2.resolve(repositoryRoot), ".omp", "anvil.yml");
 }
 async function findRepositoryRoot(workspaceRoot) {
-  let current = path.resolve(workspaceRoot);
+  let current = path2.resolve(workspaceRoot);
   while (true) {
     try {
-      await access(path.join(current, ".git"));
+      await access2(path2.join(current, ".git"));
       return current;
     } catch (error) {
       if (!isMissing(error)) throw error;
-      const parent = path.dirname(current);
+      const parent = path2.dirname(current);
       if (parent === current) return void 0;
       current = parent;
     }
   }
 }
 async function nearestProjectConfigPath(workspaceRoot) {
-  const workspace = path.resolve(workspaceRoot);
+  const workspace = path2.resolve(workspaceRoot);
   const repository = await findRepositoryRoot(workspace);
   if (!repository) return existingPathOrUndefined(projectConfigPath(workspace));
   let current = workspace;
@@ -7475,14 +7688,14 @@ async function nearestProjectConfigPath(workspaceRoot) {
     const candidate = await existingPathOrUndefined(projectConfigPath(current));
     if (candidate) return candidate;
     if (current === repository) return void 0;
-    const parent = path.dirname(current);
+    const parent = path2.dirname(current);
     if (parent === current) return void 0;
     current = parent;
   }
 }
 async function existingPathOrUndefined(candidate) {
   try {
-    await access(candidate);
+    await access2(candidate);
     return candidate;
   } catch (error) {
     if (isMissing(error)) return void 0;
@@ -7493,29 +7706,29 @@ function isMissing(error) {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 function runtimeRoot(workspaceRoot, configured) {
-  return path.isAbsolute(configured) ? configured : path.resolve(workspaceRoot, configured);
+  return path2.isAbsolute(configured) ? configured : path2.resolve(workspaceRoot, configured);
 }
 async function ensureRuntimeRoot(root) {
   await mkdir(root, {
     recursive: true
   });
-  await mkdir(path.join(root, "runs"), {
+  await mkdir(path2.join(root, "runs"), {
     recursive: true
   });
 }
 function containedPath(root, relativePath) {
-  if (path.isAbsolute(relativePath)) throw new AnvilError("ARTIFACT_CORRUPT", "Absolute artifact paths are not allowed");
-  const resolvedRoot = path.resolve(root);
-  const resolved = path.resolve(resolvedRoot, relativePath);
-  if (resolved !== resolvedRoot && !resolved.startsWith(`${resolvedRoot}${path.sep}`)) throw new AnvilError("ARTIFACT_CORRUPT", "Artifact path escapes its run root");
+  if (path2.isAbsolute(relativePath)) throw new AnvilError("ARTIFACT_CORRUPT", "Absolute artifact paths are not allowed");
+  const resolvedRoot = path2.resolve(root);
+  const resolved = path2.resolve(resolvedRoot, relativePath);
+  if (resolved !== resolvedRoot && !resolved.startsWith(`${resolvedRoot}${path2.sep}`)) throw new AnvilError("ARTIFACT_CORRUPT", "Artifact path escapes its run root");
   return resolved;
 }
 async function assertSafeSymlink(root, target) {
-  const resolvedRoot = path.resolve(root);
-  containedPath(resolvedRoot, path.relative(resolvedRoot, target));
-  let current = path.parse(resolvedRoot).root;
-  for (const part of path.resolve(target).slice(current.length).split(path.sep)) {
-    current = path.join(current, part);
+  const resolvedRoot = path2.resolve(root);
+  containedPath(resolvedRoot, path2.relative(resolvedRoot, target));
+  let current = path2.parse(resolvedRoot).root;
+  for (const part of path2.resolve(target).slice(current.length).split(path2.sep)) {
+    current = path2.join(current, part);
     try {
       if ((await lstat(current)).isSymbolicLink()) throw new AnvilError("ARTIFACT_CORRUPT", `Symlink artifact path component is not accepted: ${current}`);
     } catch (error) {
@@ -7534,6 +7747,7 @@ async function loadConfig(root, explicitPath) {
   if (configPath) layers.push(await readConfigFile(configPath));
   let merged = structuredClone(DEFAULT_CONFIG);
   for (const layer of layers) if (layer) merged = mergeConfig(merged, layer);
+  if (Array.isArray(merged.checks) && merged.checks.length === 0) merged.checks = await discoverChecks(root);
   return validateConfig(merged);
 }
 function mergeConfig(base, input) {
@@ -7555,14 +7769,14 @@ function mergeConfig(base, input) {
 async function readConfigFile(configPath) {
   let raw;
   try {
-    await access2(configPath);
-    raw = await readFile(configPath, "utf8");
+    await access3(configPath);
+    raw = await readFile2(configPath, "utf8");
   } catch (error) {
     if (isMissing2(error)) return void 0;
     throw error;
   }
   try {
-    const parsed = path2.extname(configPath).toLowerCase() === ".json" || raw.trim().startsWith("{") ? JSON.parse(raw) : parseSimpleYaml(raw);
+    const parsed = path3.extname(configPath).toLowerCase() === ".json" || raw.trim().startsWith("{") ? JSON.parse(raw) : parseSimpleYaml(raw);
     if (!isRecord(parsed)) {
       throw new AnvilError("CONFIG_INVALID", `Configuration must be an object: ${configPath}`);
     }
@@ -7696,7 +7910,7 @@ var Database = class {
 
 // src/state/database.ts
 import { mkdir as mkdir2 } from "node:fs/promises";
-import path3 from "node:path";
+import path4 from "node:path";
 
 // src/state/migrations.ts
 function applyMigrations(db) {
@@ -7753,12 +7967,12 @@ var StateDatabase = class _StateDatabase {
     await mkdir2(root, {
       recursive: true
     });
-    const database = new Database(path3.join(root, "anvil.db"), {
+    const database = new Database(path4.join(root, "anvil.db"), {
       create: true,
       readwrite: true
     });
     applyMigrations(database);
-    return new _StateDatabase(path3.join(root, "anvil.db"), database);
+    return new _StateDatabase(path4.join(root, "anvil.db"), database);
   }
   close() {
     this.db.close();
@@ -7768,7 +7982,7 @@ var StateDatabase = class _StateDatabase {
 // src/state/artifact-store.ts
 import { mkdir as mkdir3, open, realpath as realpath2, rename, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
-import path4 from "node:path";
+import path5 from "node:path";
 
 // src/util/hash.ts
 import { createHash } from "node:crypto";
@@ -7818,7 +8032,7 @@ var ArtifactStore = class {
     const root = this.runRoot(runId);
     const target = containedPath(root, relativePath);
     await assertSafeSymlink(root, target);
-    await mkdir3(path4.dirname(target), {
+    await mkdir3(path5.dirname(target), {
       recursive: true
     });
     await assertSafeSymlink(root, target);
@@ -7863,18 +8077,18 @@ var ArtifactStore = class {
   async capture(runId, sourcePath, attemptId, index) {
     try {
       const bytes = await this.safeBytes(runId, sourcePath);
-      return await this.putBytes(runId, "implementation-verification-file", `artifacts/implementation/${attemptId}/verification-${index}-${crypto.randomUUID()}${path4.extname(sourcePath)}`, bytes, "application/octet-stream", attemptId);
+      return await this.putBytes(runId, "implementation-verification-file", `artifacts/implementation/${attemptId}/verification-${index}-${crypto.randomUUID()}${path5.extname(sourcePath)}`, bytes, "application/octet-stream", attemptId);
     } catch (error) {
       throw new AnvilError("ARTIFACT_CORRUPT", `Cannot capture Smith verification artifact ${JSON.stringify(sourcePath)}. Supply an existing regular file relative to this run's artifact root, without symlinks or path escapes. ${error instanceof Error ? error.message : String(error)}`, error);
     }
   }
   async safeBytes(runId, relativePath) {
-    const root = path4.resolve(this.runRoot(runId));
+    const root = path5.resolve(this.runRoot(runId));
     const target = containedPath(root, relativePath);
     await assertSafeSymlink(root, target);
     const canonicalRoot = await realpath2(root);
     const canonicalTarget = await realpath2(target);
-    containedPath(canonicalRoot, path4.relative(canonicalRoot, canonicalTarget));
+    containedPath(canonicalRoot, path5.relative(canonicalRoot, canonicalTarget));
     const file = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
       if (!(await file.stat()).isFile()) throw new AnvilError("ARTIFACT_CORRUPT", `Artifact is not a regular file: ${relativePath}`);
@@ -7886,8 +8100,8 @@ var ArtifactStore = class {
 };
 
 // src/state/lock.ts
-import { mkdir as mkdir4, readFile as readFile2, unlink, open as open2, writeFile as writeFile2, rename as rename2 } from "node:fs/promises";
-import path5 from "node:path";
+import { mkdir as mkdir4, readFile as readFile3, unlink, open as open2, writeFile as writeFile2, rename as rename2 } from "node:fs/promises";
+import path6 from "node:path";
 function localHostname() {
   return process.env.HOSTNAME ?? "unknown";
 }
@@ -7919,7 +8133,7 @@ var WorkspaceLock = class {
     this.held = false;
   }
   async acquire(runId, staleAfterMs = 30 * 60 * 1e3, isRunActive2) {
-    await mkdir4(path5.dirname(this.root), {
+    await mkdir4(path6.dirname(this.root), {
       recursive: true
     });
     const now2 = (/* @__PURE__ */ new Date()).toISOString();
@@ -7969,7 +8183,7 @@ var WorkspaceLock = class {
   }
   async readRecord() {
     try {
-      const parsed = JSON.parse(await readFile2(this.root, "utf8"));
+      const parsed = JSON.parse(await readFile3(this.root, "utf8"));
       return isValidRecord(parsed) ? parsed : void 0;
     } catch {
       return void 0;
@@ -8011,7 +8225,7 @@ import { createHash as createHash2 } from "node:crypto";
 import { constants as constants2 } from "node:fs";
 import { lstat as lstat2, mkdtemp, open as open3, readlink, rm } from "node:fs/promises";
 import os from "node:os";
-import path6 from "node:path";
+import path7 from "node:path";
 var DIFF_OPTIONS = [
   "--binary",
   "--no-ext-diff",
@@ -8265,7 +8479,7 @@ var GitRevisionProvider = class {
     return evidenceOperation("render the exact-workspace review diff", async () => {
       verifySnapshot(base, "git-tree-v1");
       verifySnapshot(target, "git-tree-v1");
-      const directory = await mkdtemp(path6.join(os.tmpdir(), "anvil-review-diff-"));
+      const directory = await mkdtemp(path7.join(os.tmpdir(), "anvil-review-diff-"));
       try {
         gitBytes(directory, [
           "init",
@@ -8427,10 +8641,10 @@ var GitRevisionProvider = class {
     try {
       let parent = this.root;
       for (const part of relative.split("/").slice(0, -1)) {
-        parent = path6.join(parent, part);
+        parent = path7.join(parent, part);
         if (!(await lstat2(parent)).isDirectory()) return void 0;
       }
-      const absolute = path6.join(this.root, relative);
+      const absolute = path7.join(this.root, relative);
       const stat = await lstat2(absolute);
       if (stat.isSymbolicLink()) return {
         path: relative,
@@ -8694,8 +8908,8 @@ async function loadSettings(host, cwd) {
   if (!result || typeof result.get !== "function") throw new Error("OMP Settings API could not create a settings instance");
   return result;
 }
-function applySetting(settings, path12, value2) {
-  if (typeof settings.override === "function") settings.override(path12, value2);
+function applySetting(settings, path13, value2) {
+  if (typeof settings.override === "function") settings.override(path13, value2);
 }
 function configureSettings(settings, request) {
   applySetting(settings, "async.enabled", false);
@@ -9011,7 +9225,7 @@ var OptionalMemoryAdapter = class {
 };
 
 // src/workflow/engine.ts
-import path7 from "node:path";
+import path8 from "node:path";
 
 // src/config/hash.ts
 function configHash(config) {
@@ -10300,11 +10514,11 @@ var validateReview = ajv.compile(REVIEW_OUTPUT_SCHEMA);
 function requireOutput(value2, validate, role) {
   if (validate(value2)) return value2;
   const error = validate.errors?.[0];
-  let path12 = error?.instancePath ?? "";
+  let path13 = error?.instancePath ?? "";
   const property = error?.keyword === "required" ? error.params.missingProperty : error?.keyword === "additionalProperties" ? error.params.additionalProperty : void 0;
-  if (typeof property === "string") path12 += `/${property.replaceAll("~", "~0").replaceAll("/", "~1")}`;
+  if (typeof property === "string") path13 += `/${property.replaceAll("~", "~0").replaceAll("/", "~1")}`;
   const detail = error ? `${error.message} (${JSON.stringify(error.params)})` : "does not match its output schema";
-  throw new AnvilError("SCHEMA_INVALID", `${role} output ${path12 || "/"} ${detail}`);
+  throw new AnvilError("SCHEMA_INVALID", `${role} output ${path13 || "/"} ${detail}`);
 }
 function requirePlan(value2) {
   const plan = requireOutput(value2, validatePlan, "Architect");
@@ -10381,7 +10595,7 @@ var WorkflowEngine = class {
       workflowVersion: 1,
       configHash: configHash(this.deps.config),
       workspaceRoot: input.workspaceRoot,
-      objectivePath: path7.join("runs", runId, "objective.md"),
+      objectivePath: path8.join("runs", runId, "objective.md"),
       baseRevisionId: revision.id,
       currentRevisionId: revision.id,
       mutationEpoch: 0,
@@ -10661,7 +10875,7 @@ var WorkflowEngine = class {
       attemptId: attempt.id,
       role: "implementation",
       agentName: this.deps.config.agents.implementation.agent,
-      assignment: `Implement the active plan and resolve the referenced open findings. Preserve verification results in ImplementationOutput.verification; missing entries mean not provided. Save supporting files under ${path7.dirname(handoff.envelope.objective.path)} and report artifactPaths relative to that run root, never commands or workspace paths.`,
+      assignment: `Implement the active plan and resolve the referenced open findings. Preserve verification results in ImplementationOutput.verification; missing entries mean not provided. Save supporting files under ${path8.dirname(handoff.envelope.objective.path)} and report artifactPaths relative to that run root, never commands or workspace paths.`,
       context: handoff.text,
       outputSchema: IMPLEMENTATION_OUTPUT_SCHEMA,
       schemaMode: "strict",
@@ -11025,7 +11239,8 @@ var WorkflowEngine = class {
   }
   assertConfiguredChecks() {
     const checks = this.deps.config.checks;
-    if (!checks.length || checks.some((check) => !check.id.trim() || !check.command.length || !check.command[0]?.trim()) || new Set(checks.map((check) => check.id)).size !== checks.length) throw new AnvilError("CONFIG_INVALID", "Warden requires configured deterministic checks with unique IDs and nonempty commands. Configure checks in Anvil; package scripts are never discovered or executed automatically.");
+    if (!checks.length) throw new AnvilError("CONFIG_INVALID", "Warden requires deterministic checks, but none were configured or discovered from root package.json scripts or deno.json/deno.jsonc tasks. Add finite verification scripts/tasks or configure checks explicitly in Anvil.");
+    if (checks.some((check) => !check.id.trim() || !check.command.length || !check.command[0]?.trim()) || new Set(checks.map((check) => check.id)).size !== checks.length) throw new AnvilError("CONFIG_INVALID", "Warden requires deterministic checks with unique IDs and nonempty commands. Correct the checks configured in Anvil.");
   }
   requiredChecks(plan) {
     this.assertConfiguredChecks();
@@ -11341,7 +11556,7 @@ async function createRuntime(workspaceRoot, context, explicitConfigPath, host) {
     }
   };
   const state = await StateDatabase.open(absoluteRuntimeRoot);
-  const artifacts = new ArtifactStore(state, (runId) => path8.join(absoluteRuntimeRoot, "runs", runId));
+  const artifacts = new ArtifactStore(state, (runId) => path9.join(absoluteRuntimeRoot, "runs", runId));
   const compat = createOmpCompat(context, host);
   const agents = new OmpSubprocessRunner(compat);
   const discovered = Object.values(config.agents).map((agent) => agent.agent);
@@ -11353,7 +11568,7 @@ async function createRuntime(workspaceRoot, context, explicitConfigPath, host) {
     artifacts,
     revisions: new GitRevisionProvider(workspaceRoot, {
       ignore: [
-        `${path8.relative(workspaceRoot, absoluteRuntimeRoot).split(path8.sep).join("/")}/`
+        `${path9.relative(workspaceRoot, absoluteRuntimeRoot).split(path9.sep).join("/")}/`
       ]
     }),
     agents,
@@ -11365,17 +11580,17 @@ async function createRuntime(workspaceRoot, context, explicitConfigPath, host) {
     config,
     state,
     runtimeRoot: absoluteRuntimeRoot,
-    lock: new WorkspaceLock(path8.join(absoluteRuntimeRoot, "lock.json"))
+    lock: new WorkspaceLock(path9.join(absoluteRuntimeRoot, "lock.json"))
   };
 }
 
 // src/commands/router.ts
-import { access as access3 } from "node:fs/promises";
-import path11 from "node:path";
+import { access as access4 } from "node:fs/promises";
+import path12 from "node:path";
 
 // src/config/init.ts
 import { mkdir as mkdir5, writeFile as writeFile3 } from "node:fs/promises";
-import path9 from "node:path";
+import path10 from "node:path";
 var GLOBAL_CONFIG_TEMPLATE = `# Shared Forge settings for all repositories.
 # Omitted values inherit Anvil's built-in defaults.
 # Model mappings live in OMP's global agent config; run /anvil config to see its path.
@@ -11392,16 +11607,16 @@ agents:
   review: # Inquisitor
     agent: inquisitor
 
-# Configure Warden commands here or in each repository's .omp/anvil.yml.
-# Forge refuses empty checks; package scripts are not automatically executed.
-# See docs/configuration.md for check IDs, argv commands, requiredness and timeouts.
+# Nonempty Warden checks here or in .omp/anvil.yml override automatic discovery.
+# Empty checks discover supported finite verification scripts from root manifests.
+# Discovery never edits settings; see docs/configuration.md for rules and overrides.
 # Optional budget overrides may also be added below.
 `;
 var PROJECT_CONFIG_TEMPLATE = `# Repository-specific Forge overrides.
 # Values here override the global settings; omitted values continue to inherit.
-# Configure repository Warden checks unless inherited from the global file.
-# At least one check must be required by configuration or by Architect's plan.
-# No checks are inferred from package.json; see docs/configuration.md.
+# Empty effective checks discover supported verification scripts from root manifests.
+# Nonempty explicit checks override discovery; discovered checks are all required.
+# No supported checks means the run stops; see docs/configuration.md for overrides.
 version: 1
 `;
 async function ensureGlobalConfig() {
@@ -11429,7 +11644,7 @@ async function initConfig(workspaceRoot) {
   };
 }
 async function createIfMissing(filePath, content) {
-  await mkdir5(path9.dirname(filePath), {
+  await mkdir5(path10.dirname(filePath), {
     recursive: true
   });
   try {
@@ -11638,8 +11853,8 @@ ${finding.description}`)
 }
 
 // src/update.ts
-import { readFile as readFile3 } from "node:fs/promises";
-import path10 from "node:path";
+import { readFile as readFile4 } from "node:fs/promises";
+import path11 from "node:path";
 import { fileURLToPath } from "node:url";
 var UpdateError = class extends Error {
   constructor(message) {
@@ -11652,11 +11867,11 @@ var MARKETPLACE = "omp-anvil";
 var PLUGIN_ID = "oh-my-pi-anvil@omp-anvil";
 var RELEASE_API = `https://api.github.com/repos/${REPOSITORY}/releases/latest`;
 var RELEASE_BASE = `https://github.com/${REPOSITORY}/releases/tag/`;
-var MODULE_DIRECTORY = path10.dirname(fileURLToPath(import.meta.url));
+var MODULE_DIRECTORY = path11.dirname(fileURLToPath(import.meta.url));
 var PACKAGE_ROOT = [
   "src",
   "dist"
-].includes(path10.basename(MODULE_DIRECTORY)) ? path10.resolve(MODULE_DIRECTORY, "..") : MODULE_DIRECTORY;
+].includes(path11.basename(MODULE_DIRECTORY)) ? path11.resolve(MODULE_DIRECTORY, "..") : MODULE_DIRECTORY;
 var SEMVER = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
 function versionTuple(value2) {
   const match = SEMVER.exec(value2);
@@ -11674,7 +11889,7 @@ function newer(left, right) {
 }
 async function packageVersion(root = PACKAGE_ROOT) {
   try {
-    const packageJson = JSON.parse(await readFile3(path10.join(root, "package.json"), "utf8"));
+    const packageJson = JSON.parse(await readFile4(path11.join(root, "package.json"), "utf8"));
     if (!packageJson.version) throw new Error("missing version");
     versionTuple(packageJson.version);
     return packageJson.version;
@@ -11752,12 +11967,12 @@ async function managedInstallation(profile, expectedRoot, cwd) {
   for (const summary of await installedPlugins(profile, cwd)) {
     if (summary.id !== PLUGIN_ID || summary.scope !== "user" && summary.scope !== "project" || summary.shadowedBy || !summary.entries || summary.entries.length !== 1) continue;
     const entry = summary.entries[0];
-    if (entry.enabled === false || entry.scope !== summary.scope || !entry.installPath || !path10.isAbsolute(entry.installPath) || expectedRoot && path10.resolve(entry.installPath) !== path10.resolve(expectedRoot)) continue;
+    if (entry.enabled === false || entry.scope !== summary.scope || !entry.installPath || !path11.isAbsolute(entry.installPath) || expectedRoot && path11.resolve(entry.installPath) !== path11.resolve(expectedRoot)) continue;
     const version = await packageVersion(entry.installPath);
     if (entry.version !== version) throw new UpdateError("OMP registry and installed Anvil versions disagree; inspect `omp plugin list` before updating.");
     matches.push({
       scope: summary.scope,
-      installPath: path10.resolve(entry.installPath),
+      installPath: path11.resolve(entry.installPath),
       version
     });
   }
@@ -11838,10 +12053,10 @@ async function configurationLocations(cwd) {
   const projectConfig = existingProject ?? (projectRoot ? projectConfigPath(projectRoot) : projectConfigPath(cwd));
   const globalConfig = globalConfigPath();
   let globalConfigPresent = false;
-  let effectiveRuntimeRoot = path11.resolve(cwd, ".anvil");
+  let effectiveRuntimeRoot = path12.resolve(cwd, ".anvil");
   let configError;
   try {
-    await access3(globalConfig);
+    await access4(globalConfig);
     globalConfigPresent = true;
   } catch (error) {
     if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {

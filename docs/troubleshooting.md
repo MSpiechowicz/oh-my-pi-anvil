@@ -57,7 +57,9 @@ Forge recomputes the workspace fingerprint. If files changed, it records the new
 
 ## Warden has no checks or a required check is missing
 
-Configure executable check IDs in `.omp/anvil.yml` or the global settings before starting a run. Empty checks stop with `CONFIG_INVALID` before any model call. Architect's `requiredChecks` must refer to configured IDs; at least one configured or plan-selected check must be required. A package script or a check name mentioned in prose does not configure Warden. Put browser/manual obligations in acceptance criteria and provide verification evidence separately.
+When the merged `checks` list is empty, Forge scans supported root manifests for finite verification commands. If none are found, the run stops with `CONFIG_INVALID` before any model call. Check the script/task names and commands against the [discovery rules](configuration.md#warden-verification-requirements), or configure executable checks in `.omp/anvil.yml` or the global settings. A nonempty explicit list overrides discovery; a project `checks: []` replaces inherited checks and requests a fresh scan. Discovery does not edit either settings file.
+
+Architect's `requiredChecks` must refer to effective check IDs, whether explicit or discovered; at least one configured or plan-selected check must be required. A check name mentioned only in prose does not configure Warden. Put browser/manual obligations in acceptance criteria and provide verification evidence separately.
 
 Changing check configuration changes workflow policy. Preserve existing source work, fix the overlay, and start a new run describing only what remains; budget-only resume cannot adopt new check commands. See [Warden verification requirements](configuration.md#warden-verification-requirements).
 
