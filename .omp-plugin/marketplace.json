@@ -10,11 +10,11 @@
     {
       "name": "oh-my-pi-anvil",
       "description": "Stateful multi-agent orchestration with exact revision gates and resumable workflow state",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "source": {
         "source": "github",
         "repo": "MSpiechowicz/oh-my-pi-anvil",
-        "ref": "v0.1.1"
+        "ref": "v0.1.2"
       },
       "homepage": "https://github.com/MSpiechowicz/oh-my-pi-anvil"
     }
