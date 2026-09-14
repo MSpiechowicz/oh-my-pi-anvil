@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "./test-helpers.ts";
 import anvilExtension, { type ExtensionContext } from "../src/extension.ts";
 import { CommandRouter } from "../src/commands/router.ts";
@@ -103,11 +104,113 @@ describe("OMP command registration", () => {
     }
   });
 
+  test("reports a managed Anvil update after startup in the background", async () => {
+    const configHome = await mkdtemp("/tmp/anvil-update-config-");
+    const executableHome = await mkdtemp("/tmp/anvil-update-omp-");
+    const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const packageJson = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
+    if (!packageJson || typeof packageJson !== "object" || !("version" in packageJson) || typeof packageJson.version !== "string") {
+      throw new Error("package.json version is unavailable");
+    }
+    const packageVersion = packageJson.version;
+    const ompPath = path.join(executableHome, "omp");
+    const previousConfig = process.env.XDG_CONFIG_HOME;
+    const previousPath = process.env.PATH;
+    const previousFetch = globalThis.fetch;
+    const notices: Array<{ message: string; level?: string }> = [];
+    const scheduled: Array<() => void | Promise<void>> = [];
+    let sessionStart: SessionStartHandler | undefined;
+    let forgeHandler: ((args: string, context: ExtensionContext) => Promise<void>) | undefined;
+    try {
+      process.env.XDG_CONFIG_HOME = configHome;
+      process.env.PATH = `${executableHome}${path.delimiter}${previousPath ?? ""}`;
+      await mkdir(path.join(configHome, "omp"), { recursive: true });
+      await Deno.writeTextFile(path.join(configHome, "omp", "anvil.yml"), "version: 1\n");
+      await Deno.writeTextFile(
+        ompPath,
+        `#!/bin/sh
+printf '%s\n' '${
+          JSON.stringify({
+            marketplace: [{
+              id: "oh-my-pi-anvil@omp-anvil",
+              scope: "user",
+              entries: [{ scope: "user", installPath: packageRoot, version: packageVersion }],
+            }],
+          })
+        }'`,
+      );
+      await Deno.chmod(ompPath, 0o755);
+      globalThis.fetch = async () =>
+        new Response(
+          JSON.stringify({
+            draft: false,
+            prerelease: false,
+            tag_name: "v999.0.0",
+          }),
+          { status: 200 },
+        );
+
+      anvilExtension({
+        registerCommand(name, definition) {
+          if (name === "forge") forgeHandler = definition.handler;
+        },
+        on(event, handler) {
+          if (event === "session_start") sessionStart = handler;
+        },
+      });
+      if (!sessionStart || !forgeHandler) throw new Error("Anvil startup handlers were not registered");
+
+      await sessionStart({}, {
+        cwd: packageRoot,
+        hasUI: true,
+        setTimeout(callback) {
+          scheduled.push(callback);
+          return 1;
+        },
+        ui: {
+          notify(message, level) {
+            notices.push({ message, level });
+          },
+        },
+      });
+      expect(notices).toHaveLength(0);
+      expect(scheduled).toHaveLength(1);
+
+      await scheduled[0]();
+      expect(notices).toEqual([{
+        message: "Anvil update available. Run `/forge update install` to update it.",
+        level: "warning",
+      }]);
+      await forgeHandler("/forge update check", {
+        cwd: packageRoot,
+        hasUI: true,
+        ui: {
+          notify(message, level) {
+            notices.push({ message, level });
+          },
+        },
+      });
+      expect(notices).toHaveLength(2);
+      expect(notices[1].message).toContain("ANVIL · UPDATE AVAILABLE");
+      expect(notices[1].message).toContain("LATEST     999.0.0");
+      expect(notices[1].level).toBe("info");
+    } finally {
+      if (previousConfig === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previousConfig;
+      if (previousPath === undefined) delete process.env.PATH;
+      else process.env.PATH = previousPath;
+      globalThis.fetch = previousFetch;
+      await rm(configHome, { recursive: true, force: true });
+      await rm(executableHome, { recursive: true, force: true });
+    }
+  });
+
   test("lists forge init in router help", async () => {
     const router = new CommandRouter(async () => {
       throw new Error("help should not initialize workflow state");
     });
     const help = await router.handle("help", { cwd: "/tmp" });
     expect(help).toContain("/forge init");
+    expect(help).toContain("/forge update check|install");
   });
 });

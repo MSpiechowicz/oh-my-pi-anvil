@@ -2645,7 +2645,11 @@ var MARKETPLACE = "omp-anvil";
 var PLUGIN_ID = "oh-my-pi-anvil@omp-anvil";
 var RELEASE_API = `https://api.github.com/repos/${REPOSITORY}/releases/latest`;
 var RELEASE_BASE = `https://github.com/${REPOSITORY}/releases/tag/`;
-var PACKAGE_ROOT = path10.resolve(path10.dirname(fileURLToPath(import.meta.url)), "..");
+var MODULE_DIRECTORY = path10.dirname(fileURLToPath(import.meta.url));
+var PACKAGE_ROOT = [
+  "src",
+  "dist"
+].includes(path10.basename(MODULE_DIRECTORY)) ? path10.resolve(MODULE_DIRECTORY, "..") : MODULE_DIRECTORY;
 var SEMVER = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
 function versionTuple(value2) {
   const match = SEMVER.exec(value2);
@@ -2756,12 +2760,13 @@ async function managedInstallation(profile, expectedRoot, cwd) {
 async function checkUpdate(profile, cwd = process.cwd()) {
   const currentVersion = await packageVersion();
   const release = await latestRelease();
+  const managed = Boolean(await managedInstallation(profile, PACKAGE_ROOT, cwd));
   const report = {
     currentVersion,
     latestVersion: release?.version ?? null,
-    updateAvailable: release ? newer(release.version, currentVersion) : false,
+    updateAvailable: Boolean(release && managed && newer(release.version, currentVersion)),
     releaseUrl: release?.url ?? null,
-    managed: Boolean(await managedInstallation(profile, PACKAGE_ROOT, cwd))
+    managed
   };
   if (!report.managed) report.message = "This Anvil installation is not an unambiguous active OMP marketplace installation. Source checkouts are updated with git pull and a rebuild.";
   else if (!release) report.message = "No published stable GitHub release is available.";
@@ -2918,15 +2923,26 @@ function anvilExtension(pi) {
     } catch {
     }
   };
+  const checkForUpdate = async (context) => {
+    try {
+      const report = await checkUpdate(process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd);
+      if (report.updateAvailable && report.managed) {
+        await notify(context, "Anvil update available. Run `/forge update install` to update it.", "warning");
+      }
+    } catch {
+    }
+  };
   pi.on?.("session_start", async (_event, context) => {
     try {
       const report = await ensureGlobalConfig();
-      if (report.status !== "created") return;
-      await notify(context, `Anvil is installed. Created the global configuration at ${report.path}. Edit this file, then run /forge doctor. In a repository, run /forge init to create the project overlay.`, "info");
+      if (report.status === "created") {
+        await notify(context, `Anvil is installed. Created the global configuration at ${report.path}. Edit this file, then run /forge doctor. In a repository, run /forge init to create the project overlay.`, "info");
+      }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       await notify(context, `Anvil could not create its global configuration: ${detail}. Check the configuration directory permissions and run /forge init after fixing them.`, "warning");
     }
+    if (context.hasUI !== false) context.setTimeout?.(() => checkForUpdate(context), 0);
   });
 }
 export {

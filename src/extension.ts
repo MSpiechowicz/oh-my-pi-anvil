@@ -1,13 +1,15 @@
 import { createRuntime } from "./runtime.ts";
 import { CommandRouter } from "./commands/router.ts";
 import { ensureGlobalConfig } from "./config/init.ts";
-
+import { checkUpdate } from "./update.ts";
 export interface ExtensionUI {
   notify?: (message: string, level?: string) => unknown;
 }
 export interface ExtensionContext {
   cwd: string;
   runtimeContext?: unknown;
+  hasUI?: boolean;
+  setTimeout?: (callback: () => void, delay?: number) => unknown;
   ui?: ExtensionUI;
   respond?: (message: string) => void | Promise<void>;
   [key: string]: unknown;
@@ -40,16 +42,27 @@ export default function anvilExtension(pi: ExtensionAPI): void {
       // Startup notifications must never prevent OMP from opening.
     }
   };
+  const checkForUpdate = async (context: ExtensionContext): Promise<void> => {
+    try {
+      const report = await checkUpdate(process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd);
+      if (report.updateAvailable && report.managed) {
+        await notify(context, "Anvil update available. Run `/forge update install` to update it.", "warning");
+      }
+    } catch {
+      // Background startup update checks are best effort and remain quiet.
+    }
+  };
 
   pi.on?.("session_start", async (_event, context) => {
     try {
       const report = await ensureGlobalConfig();
-      if (report.status !== "created") return;
-      await notify(
-        context,
-        `Anvil is installed. Created the global configuration at ${report.path}. Edit this file, then run /forge doctor. In a repository, run /forge init to create the project overlay.`,
-        "info",
-      );
+      if (report.status === "created") {
+        await notify(
+          context,
+          `Anvil is installed. Created the global configuration at ${report.path}. Edit this file, then run /forge doctor. In a repository, run /forge init to create the project overlay.`,
+          "info",
+        );
+      }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       await notify(
@@ -58,5 +71,6 @@ export default function anvilExtension(pi: ExtensionAPI): void {
         "warning",
       );
     }
+    if (context.hasUI !== false) context.setTimeout?.(() => checkForUpdate(context), 0);
   });
 }
