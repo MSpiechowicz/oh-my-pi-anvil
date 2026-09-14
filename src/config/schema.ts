@@ -15,7 +15,12 @@ function normalizeTokenLimit(value: unknown, label: string): number | undefined 
 export function validateConfig(config: WorkflowConfig): WorkflowConfig {
   rejectUnknownKeys(config, TOP_LEVEL_KEYS, "top-level config");
   rejectUnknownKeys(config.workflow, ["name"], "workflow");
-  for (const role of ROLES) rejectUnknownKeys(config.agents[role], ["agent", "model", "effort"], `agents.${role}`);
+  for (const role of ROLES) {
+    const agent = config.agents[role];
+    rejectUnknownKeys(agent, ["agent", "model", "thinkingLevel", "effort"], `agents.${role}`);
+    if (agent.model !== undefined && (typeof agent.model !== "string" || !agent.model.trim())) throw new AnvilError("CONFIG_INVALID", `agents.${role}.model must be a non-empty string`);
+    if (agent.thinkingLevel !== undefined && !["off", "minimal", "low", "medium", "high", "xhigh", "max", "auto"].includes(agent.thinkingLevel)) throw new AnvilError("CONFIG_INVALID", `Invalid agents.${role}.thinkingLevel`);
+  }
   for (const check of config.checks ?? []) rejectUnknownKeys(check, ["id", "command", "cwd", "env", "required", "timeoutMs"], `check ${check.id}`);
   rejectUnknownKeys(config.security, ["failOn", "maxAttempts", "policyVersion"], "security");
   rejectUnknownKeys(config.review, ["maxAttempts", "blockOn", "policyVersion"], "review");

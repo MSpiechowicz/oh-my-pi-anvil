@@ -252,6 +252,8 @@ modelRoles:
 
 The Warden is deterministic and has no model mapping. The default agent definitions reference the canonical aliases above. Anvil never chooses a provider for you. For the complete configuration reference, see [Configuration](docs/configuration.md).
 
+Each new run snapshots the inherited OMP models and thinking levels into `effective-config.json` under `agents.<role>.model` and `agents.<role>.thinkingLevel`. Set either field explicitly in your Anvil configuration to override inheritance; the saved values are also applied to child execution.
+
 ## Persistence and recovery
 
 Runtime state lives under `.anvil/` by default.

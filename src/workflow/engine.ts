@@ -132,6 +132,8 @@ export class WorkflowEngine {
   }
 
   private async runAgent<T>(attempt: AttemptRecord, request: AgentRunRequest): Promise<AgentRunResult<T>> {
+    const configured = this.deps.config.agents[request.role];
+    request = { ...request, model: configured.model, thinkingLevel: configured.thinkingLevel, effort: configured.effort };
     const started = performance.now();
     let result: AgentRunResult<T>;
     let executionError: unknown;

@@ -1,4 +1,4 @@
-import type { AgentRunRequest, AgentRunResult } from "../workflow/types.ts";
+import type { AgentRunRequest, AgentRunResult, WorkflowConfig } from "../workflow/types.ts";
 
 export interface OmpCompat {
   discoverAgents?: (cwd: string) => Promise<Array<{ name: string; disabled?: boolean }>>;
@@ -73,6 +73,41 @@ async function loadSettings(host: AnyRecord, cwd: string): Promise<NativeSetting
   return result as NativeSettings;
 }
 
+export async function resolveAgentSettings(config: WorkflowConfig, cwd: string, context: unknown, host?: unknown): Promise<void> {
+  const direct = asRecord(context);
+  const native = asRecord(host) ?? asRecord(direct?.host) ?? asRecord(direct?.omp) ?? asRecord(direct?.pi);
+  const candidate = native && asRecord(native.Settings) ? await loadSettings(native, cwd) : asRecord(direct?.settings);
+  const settings = candidate && typeof candidate.get === "function" ? candidate as NativeSettings : undefined;
+  const overrides = settings ? asRecord(settings.get("task.agentModelOverrides")) : undefined;
+  const roles = settings ? asRecord(settings.get("modelRoles")) : undefined;
+  const globalThinking = settings ? stringValue(settings.get("defaultThinkingLevel")) : undefined;
+  const discovered = native && typeof native.discoverAgents === "function" ? await discoverNativeAgents(native, cwd) : [];
+  for (const agent of Object.values(config.agents)) {
+    const definition = discovered.find((entry) => entry.name === agent.agent);
+    let model = agent.model ?? stringValue(overrides?.[agent.agent]) ?? stringValue(roles?.[agent.agent]) ?? stringValue(definition?.model) ?? stringValue(roles?.default) ?? currentModelSelector(context);
+    let thinking: string | undefined;
+    const visited = new Set<string>();
+    while (model && !visited.has(model)) {
+      visited.add(model);
+      const suffix = model.match(/:(off|minimal|low|medium|high|xhigh|max|auto)$/);
+      thinking ??= suffix?.[1];
+      if (suffix) model = model.slice(0, -suffix[0].length);
+      const role = model.match(/^(?:@|pi\/)([^/]+)$/)?.[1];
+      if (!role) break;
+      const resolved = stringValue(roles?.[role]);
+      if (!resolved) break;
+      model = resolved;
+    }
+    agent.model = model;
+    agent.thinkingLevel ??= thinking ?? stringValue(definition?.thinkingLevel) ?? globalThinking;
+  }
+}
+
+function requestModel(request: AgentRunRequest): string | undefined {
+  if (!request.model || !request.thinkingLevel) return request.model;
+  return `${request.model.replace(/:(off|minimal|low|medium|high|xhigh|max|auto)$/, "")}:${request.thinkingLevel}`;
+}
+
 function applySetting(settings: NativeSettings, path: string, value: unknown): void {
   if (typeof settings.override === "function") settings.override(path, value);
 }
@@ -81,6 +116,10 @@ function configureSettings(settings: NativeSettings, request: AgentRunRequest): 
   // Forge owns completion accounting, so a child must settle before the
   // workflow advances even when the host normally enables background tasks.
   applySetting(settings, "async.enabled", false);
+  if (request.model !== undefined) {
+    applySetting(settings, "task.agentModelOverrides", { ...asRecord(settings.get("task.agentModelOverrides")), [request.agentName]: requestModel(request) });
+  }
+  if (request.thinkingLevel !== undefined) applySetting(settings, "defaultThinkingLevel", request.thinkingLevel);
   if (request.role === "security" || request.role === "review") {
     applySetting(settings, "github.enabled", true);
     applySetting(settings, "browser.enabled", true);
@@ -138,6 +177,9 @@ function nativeExecutorOptions(context: unknown, request: AgentRunRequest, agent
     sessionFile: null,
     signal: request.signal,
     settings,
+    modelOverride: requestModel(request),
+    thinkingLevel: request.thinkingLevel,
+    ...(request.effort != null ? { effort: request.effort } : {}),
   };
   const modelRegistry = contextRecord?.modelRegistry;
   if (modelRegistry !== undefined) options.modelRegistry = modelRegistry;
@@ -302,6 +344,8 @@ async function executeNativeTask<T>(context: unknown, host: AnyRecord, request: 
     outputSchema: request.outputSchema,
     schemaMode: request.schemaMode,
   };
+  if (request.model !== undefined) params.model = requestModel(request);
+  if (request.effort != null) params.effort = request.effort;
   if (request.isolation?.requested) params.isolated = true;
   return mapNativeResult<T>(request, await task.execute(`anvil-${request.attemptId}`, params, request.signal));
 }

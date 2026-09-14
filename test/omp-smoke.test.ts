@@ -1,6 +1,7 @@
 import { describe, expect, test } from "./test-helpers.ts";
-import { createOmpCompat } from "../src/runners/omp-compat.ts";
+import { createOmpCompat, resolveAgentSettings } from "../src/runners/omp-compat.ts";
 import { OmpSubprocessRunner } from "../src/runners/omp-subprocess-runner.ts";
+import { DEFAULT_CONFIG } from "../src/config/defaults.ts";
 
 const request = {
   runId: "run",
@@ -30,6 +31,45 @@ function hasIsolatedHandoff(params: unknown): boolean {
 
 
 describe("OMP adapter", () => {
+  test("snapshots global role models and thinking without overriding manual settings", async () => {
+    const config = structuredClone(DEFAULT_CONFIG);
+    config.agents.implementation.model = "manual/model:low";
+    config.agents.implementation.thinkingLevel = "off";
+    const values: Record<string, unknown> = {
+      modelRoles: { architect: "@slow", slow: "global/planner:high", default: "global/default" },
+      "task.agentModelOverrides": { sentinel: "global/security:medium" },
+      defaultThinkingLevel: "xhigh",
+    };
+    await resolveAgentSettings(config, "/tmp", {}, {
+      Settings: { loadReadOnly: () => ({ get: (key: string) => values[key] }) },
+      discoverAgents: () => ({ agents: [{ name: "architect", model: "@architect" }] }),
+    });
+    expect(config.agents.planner).toEqual({ agent: "architect", model: "global/planner", thinkingLevel: "high" });
+    expect(config.agents.implementation).toEqual({ agent: "smith", model: "manual/model", thinkingLevel: "off" });
+    expect(config.agents.security).toEqual({ agent: "sentinel", model: "global/security", thinkingLevel: "medium" });
+    expect(config.agents.review).toEqual({ agent: "inquisitor", model: "global/default", thinkingLevel: "xhigh" });
+    values.defaultThinkingLevel = "low";
+    await resolveAgentSettings(config, "/tmp", { settings: { get: (key: string) => values[key] } });
+    expect(config.agents.review.thinkingLevel).toBe("xhigh");
+  });
+
+  test("explicit thinking overrides model suffixes in subprocess and isolated execution", async () => {
+    const configured = { ...request, model: "provider/model:high", thinkingLevel: "off" };
+    const resultFor = (model: unknown) => ({
+      exitCode: model === "provider/model:off" ? 0 : 1,
+      structuredOutput: { status: "valid", data: { accepted: true } },
+      error: model === "provider/model:off" ? undefined : "Thinking override lost",
+    });
+    const compat = createOmpCompat({}, {
+      Settings: { loadReadOnly: () => ({ get: () => ({}), override: () => {} }) },
+      discoverAgents: () => ({ agents: [{ name: "architect", tools: ["read"] }] }),
+      runSubprocess: (options: { modelOverride?: string }) => resultFor(options.modelOverride),
+      TaskTool: { create: () => ({ execute: (_id: string, params: { model?: string }) => resultFor(params.model) }) },
+    });
+    expect((await compat.execute!(configured)).status).toBe("completed");
+    expect((await compat.execute!({ ...configured, isolation: { requested: true, apply: true, merge: "patch" } })).status).toBe("completed");
+  });
+
   test("fails clearly when no host executor is available", async () => {
     const runner = new OmpSubprocessRunner({});
     const result = await runner.run({ ...request, agentName: "missing" });

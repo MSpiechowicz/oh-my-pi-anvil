@@ -140,7 +140,7 @@ The V1 configuration controls:
 - handoff and durable-memory limits;
 - persistence options and safety flags.
 
-Model and provider choices remain in the host OMP model-role settings. Anvil does not select a provider for you. The default agent definitions use the canonical role aliases:
+Model and provider choices default to the host OMP model-role settings. Before starting a run, Anvil snapshots each agent's `model` and `thinkingLevel` into `effective-config.json` and uses those values for child execution. Explicit Anvil agent settings win; otherwise models inherit OMP per-agent overrides, named model roles, agent definitions, then the default model. Thinking inherits a model suffix, the agent definition, or OMP's `defaultThinkingLevel`. Anvil does not select a provider for you. The default agent definitions use the canonical role aliases:
 
 ```yaml
 modelRoles:
@@ -165,6 +165,18 @@ agents:
 ```
 
 All four configured names are checked by `/anvil doctor` and at Forge run startup. A missing agent is reported before model work begins.
+
+Override either value in the global Anvil file or a project overlay:
+
+```yaml
+agents:
+  implementation:
+    agent: smith
+    model: "provider/coding"
+    thinkingLevel: high
+```
+
+An explicit `thinkingLevel` wins over a model's `:thinking` suffix, including `off`. Omitted fields inherit independently. The existing `effort` setting is passed to OMP as its per-spawn effort hint and can further adjust thinking according to the model and OMP's effort ceiling. Saved configuration records requested settings; agent output artifacts record the actual resolved model and thinking level, including host fallbacks. Existing run artifacts are not rewritten. Changes to these settings are subject to the same resume policy as other non-budget configuration.
 
 ## Optional token limits
 
