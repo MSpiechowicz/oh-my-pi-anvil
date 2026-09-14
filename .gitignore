@@ -1,6 +1,6 @@
 node_modules/
 dist/
-.omp/.orchestrator/
+.omp/.anvil/
 coverage/
 .cache/
 __pycache__/

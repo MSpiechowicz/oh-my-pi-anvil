@@ -8,7 +8,7 @@ import { CommandRouter } from "../src/commands/router.ts";
 
 type SessionStartHandler = (event: unknown, context: ExtensionContext) => void | Promise<void>;
 describe("OMP command registration", () => {
-  test("registers forge as the primary command and orchestrate as its compatibility alias", () => {
+  test("registers Anvil management and Forge workflow commands", () => {
     const registrations: string[] = [];
     anvilExtension({
       registerCommand(name) {
@@ -16,21 +16,21 @@ describe("OMP command registration", () => {
       },
     });
 
-    expect(registrations).toEqual(["forge", "orchestrate"]);
+    expect(registrations).toEqual(["anvil", "forge"]);
   });
-  test("renders slash-command results through the OMP UI", async () => {
+  test("renders Anvil management results through the OMP UI", async () => {
     const workspace = await mkdtemp("/tmp/anvil-command-ui-");
     const notices: string[] = [];
-    let forgeHandler: ((args: string, context: ExtensionContext) => Promise<void>) | undefined;
+    let anvilHandler: ((args: string, context: ExtensionContext) => Promise<void>) | undefined;
     try {
       anvilExtension({
         registerCommand(name, definition) {
-          if (name === "forge") forgeHandler = definition.handler;
+          if (name === "anvil") anvilHandler = definition.handler;
         },
       });
-      if (!forgeHandler) throw new Error("forge command was not registered");
+      if (!anvilHandler) throw new Error("anvil command was not registered");
 
-      await forgeHandler("/forge doctor", {
+      await anvilHandler("/anvil doctor", {
         cwd: workspace,
         ui: {
           notify: (message) => {
@@ -44,6 +44,87 @@ describe("OMP command registration", () => {
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
+  });
+
+  test("opens the Anvil management menu without arguments", async () => {
+    const workspace = await mkdtemp("/tmp/anvil-command-menu-");
+    const notices: string[] = [];
+    const selections = ["Configuration"];
+    let anvilHandler: ((args: string, context: ExtensionContext) => Promise<void>) | undefined;
+    try {
+      anvilExtension({
+        registerCommand(name, definition) {
+          if (name === "anvil") anvilHandler = definition.handler;
+        },
+      });
+      if (!anvilHandler) throw new Error("anvil command was not registered");
+      await anvilHandler("", {
+        cwd: workspace,
+        hasUI: true,
+        ui: {
+          select: async (title, options) => {
+            expect(title).toBe("Anvil");
+            expect(options.join(" ")).toContain("Configuration");
+            return selections.shift();
+          },
+          notify: (message) => {
+            notices.push(message);
+          },
+        },
+      });
+      expect(notices).toHaveLength(1);
+      expect(notices[0]).toContain("ANVIL · CONFIGURATION");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  test("passes Forge text directly to the workflow as its objective", async () => {
+    let receivedObjective = "";
+    const summary = {
+      run: {
+        id: "run_test",
+        status: "done",
+        currentState: "DONE",
+        currentRevisionId: "revision",
+        mutationEpoch: 0,
+        transitionCount: 0,
+        usedTokens: 0,
+        usedRequests: 0,
+        workspaceRoot: "/tmp",
+      },
+      attempts: [],
+      findings: [],
+    } as never;
+    const router = new CommandRouter(async () => ({
+      engine: {
+        start: async (input: { objective: string }) => {
+          receivedObjective = input.objective;
+          return summary;
+        },
+      } as never,
+      state: { close() {} },
+      lock: { acquire: async () => {}, release: async () => {} } as never,
+    }));
+
+    const response = await router.handle("Add the requested change", { cwd: "/tmp" });
+
+    expect(receivedObjective).toBe("Add the requested change");
+    expect(response).toContain("ANVIL · FORGE RUN run_test");
+  });
+
+  test("lists global configuration and model mapping locations", async () => {
+    const router = new CommandRouter(async () => {
+      throw new Error("config inspection should not initialize workflow state");
+    });
+
+    const response = await router.handleAdmin("config", { cwd: "/tmp" });
+
+    expect(response).toContain("GLOBAL LOCATIONS");
+    expect(response).toContain("Anvil config");
+    expect(response).toContain("OMP model maps");
+    expect(response).toContain("Architect");
+    expect(response).toContain("Warden");
   });
 
   test("creates the global setup on the first OMP session", async () => {
@@ -76,7 +157,7 @@ describe("OMP command registration", () => {
       expect(notices).toHaveLength(1);
       let projectConfig: string | undefined;
       try {
-        projectConfig = await readFile(path.join(workspace, ".omp", "orchestrator.yml"), "utf8");
+        projectConfig = await readFile(path.join(workspace, ".omp", "anvil.yml"), "utf8");
       } catch {
         // Automatic startup setup is global-only.
       }
@@ -84,8 +165,8 @@ describe("OMP command registration", () => {
 
       expect(notices[0]).toContain("Edit this file");
       expect(notices[0]).toContain(globalPath);
-      expect(notices[0]).toContain("/forge doctor");
-      expect(notices[0]).toContain("/forge init");
+      expect(notices[0]).toContain("/anvil doctor");
+      expect(notices[0]).toContain("/anvil init");
 
       await sessionStart({}, {
         cwd: workspace,
@@ -120,7 +201,7 @@ describe("OMP command registration", () => {
     const notices: Array<{ message: string; level?: string }> = [];
     const scheduled: Array<() => void | Promise<void>> = [];
     let sessionStart: SessionStartHandler | undefined;
-    let forgeHandler: ((args: string, context: ExtensionContext) => Promise<void>) | undefined;
+    let anvilHandler: ((args: string, context: ExtensionContext) => Promise<void>) | undefined;
     try {
       process.env.XDG_CONFIG_HOME = configHome;
       process.env.PATH = `${executableHome}${path.delimiter}${previousPath ?? ""}`;
@@ -152,13 +233,13 @@ printf '%s\n' '${
 
       anvilExtension({
         registerCommand(name, definition) {
-          if (name === "forge") forgeHandler = definition.handler;
+          if (name === "anvil") anvilHandler = definition.handler;
         },
         on(event, handler) {
           if (event === "session_start") sessionStart = handler;
         },
       });
-      if (!sessionStart || !forgeHandler) throw new Error("Anvil startup handlers were not registered");
+      if (!sessionStart || !anvilHandler) throw new Error("Anvil startup handlers were not registered");
 
       await sessionStart({}, {
         cwd: packageRoot,
@@ -178,10 +259,10 @@ printf '%s\n' '${
 
       await scheduled[0]();
       expect(notices).toEqual([{
-        message: "Anvil update available. Run `/forge update install` to update it.",
+        message: "Anvil update available. Run `/anvil update install` to update it.",
         level: "warning",
       }]);
-      await forgeHandler("/forge update check", {
+      await anvilHandler("/anvil update check", {
         cwd: packageRoot,
         hasUI: true,
         ui: {
@@ -205,12 +286,15 @@ printf '%s\n' '${
     }
   });
 
-  test("lists forge init in router help", async () => {
+  test("separates Forge objectives from Anvil management commands", async () => {
     const router = new CommandRouter(async () => {
-      throw new Error("help should not initialize workflow state");
+      throw new Error("Forge help should not initialize workflow state");
     });
-    const help = await router.handle("help", { cwd: "/tmp" });
-    expect(help).toContain("/forge init");
-    expect(help).toContain("/forge update check|install");
+    const forgeHelp = await router.handle("help", { cwd: "/tmp" });
+    const anvilHelp = await router.handleAdmin("help", { cwd: "/tmp" });
+    expect(forgeHelp).toContain("/forge <objective>");
+    expect(forgeHelp).toContain("/anvil config");
+    expect(anvilHelp).toContain("/anvil update check");
+    expect(anvilHelp).toContain("/anvil status [run-id]");
   });
 });

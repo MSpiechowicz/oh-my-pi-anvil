@@ -19,7 +19,7 @@ export class GitRevisionProvider implements RevisionProvider {
     return { id, head, stagedSha256: sha256(staged), unstagedSha256: sha256(unstaged), untracked };
   }
   async changedFiles(from: string, to: string): Promise<string[]> { if (from === to) return []; return this.git(["diff", "--name-only", "--no-ext-diff", "HEAD"]).split(/\r?\n/).filter(Boolean).filter((file) => !this.isIgnored(file)); }
-  private isIgnored(file: string): boolean { return [".omp/.orchestrator/", ...(this.options.ignore ?? [])].some((prefix) => prefix.endsWith("/**") ? file.startsWith(prefix.slice(0, -3)) : file === prefix || file.startsWith(prefix)); }
+  private isIgnored(file: string): boolean { return [".omp/.anvil/", ...(this.options.ignore ?? [])].some((prefix) => prefix.endsWith("/**") ? file.startsWith(prefix.slice(0, -3)) : file === prefix || file.startsWith(prefix)); }
   private git(args: string[]): string { try { return execFileSync("git", ["-C", this.root, ...args], { encoding: "utf8" }); } catch (error) { const detail = error instanceof Error && "stderr" in error ? String(error.stderr) : ""; throw new AnvilError("WORKSPACE_NOT_GIT", detail.trim() || "Git command failed", error); } }
   private gitBytes(args: string[]): Uint8Array { try { const output = execFileSync("git", ["-C", this.root, ...args], { encoding: "buffer" }); return new Uint8Array(output); } catch (error) { const detail = error instanceof Error && "stderr" in error ? String(error.stderr) : ""; throw new AnvilError("WORKSPACE_NOT_GIT", detail.trim() || "Git command failed", error); } }
 }

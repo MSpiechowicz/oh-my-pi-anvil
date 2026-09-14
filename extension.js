@@ -13,16 +13,16 @@ var DEFAULT_CONFIG = {
   },
   agents: {
     planner: {
-      agent: "orchestrator-planner"
+      agent: "architect"
     },
     implementation: {
-      agent: "orchestrator-implementation"
+      agent: "smith"
     },
     security: {
-      agent: "orchestrator-security"
+      agent: "sentinel"
     },
     review: {
-      agent: "orchestrator-reviewer"
+      agent: "inquisitor"
     }
   },
   checks: [],
@@ -92,7 +92,7 @@ var DEFAULT_CONFIG = {
     maxRetainedLessons: 3
   },
   persistence: {
-    root: ".omp/.orchestrator",
+    root: ".omp/.anvil",
     keepAgentRawArtifacts: true,
     keepCommandLogs: true,
     persistRenderedPrompts: false
@@ -274,8 +274,23 @@ function globalConfigPath() {
   }
   return path.resolve(home, ".config", "omp", "anvil.yml");
 }
+function globalModelsConfigPath() {
+  const profile = environment("OMP_PROFILE") ?? environment("PI_PROFILE");
+  let home = environment("HOME");
+  if (!home) {
+    try {
+      home = homedir();
+    } catch {
+      home = path.resolve(".");
+    }
+  }
+  if (profile && profile !== "default") return path.resolve(home, ".omp", "profiles", profile, "agent", "config.yml");
+  const agentDirectory = environment("PI_CODING_AGENT_DIR");
+  if (agentDirectory) return path.resolve(agentDirectory, "config.yml");
+  return path.resolve(home, ".omp", "agent", "config.yml");
+}
 function projectConfigPath(repositoryRoot) {
-  return path.join(path.resolve(repositoryRoot), ".omp", "orchestrator.yml");
+  return path.join(path.resolve(repositoryRoot), ".omp", "anvil.yml");
 }
 async function findRepositoryRoot(workspaceRoot) {
   let current = path.resolve(workspaceRoot);
@@ -571,12 +586,12 @@ var StateDatabase = class _StateDatabase {
     await mkdir2(root, {
       recursive: true
     });
-    const database = new Database(path3.join(root, "orchestrator.db"), {
+    const database = new Database(path3.join(root, "anvil.db"), {
       create: true,
       readwrite: true
     });
     applyMigrations(database);
-    return new _StateDatabase(path3.join(root, "orchestrator.db"), database);
+    return new _StateDatabase(path3.join(root, "anvil.db"), database);
   }
   close() {
     this.db.close();
@@ -799,7 +814,7 @@ var GitRevisionProvider = class {
   }
   isIgnored(file) {
     return [
-      ".omp/.orchestrator/",
+      ".omp/.anvil/",
       ...this.options.ignore ?? []
     ].some((prefix) => prefix.endsWith("/**") ? file.startsWith(prefix.slice(0, -3)) : file === prefix || file.startsWith(prefix));
   }
@@ -1163,6 +1178,26 @@ var FindingLifecycle = class {
   }
 };
 
+// src/agents/roles.ts
+var ROLE_LABELS = {
+  planner: "Architect",
+  implementation: "Smith",
+  security: "Sentinel",
+  review: "Inquisitor"
+};
+var MODEL_ROLE_ALIASES = {
+  planner: "architect",
+  implementation: "smith",
+  security: "sentinel",
+  review: "inquisitor"
+};
+var WORKFLOW_ROLE_ORDER = [
+  "planner",
+  "implementation",
+  "security",
+  "review"
+];
+
 // src/budget/ledger.ts
 var BudgetManager = class {
   config;
@@ -1178,8 +1213,8 @@ var BudgetManager = class {
   }
   assertRoleMayRun(_run, role, attempts, roleTokens = 0) {
     const rolePolicy = this.config.budgets.perRole[role];
-    if (rolePolicy?.maxAttempts !== void 0 && attempts >= rolePolicy.maxAttempts) throw new AnvilError("MAX_ATTEMPTS_EXCEEDED", `${role} attempt budget exhausted`);
-    if (rolePolicy?.maxTokens !== void 0 && roleTokens >= rolePolicy.maxTokens) throw new AnvilError("BUDGET_EXHAUSTED", `${role} token budget exhausted`);
+    if (rolePolicy?.maxAttempts !== void 0 && attempts >= rolePolicy.maxAttempts) throw new AnvilError("MAX_ATTEMPTS_EXCEEDED", `${ROLE_LABELS[role]} attempt budget exhausted`);
+    if (rolePolicy?.maxTokens !== void 0 && roleTokens >= rolePolicy.maxTokens) throw new AnvilError("BUDGET_EXHAUSTED", `${ROLE_LABELS[role]} token budget exhausted`);
   }
 };
 
@@ -1483,7 +1518,7 @@ var RunRepository = class {
     this.events.append({
       runId: run.id,
       type: "RUN_CREATED",
-      actor: "orchestrator",
+      actor: "anvil",
       stateAfter: "INIT",
       revisionId: run.currentRevisionId
     });
@@ -1531,7 +1566,7 @@ var RunRepository = class {
     }
     if (event) this.events.append({
       runId: id,
-      actor: event.actor ?? "orchestrator",
+      actor: event.actor ?? "anvil",
       ...event
     });
     return this.require(id);
@@ -1750,13 +1785,13 @@ var FindingRepository = class {
 // src/schemas/validate.ts
 function requirePlan(value2) {
   const plan = value2;
-  if (!plan || plan.version !== 1 || !plan.summary || !Array.isArray(plan.steps) || plan.steps.length === 0 || !Array.isArray(plan.globalAcceptanceCriteria) || plan.globalAcceptanceCriteria.length === 0) throw new AnvilError("SCHEMA_INVALID", "Planner output does not match PlanOutput");
+  if (!plan || plan.version !== 1 || !plan.summary || !Array.isArray(plan.steps) || plan.steps.length === 0 || !Array.isArray(plan.globalAcceptanceCriteria) || plan.globalAcceptanceCriteria.length === 0) throw new AnvilError("SCHEMA_INVALID", "Architect output does not match PlanOutput");
   const ids = /* @__PURE__ */ new Set();
   for (const step of plan.steps) {
-    if (!step.id || ids.has(step.id) || !step.objective || !Array.isArray(step.acceptanceCriteria) || step.acceptanceCriteria.length === 0) throw new AnvilError("SCHEMA_INVALID", "Planner step is invalid");
+    if (!step.id || ids.has(step.id) || !step.objective || !Array.isArray(step.acceptanceCriteria) || step.acceptanceCriteria.length === 0) throw new AnvilError("SCHEMA_INVALID", "Architect step is invalid");
     ids.add(step.id);
   }
-  for (const step of plan.steps) for (const dependency of step.dependsOn) if (!ids.has(dependency)) throw new AnvilError("SCHEMA_INVALID", `Planner dependency ${dependency} does not exist`);
+  for (const step of plan.steps) for (const dependency of step.dependsOn) if (!ids.has(dependency)) throw new AnvilError("SCHEMA_INVALID", `Architect dependency ${dependency} does not exist`);
   return plan;
 }
 function requireImplementation(value2) {
@@ -1765,7 +1800,7 @@ function requireImplementation(value2) {
     "completed",
     "blocked",
     "needs_replan"
-  ].includes(output.status) || typeof output.summary !== "string" || !Array.isArray(output.claimedChangedFiles)) throw new AnvilError("SCHEMA_INVALID", "Implementation output does not match ImplementationOutput");
+  ].includes(output.status) || typeof output.summary !== "string" || !Array.isArray(output.claimedChangedFiles)) throw new AnvilError("SCHEMA_INVALID", "Smith output does not match ImplementationOutput");
   return output;
 }
 function requireSecurity(value2) {
@@ -1774,9 +1809,9 @@ function requireSecurity(value2) {
     "pass",
     "findings",
     "blocked"
-  ].includes(output.verdict) || !output.scope || !Array.isArray(output.findings)) throw new AnvilError("SCHEMA_INVALID", "Security output does not match SecurityOutput");
-  if (output.verdict === "findings" && output.findings.length === 0) throw new AnvilError("SCHEMA_INVALID", "Security findings verdict requires findings");
-  if (output.verdict === "blocked" && !output.blockedReason) throw new AnvilError("SCHEMA_INVALID", "Blocked security output requires blockedReason");
+  ].includes(output.verdict) || !output.scope || !Array.isArray(output.findings)) throw new AnvilError("SCHEMA_INVALID", "Sentinel output does not match SecurityOutput");
+  if (output.verdict === "findings" && output.findings.length === 0) throw new AnvilError("SCHEMA_INVALID", "Sentinel findings verdict requires findings");
+  if (output.verdict === "blocked" && !output.blockedReason) throw new AnvilError("SCHEMA_INVALID", "Blocked Sentinel output requires blockedReason");
   return output;
 }
 function requireReview(value2) {
@@ -1785,8 +1820,8 @@ function requireReview(value2) {
     "pass",
     "findings",
     "blocked"
-  ].includes(output.verdict) || !Array.isArray(output.acceptance) || !Array.isArray(output.findings)) throw new AnvilError("SCHEMA_INVALID", "Review output does not match ReviewOutput");
-  if (output.verdict === "blocked" && !output.blockedReason) throw new AnvilError("SCHEMA_INVALID", "Blocked review output requires blockedReason");
+  ].includes(output.verdict) || !Array.isArray(output.acceptance) || !Array.isArray(output.findings)) throw new AnvilError("SCHEMA_INVALID", "Inquisitor output does not match ReviewOutput");
+  if (output.verdict === "blocked" && !output.blockedReason) throw new AnvilError("SCHEMA_INVALID", "Blocked Inquisitor output requires blockedReason");
   return output;
 }
 
@@ -1959,8 +1994,8 @@ var WorkflowEngine = class {
       ...result,
       resultRevisionId: after.id
     });
-    if (after.id !== run.currentRevisionId) throw new AnvilError("READ_ONLY_GATE_MUTATED_WORKSPACE", "Planner mutated the workspace");
-    if (result.status !== "completed") throw new AnvilError("AGENT_EXECUTION_FAILED", result.error?.message ?? "Planner failed");
+    if (after.id !== run.currentRevisionId) throw new AnvilError("READ_ONLY_GATE_MUTATED_WORKSPACE", "Architect mutated the workspace");
+    if (result.status !== "completed") throw new AnvilError("AGENT_EXECUTION_FAILED", result.error?.message ?? "Architect failed");
     const plan = requirePlan(result.structured);
     const planPointer = await this.deps.artifacts.putJson(run.id, "plan", "plan.json", plan, attempt.id);
     const updated = this.runs.update(run.id, {
@@ -2016,7 +2051,7 @@ var WorkflowEngine = class {
       ...result,
       resultRevisionId: after.id
     });
-    if (result.status !== "completed") throw new AnvilError("AGENT_EXECUTION_FAILED", result.error?.message ?? "Implementation failed");
+    if (result.status !== "completed") throw new AnvilError("AGENT_EXECUTION_FAILED", result.error?.message ?? "Smith failed");
     let output;
     try {
       output = requireImplementation(result.structured);
@@ -2142,7 +2177,7 @@ var WorkflowEngine = class {
     if (result.status !== "completed") throw new AnvilError("AGENT_EXECUTION_FAILED", result.error?.message ?? "Security agent failed");
     const output = requireSecurity(result.structured);
     const artifact = await this.deps.artifacts.putJson(run.id, "security", `artifacts/security/attempt-${attempt.sequence}.json`, output, attempt.id);
-    if (output.verdict === "blocked") return this.block(run, new AnvilError("AGENT_EXECUTION_FAILED", output.blockedReason ?? "Security blocked"));
+    if (output.verdict === "blocked") return this.block(run, new AnvilError("AGENT_EXECUTION_FAILED", output.blockedReason ?? "Sentinel blocked"));
     let repeatedBlockingFinding = false;
     for (const finding of output.findings) {
       const persisted = this.lifecycle.upsert(run.id, "security", run.mutationEpoch, attempt, {
@@ -2159,7 +2194,7 @@ var WorkflowEngine = class {
       });
       if (persisted.status === "open" && persisted.timesSeen >= 3 && this.deps.config.security.failOn.includes(finding.severity)) repeatedBlockingFinding = true;
     }
-    if (repeatedBlockingFinding) return this.block(run, new AnvilError("NO_PROGRESS", "The same blocking security finding persisted across three attempts"));
+    if (repeatedBlockingFinding) return this.block(run, new AnvilError("NO_PROGRESS", "The same blocking Sentinel finding persisted across three attempts"));
     const next = nextAfterSecurity(output, this.deps.config.security.failOn);
     if (next === "IMPLEMENT") return this.transition(run, "IMPLEMENT", "SECURITY_FINDINGS", {
       revisionId: before.id
@@ -2405,23 +2440,27 @@ async function createRuntime(workspaceRoot, context, explicitConfigPath) {
   };
 }
 
+// src/commands/router.ts
+import path11 from "node:path";
+
 // src/config/init.ts
-import { access as access3, mkdir as mkdir5, writeFile as writeFile3 } from "node:fs/promises";
+import { mkdir as mkdir5, writeFile as writeFile3 } from "node:fs/promises";
 import path9 from "node:path";
 var GLOBAL_CONFIG_TEMPLATE = `# Shared Forge settings for all repositories.
 # Omitted values inherit Anvil's built-in defaults.
+# Model mappings live in OMP's global agent config; run /anvil config to see its path.
 version: 1
 workflow:
   name: secure-code-change
 agents:
-  planner:
-    agent: orchestrator-planner
-  implementation:
-    agent: orchestrator-implementation
-  security:
-    agent: orchestrator-security
-  review:
-    agent: orchestrator-reviewer
+  planner: # Architect
+    agent: architect
+  implementation: # Smith
+    agent: smith
+  security: # Sentinel
+    agent: sentinel
+  review: # Inquisitor
+    agent: inquisitor
 
 # Add shared checks or override budgets below.
 `;
@@ -2429,12 +2468,6 @@ var PROJECT_CONFIG_TEMPLATE = `# Repository-specific Forge overrides.
 # Values here override the global settings; omitted values continue to inherit.
 version: 1
 `;
-var ALTERNATE_PROJECT_SETTINGS = [
-  path9.join(".omp", "orchestrator.json"),
-  path9.join(".omp", "anvil.yml"),
-  ".anvil.yml",
-  "anvil.yml"
-];
 async function ensureGlobalConfig() {
   return createIfMissing(globalConfigPath(), GLOBAL_CONFIG_TEMPLATE);
 }
@@ -2444,58 +2477,19 @@ async function initConfig(workspaceRoot) {
   const global = await createIfMissing(globalConfigPath(), GLOBAL_CONFIG_TEMPLATE);
   record(global, created, existing);
   const repositoryRoot = await findRepositoryRoot(workspaceRoot);
-  if (!repositoryRoot) {
-    return {
-      global,
-      created,
-      existing,
-      detected: [],
-      detectedAlternates: [],
-      alternates: []
-    };
-  }
-  const detectedAlternates = [];
-  for (const relativePath of ALTERNATE_PROJECT_SETTINGS) {
-    const alternate = path9.join(repositoryRoot, relativePath);
-    try {
-      await access3(alternate);
-      detectedAlternates.push(alternate);
-    } catch (error) {
-      if (!isMissing3(error)) throw error;
-    }
-  }
-  const canonicalPath = projectConfigPath(repositoryRoot);
-  let project;
-  if (detectedAlternates.length === 0) {
-    project = await createIfMissing(canonicalPath, PROJECT_CONFIG_TEMPLATE);
-    record(project, created, existing);
-  } else {
-    try {
-      await access3(canonicalPath);
-      project = {
-        path: canonicalPath,
-        status: "existing"
-      };
-      record(project, created, existing);
-    } catch (error) {
-      if (!isMissing3(error)) throw error;
-    }
-  }
-  const detected = [
-    ...project?.status === "existing" ? [
-      project.path
-    ] : [],
-    ...detectedAlternates
-  ];
+  if (!repositoryRoot) return {
+    global,
+    created,
+    existing
+  };
+  const project = await createIfMissing(projectConfigPath(repositoryRoot), PROJECT_CONFIG_TEMPLATE);
+  record(project, created, existing);
   return {
     global,
     project,
     repositoryRoot,
     created,
-    existing,
-    detected,
-    detectedAlternates,
-    alternates: detectedAlternates
+    existing
   };
 }
 async function createIfMissing(filePath, content) {
@@ -2525,38 +2519,107 @@ function record(report, created, existing) {
 function isAlreadyExists(error) {
   return error instanceof Error && "code" in error && error.code === "EEXIST";
 }
-function isMissing3(error) {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
 
 // src/ui/render.ts
-function renderHelp() {
+var STAGE_LABELS = {
+  INIT: "Initializing",
+  PLAN: "Architect",
+  IMPLEMENT: "Smith",
+  CHECKS: "Warden",
+  SECURITY: "Sentinel",
+  REVIEW: "Inquisitor"
+};
+function renderForgeHelp() {
   return [
-    "ANVIL \xB7 THE FORGE",
+    "ANVIL \xB7 FORGE",
     "",
-    "Forge reliable software with specialized AI agents.",
+    "Run the bounded Architect \u2192 Smith \u2192 Warden \u2192 Sentinel \u2192 Inquisitor workflow.",
     "",
-    "/forge init",
-    "/forge start <objective>",
-    "/forge status [run-id]",
-    "/forge resume <run-id>",
-    "/forge cancel <run-id>",
-    "/forge findings [run-id]",
-    "/forge update check|install",
-    "/forge doctor",
+    "/forge <objective>",
     "/forge help",
     "",
-    "Compatibility alias: /orchestrate"
+    "Inspect runs and manage configuration with /anvil.",
+    "",
+    "/anvil config",
+    "/anvil doctor",
+    "/anvil init",
+    "/anvil update check|install",
+    "/anvil status [run-id]",
+    "/anvil resume <run-id>",
+    "/anvil findings [run-id]",
+    "/anvil cancel <run-id>",
+    ""
+  ].join("\n");
+}
+function renderAnvilHelp() {
+  return [
+    "ANVIL \xB7 MANAGEMENT",
+    "",
+    "Inspect configuration, manage runs, and update Anvil.",
+    "",
+    "/anvil config",
+    "/anvil doctor",
+    "/anvil init",
+    "/anvil status [run-id]",
+    "/anvil resume <run-id>",
+    "/anvil cancel <run-id>",
+    "/anvil findings [run-id]",
+    "/anvil update check",
+    "/anvil update install",
+    "/anvil help",
+    "",
+    "Run a workflow with /forge <objective>."
+  ].join("\n");
+}
+function renderConfiguration(locations) {
+  const projectState = locations.projectConfigPresent ? "present" : "not present";
+  const configState = locations.configError ? `INVALID  ${locations.configError}` : "VALID";
+  const roleLines = WORKFLOW_ROLE_ORDER.map((role) => `  ${ROLE_LABELS[role].padEnd(11)} @${MODEL_ROLE_ALIASES[role]}`);
+  return [
+    "ANVIL \xB7 CONFIGURATION",
+    "",
+    `CONFIGURATION     ${configState}`,
+    "",
+    "GLOBAL LOCATIONS",
+    `  Anvil config     ${locations.globalConfig}`,
+    `  OMP model maps   ${locations.globalModels}`,
+    "",
+    "PROJECT LOCATIONS",
+    `  Overlay          ${locations.projectConfig} (${projectState})`,
+    `  Runtime state    ${locations.runtimeRoot}`,
+    "",
+    "MODEL ROLES",
+    ...roleLines,
+    "  Warden       deterministic checks (no model)",
+    "",
+    "COMMANDS",
+    "  /anvil config",
+    "  /anvil doctor",
+    "  /anvil init",
+    "  /anvil update check|install",
+    "  /forge <objective>"
+  ].join("\n");
+}
+function renderDoctor(locations) {
+  return [
+    "ANVIL \xB7 DOCTOR",
+    "",
+    locations.configError ? `CONFIGURATION  INVALID  ${locations.configError}` : "CONFIGURATION  VALID",
+    "RUNTIME        AVAILABLE",
+    "AGENTS         AVAILABLE",
+    "",
+    `GLOBAL CONFIG  ${locations.globalConfig}`,
+    `MODEL MAPPINGS ${locations.globalModels}`,
+    `RUNTIME STATE  ${locations.runtimeRoot}`
   ].join("\n");
 }
 function renderInit(report) {
-  const alternateSettings = report.detectedAlternates.length > 0 ? report.detectedAlternates : report.alternates;
   return [
     "ANVIL \xB7 INITIALIZE",
     "",
     "CONFIGURATION FILES",
     `GLOBAL       ${report.global.status.toUpperCase()}  ${report.global.path}`,
-    report.project ? `PROJECT      ${report.project.status.toUpperCase()}  ${report.project.path}` : report.repositoryRoot ? "PROJECT      NOT CREATED  (alternate settings detected)" : "PROJECT      NOT CREATED  (no repository root found)",
+    report.project ? `PROJECT      ${report.project.status.toUpperCase()}  ${report.project.path}` : "PROJECT      NOT CREATED  (no repository root found)",
     report.repositoryRoot ? `REPOSITORY   ${report.repositoryRoot}` : "REPOSITORY   NOT FOUND",
     "",
     "CREATED",
@@ -2567,14 +2630,6 @@ function renderInit(report) {
     "ALREADY EXISTING",
     ...report.existing.length > 0 ? report.existing.map((filePath) => `  ${filePath}`) : [
       "  none"
-    ],
-    "",
-    "ALTERNATE REPOSITORY SETTINGS",
-    ...alternateSettings.length > 0 ? [
-      "  detected (preserved; not overwritten)",
-      ...alternateSettings.map((filePath) => `  ${filePath}`)
-    ] : [
-      "  none detected"
     ],
     "",
     "Initialization is non-destructive: existing settings were left unchanged."
@@ -2602,13 +2657,13 @@ function renderStatus(summary) {
     `ANVIL \xB7 FORGE RUN ${run.id}`,
     "",
     `STATUS       ${run.status.toUpperCase()}`,
-    `STATE        ${displayState(run.currentState).toUpperCase()} \xB7 ${run.currentState}`,
+    `STAGE        ${displayState(run.currentState).toUpperCase()}`,
     `REVISION     ${run.currentRevisionId}`,
     `EPOCH        ${run.mutationEpoch}`,
     `TRANSITIONS  ${run.transitionCount}`,
     "",
     "ATTEMPTS",
-    ...Object.entries(attempts).map(([state, count]) => `  ${state.padEnd(12)} ${count}`),
+    ...Object.entries(attempts).map(([state, count]) => `  ${(STAGE_LABELS[state] ?? state).padEnd(12)} ${count}`),
     "",
     `OPEN FINDINGS ${open2.length}`,
     ...open2.slice(0, 8).map((finding) => `  ${finding.id}  ${finding.severity.toUpperCase()}  ${finding.title}`),
@@ -2616,7 +2671,7 @@ function renderStatus(summary) {
     "USAGE",
     `  ${run.usedTokens.toLocaleString()} tokens \xB7 ${run.usedRequests} requests`,
     "",
-    `ARTIFACTS    ${run.workspaceRoot}/.omp/.orchestrator/runs/${run.id}`
+    `ARTIFACTS    ${run.workspaceRoot}/.omp/.anvil/runs/${run.id}`
   ].join("\n");
 }
 function renderFindings(summary) {
@@ -2816,105 +2871,191 @@ async function runUpdate(action, profile, cwd = process.cwd()) {
 }
 
 // src/commands/router.ts
+async function configurationLocations(cwd) {
+  const projectRoot = await findRepositoryRoot(cwd);
+  const existingProject = await nearestProjectConfigPath(cwd);
+  const projectConfig = existingProject ?? (projectRoot ? projectConfigPath(projectRoot) : projectConfigPath(cwd));
+  let effectiveRuntimeRoot = path11.resolve(cwd, ".omp", ".anvil");
+  let configError;
+  try {
+    const config = await loadConfig(cwd);
+    effectiveRuntimeRoot = runtimeRoot(cwd, config.persistence.root);
+  } catch (error) {
+    configError = error instanceof Error ? error.message : String(error);
+  }
+  return {
+    globalConfig: globalConfigPath(),
+    globalModels: globalModelsConfigPath(),
+    projectConfig,
+    projectConfigPresent: Boolean(existingProject),
+    runtimeRoot: effectiveRuntimeRoot,
+    configError
+  };
+}
 var CommandRouter = class {
   engineFactory;
   constructor(engineFactory) {
     this.engineFactory = engineFactory;
   }
   async handle(raw, context) {
-    const [command, ...rest] = raw.trim().split(/\s+/);
-    if (!command || command === "help") return renderHelp();
-    if (command === "init") {
-      try {
-        if (rest.length > 0) throw new AnvilError("CONFIG_INVALID", "Usage: /forge init");
-        return renderInit(await initConfig(context.cwd));
-      } catch (error) {
-        const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
-        return `ANVIL \xB7 ${typed.code}
-
-${typed.message}`;
-      }
-    }
-    if (command === "update") {
-      try {
-        if (rest.length !== 1 || rest[0] !== "check" && rest[0] !== "install") throw new AnvilError("CONFIG_INVALID", "Usage: /forge update check|install");
-        return renderUpdate(await runUpdate(rest[0], process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd));
-      } catch (error) {
-        if (error instanceof UpdateError) return `ANVIL \xB7 UPDATE FAILED
-
-${error.message}`;
-        const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
-        return `ANVIL \xB7 ${typed.code}
-
-${typed.message}`;
-      }
-    }
-    const runtime = await this.engineFactory(context);
-    const engine = runtime.engine;
-    const needsLock = command === "start" || command === "resume" || command === "cancel";
+    const objective = raw.trim();
+    if (!objective || objective === "help") return renderForgeHelp();
+    let runtime;
     let lockHeld = false;
     try {
-      if (needsLock) {
-        await runtime.lock.acquire(rest[0] ?? `pending_${crypto.randomUUID()}`);
-        lockHeld = true;
-      }
-      switch (command) {
-        case "start": {
-          const objective = rest.join(" ");
-          const summary = await engine.start({
-            objective,
-            workspaceRoot: context.cwd
-          });
-          return renderStatus(summary);
-        }
-        case "status":
-          return renderStatus(engine.status(rest[0]));
-        case "resume":
-          if (!rest[0]) throw new AnvilError("CONFIG_INVALID", "Usage: /forge resume <run-id>");
-          return renderStatus(await engine.resume(rest[0]));
-        case "cancel":
-          if (!rest[0]) throw new AnvilError("CONFIG_INVALID", "Usage: /forge cancel <run-id>");
-          await engine.cancel(rest[0]);
-          return renderStatus(engine.status(rest[0]));
-        case "findings":
-          return renderFindings(engine.status(rest[0]));
-        case "doctor":
-          return "ANVIL \xB7 DOCTOR\n\nConfiguration, runtime directory, database, and agent catalog are available.";
-        default:
-          throw new AnvilError("CONFIG_INVALID", `Unknown /forge command: ${command}`);
-      }
+      runtime = await this.engineFactory(context);
+      await runtime.lock.acquire(`pending_${crypto.randomUUID()}`);
+      lockHeld = true;
+      return renderStatus(await runtime.engine.start({
+        objective,
+        workspaceRoot: context.cwd
+      }));
     } catch (error) {
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL \xB7 ${typed.code}
 
 ${typed.message}`;
     } finally {
-      if (lockHeld) await runtime.lock.release();
-      runtime.state.close();
+      if (runtime) {
+        if (lockHeld) await runtime.lock.release();
+        runtime.state.close();
+      }
+    }
+  }
+  async handleAdmin(raw, context) {
+    const [command, ...rest] = raw.trim().split(/\s+/).filter(Boolean);
+    if (!command || command === "help") return renderAnvilHelp();
+    let runtime;
+    let lockHeld = false;
+    try {
+      if (command === "config") {
+        if (rest.length > 0 && !(rest.length === 1 && rest[0] === "show")) throw new AnvilError("CONFIG_INVALID", "Usage: /anvil config");
+        return renderConfiguration(await configurationLocations(context.cwd));
+      }
+      if (command === "init") {
+        if (rest.length > 0) throw new AnvilError("CONFIG_INVALID", "Usage: /anvil init");
+        return renderInit(await initConfig(context.cwd));
+      }
+      if (command === "update") {
+        if (rest.length !== 1 || rest[0] !== "check" && rest[0] !== "install") throw new AnvilError("CONFIG_INVALID", "Usage: /anvil update check|install");
+        return renderUpdate(await runUpdate(rest[0], process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd));
+      }
+      if (command === "doctor") {
+        if (rest.length > 0) throw new AnvilError("CONFIG_INVALID", "Usage: /anvil doctor");
+        const locations = await configurationLocations(context.cwd);
+        runtime = await this.engineFactory(context);
+        return renderDoctor({
+          ...locations,
+          runtimeRoot: runtime.runtimeRoot ?? locations.runtimeRoot
+        });
+      }
+      if (command === "status" || command === "findings") {
+        if (rest.length > 1) throw new AnvilError("CONFIG_INVALID", `Usage: /anvil ${command} [run-id]`);
+        runtime = await this.engineFactory(context);
+        const summary = runtime.engine.status(rest[0]);
+        return command === "status" ? renderStatus(summary) : renderFindings(summary);
+      }
+      if (command === "resume" || command === "cancel") {
+        if (rest.length !== 1) throw new AnvilError("CONFIG_INVALID", `Usage: /anvil ${command} <run-id>`);
+        runtime = await this.engineFactory(context);
+        await runtime.lock.acquire(rest[0]);
+        lockHeld = true;
+        if (command === "resume") return renderStatus(await runtime.engine.resume(rest[0]));
+        await runtime.engine.cancel(rest[0]);
+        return renderStatus(runtime.engine.status(rest[0]));
+      }
+      throw new AnvilError("CONFIG_INVALID", `Unknown /anvil command: ${command}`);
+    } catch (error) {
+      if (error instanceof UpdateError) return `ANVIL \xB7 UPDATE FAILED
+
+${error.message}`;
+      const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
+      return `ANVIL \xB7 ${typed.code}
+
+${typed.message}`;
+    } finally {
+      if (runtime) {
+        if (lockHeld) await runtime.lock.release();
+        runtime.state.close();
+      }
     }
   }
 };
 
 // src/extension.ts
+async function selectAnvilCommand(args, context) {
+  let input = args.trim().replace(/^\/anvil\s*/, "");
+  if (input === "help" || context.hasUI === false || typeof context.ui?.select !== "function") return input;
+  if (!input) {
+    const section = await context.ui.select("Anvil", [
+      "Configuration",
+      "Initialize",
+      "Doctor",
+      "Run management",
+      "Update"
+    ]);
+    if (!section) return void 0;
+    if (section === "Configuration") return "config";
+    if (section === "Initialize") return "init";
+    if (section === "Doctor") return "doctor";
+    if (section === "Run management") input = "runs";
+    else input = "update";
+  }
+  if (input === "runs") {
+    const action = await context.ui.select("Anvil / Run management", [
+      "Status",
+      "Resume",
+      "Cancel",
+      "Findings"
+    ]);
+    if (!action) return void 0;
+    if (action === "Status") return "status";
+    if (action === "Findings") return "findings";
+    if (typeof context.ui.input !== "function") return void 0;
+    const runId = await context.ui.input(`Run ID to ${action.toLowerCase()}`, "run_");
+    if (!runId?.trim()) return void 0;
+    return `${action.toLowerCase()} ${runId.trim()}`;
+  }
+  if (input === "update") {
+    const action = await context.ui.select("Anvil / Update", [
+      "Check",
+      "Install"
+    ]);
+    if (!action) return void 0;
+    if (action === "Check") return "update check";
+    if (action === "Install") return "update install";
+  }
+  return input;
+}
 function anvilExtension(pi) {
   pi.setLabel?.("Anvil \xB7 The Forge");
   const router = new CommandRouter(async (context) => createRuntime(context.cwd, context.runtimeContext ?? context));
-  const handler = async (args, context) => {
-    const input = args.trim().replace(/^\/(?:forge|orchestrate)\s*/, "");
-    const output = await router.handle(input, {
-      cwd: context.cwd,
-      runtimeContext: context
-    });
+  const notifyOutput = async (context, output) => {
     if (context.ui?.notify) await context.ui.notify(output, "info");
     else await context.respond?.(output);
   };
-  pi.registerCommand("forge", {
-    description: "Run and manage Anvil's stateful multi-agent Forge",
-    handler
+  const forgeHandler = async (args, context) => {
+    const input = args.trim().replace(/^\/forge\s*/, "");
+    await notifyOutput(context, await router.handle(input, {
+      cwd: context.cwd,
+      runtimeContext: context
+    }));
+  };
+  const anvilHandler = async (args, context) => {
+    const input = await selectAnvilCommand(args, context);
+    if (input === void 0) return;
+    await notifyOutput(context, await router.handleAdmin(input, {
+      cwd: context.cwd,
+      runtimeContext: context
+    }));
+  };
+  pi.registerCommand("anvil", {
+    description: "Inspect Anvil configuration and manage updates",
+    handler: anvilHandler
   });
-  pi.registerCommand("orchestrate", {
-    description: "Compatibility alias for /forge",
-    handler
+  pi.registerCommand("forge", {
+    description: "Run Anvil's bounded multi-agent workflow",
+    handler: forgeHandler
   });
   const notify = async (context, message, level) => {
     try {
@@ -2927,7 +3068,7 @@ function anvilExtension(pi) {
     try {
       const report = await checkUpdate(process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd);
       if (report.updateAvailable && report.managed) {
-        await notify(context, "Anvil update available. Run `/forge update install` to update it.", "warning");
+        await notify(context, "Anvil update available. Run `/anvil update install` to update it.", "warning");
       }
     } catch {
     }
@@ -2936,11 +3077,11 @@ function anvilExtension(pi) {
     try {
       const report = await ensureGlobalConfig();
       if (report.status === "created") {
-        await notify(context, `Anvil is installed. Created the global configuration at ${report.path}. Edit this file, then run /forge doctor. In a repository, run /forge init to create the project overlay.`, "info");
+        await notify(context, `Anvil is installed. Created the global configuration at ${report.path}. Edit this file, then run /anvil doctor. In a repository, run /anvil init to create the project overlay.`, "info");
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      await notify(context, `Anvil could not create its global configuration: ${detail}. Check the configuration directory permissions and run /forge init after fixing them.`, "warning");
+      await notify(context, `Anvil could not create its global configuration: ${detail}. Check the configuration directory permissions and run /anvil init after fixing them.`, "warning");
     }
     if (context.hasUI !== false) context.setTimeout?.(() => checkForUpdate(context), 0);
   });

@@ -1,6 +1,6 @@
 # OMP compatibility
 
-Anvil presents `/forge` as its primary OMP command. `/orchestrate` remains an equivalent compatibility alias for existing scripts and integrations; both names use the same workflow engine and state.
+Anvil presents `/forge` as its workflow command and `/anvil` as its configuration, diagnostic, run-management, and update command. The extension keeps host-specific child execution behind a small compatibility adapter.
 
 ## OMP boundary
 
@@ -12,12 +12,18 @@ The workflow engine never imports `ToolSession`, does not replay parent transcri
 
 ## Commands and storage names
 
-Use `/forge` in new commands and documentation:
+Use the management command for setup and the Forge command for objectives:
 
 ```text
-/forge doctor
-/forge start "Describe the change to make"
-/forge status [run-id]
+/anvil config
+/anvil doctor
+/anvil init
+/anvil update check|install
+/anvil status [run-id]
+/anvil resume <run-id>
+/anvil findings [run-id]
+/anvil cancel <run-id>
+/forge "Describe the change to make"
 ```
 
-The `/orchestrate` spelling is supported only as the equivalent compatibility alias. Internal runtime paths such as `.omp/orchestrator.yml` and `.omp/.orchestrator/` retain their historical names and are unrelated to which command spelling is used.
+The canonical project overlay is `.omp/anvil.yml`. Runtime state is stored under `.omp/.anvil/`, separate from source revisions and command handling.

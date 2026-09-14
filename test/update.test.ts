@@ -10,7 +10,9 @@ describe("release updater metadata", () => {
     expect(latestRelease(async () => new Response(JSON.stringify({ draft: false, prerelease: true, tag_name: "v1.2.3-rc.1" }), { status: 200 }))).rejects.toThrow("published stable release");
   });
 
-  test("routes update syntax without opening workflow state", async () => {
-    const router = new CommandRouter(async () => { throw new Error("workflow state should not open for update syntax errors"); }); const response = await router.handle("update", { cwd: "/tmp" }); expect(response).toContain("Usage: /forge update check|install");
+  test("routes Anvil update syntax without opening workflow state", async () => {
+    const router = new CommandRouter(async () => { throw new Error("workflow state should not open for update syntax errors"); });
+    const response = await router.handleAdmin("update", { cwd: "/tmp" });
+    expect(response).toContain("Usage: /anvil update check|install");
   });
 });

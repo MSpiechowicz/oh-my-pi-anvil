@@ -2,14 +2,14 @@ version: 1
 workflow:
   name: secure-code-change
 agents:
-  planner:
-    agent: orchestrator-planner
-  implementation:
-    agent: orchestrator-implementation
-  security:
-    agent: orchestrator-security
-  review:
-    agent: orchestrator-reviewer
+  planner: # Architect
+    agent: architect
+  implementation: # Smith
+    agent: smith
+  security: # Sentinel
+    agent: sentinel
+  review: # Inquisitor
+    agent: inquisitor
 checks: []
 security:
   failOn: [critical, high, medium]
@@ -29,7 +29,7 @@ context:
 memory:
   enabled: true
 persistence:
-  root: .omp/.orchestrator
+  root: .omp/.anvil
 safety:
   oneMutatingRunPerWorkspace: true
   securityMustBeReadOnly: true

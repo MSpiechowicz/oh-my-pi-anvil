@@ -1,7 +1,7 @@
 ---
-name: orchestrator-security
+name: sentinel
 description: Performs a read-only security review of the exact workspace revision.
-model: "@orch_security"
+model: "@sentinel"
 tools:
   - read
   - grep

@@ -1,7 +1,7 @@
 ---
-name: orchestrator-reviewer
+name: inquisitor
 description: Performs a read-only correctness, maintainability, and acceptance review.
-model: "@orch_review"
+model: "@inquisitor"
 tools:
   - read
   - grep

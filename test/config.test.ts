@@ -37,7 +37,7 @@ describe("workflow configuration", () => {
       await mkdir(path.join(repository, ".git"));
       await mkdir(workspace, { recursive: true });
       const globalPath = path.join(configHome, "omp", "anvil.yml");
-      const projectPath = path.join(repository, ".omp", "orchestrator.yml");
+      const projectPath = path.join(repository, ".omp", "anvil.yml");
       await mkdir(path.dirname(globalPath), { recursive: true });
       await mkdir(path.dirname(projectPath), { recursive: true });
       await writeFile(globalPath, "version: 1\nworkflow:\n  name: global-workflow\n");
@@ -63,7 +63,7 @@ describe("workflow configuration", () => {
       await mkdir(path.join(repository, "workspace"));
       const report = await initConfig(path.join(repository, "workspace"));
       const globalPath = path.join(configHome, "omp", "anvil.yml");
-      const projectPath = path.join(repository, ".omp", "orchestrator.yml");
+      const projectPath = path.join(repository, ".omp", "anvil.yml");
 
       expect(report.global.status).toBe("created");
       expect(report.project?.status).toBe("created");
@@ -87,7 +87,7 @@ describe("workflow configuration", () => {
       await mkdir(path.join(repository, ".git"));
       await initConfig(repository);
       const globalPath = path.join(configHome, "omp", "anvil.yml");
-      const projectPath = path.join(repository, ".omp", "orchestrator.yml");
+      const projectPath = path.join(repository, ".omp", "anvil.yml");
       const modifiedGlobal = "version: 1\nworkflow:\n  name: modified-global\n";
       const modifiedProject = "version: 1\nworkflow:\n  name: modified-project\n";
       await writeFile(globalPath, modifiedGlobal);
@@ -108,38 +108,6 @@ describe("workflow configuration", () => {
     }
   });
 
-  test("reports alternate project settings without creating the canonical overlay", async () => {
-    const repository = await mkdtemp("/tmp/anvil-config-alternate-");
-    const configHome = await mkdtemp("/tmp/anvil-config-home-");
-    const previousXdg = process.env.XDG_CONFIG_HOME;
-    try {
-      process.env.XDG_CONFIG_HOME = configHome;
-      await mkdir(path.join(repository, ".git"));
-      const alternatePath = path.join(repository, ".omp", "anvil.yml");
-      const canonicalPath = path.join(repository, ".omp", "orchestrator.yml");
-      const alternateContent = "version: 1\nworkflow:\n  name: alternate-workflow\n";
-      await mkdir(path.dirname(alternatePath), { recursive: true });
-      await writeFile(alternatePath, alternateContent);
-
-      const report = await initConfig(repository);
-      expect(report.detectedAlternates).toEqual([alternatePath]);
-      expect(report.alternates).toEqual([alternatePath]);
-      expect(report.project).toBe(undefined);
-      expect(await readFile(alternatePath, "utf8")).toBe(alternateContent);
-      let canonicalExists = true;
-      try {
-        await readFile(canonicalPath, "utf8");
-      } catch {
-        canonicalExists = false;
-      }
-      expect(canonicalExists).toBe(false);
-    } finally {
-      if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
-      else process.env.XDG_CONFIG_HOME = previousXdg;
-      await rm(repository, { recursive: true, force: true });
-      await rm(configHome, { recursive: true, force: true });
-    }
-  });
 
   test("loads nested YAML lists without changing the fixed workflow", async () => {
     const root = await mkdtemp("/tmp/anvil-config-");
@@ -148,7 +116,7 @@ describe("workflow configuration", () => {
     try {
       process.env.XDG_CONFIG_HOME = configHome;
       await mkdir(path.join(root, ".omp"), { recursive: true });
-      await writeFile(path.join(root, ".omp", "orchestrator.yml"), "version: 1\nworkflow:\n  name: secure-code-change\nchecks:\n  - id: typecheck\n    command: [deno, task, typecheck]\n    required: true\n    timeoutMs: 1000\n");
+      await writeFile(path.join(root, ".omp", "anvil.yml"), "version: 1\nworkflow:\n  name: secure-code-change\nchecks:\n  - id: typecheck\n    command: [deno, task, typecheck]\n    required: true\n    timeoutMs: 1000\n");
       const config = await loadConfig(root);
       expect(config.checks).toHaveLength(1);
       expect(config.checks[0].id).toBe("typecheck");
@@ -168,7 +136,7 @@ describe("workflow configuration", () => {
     try {
       process.env.XDG_CONFIG_HOME = configHome;
       await mkdir(path.join(root, ".omp"), { recursive: true });
-      await writeFile(path.join(root, ".omp", "orchestrator.yml"), "version: 1\nunknown: true\n");
+      await writeFile(path.join(root, ".omp", "anvil.yml"), "version: 1\nunknown: true\n");
       let rejected = false;
       try {
         await loadConfig(root);

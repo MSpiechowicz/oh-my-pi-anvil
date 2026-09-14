@@ -19,8 +19,21 @@ export function globalConfigPath(): string {
   return path.resolve(home, ".config", "omp", "anvil.yml");
 }
 
+/** The global OMP model-role mapping location. */
+export function globalModelsConfigPath(): string {
+  const profile = environment("OMP_PROFILE") ?? environment("PI_PROFILE");
+  let home = environment("HOME");
+  if (!home) {
+    try { home = homedir(); } catch { home = path.resolve("."); }
+  }
+  if (profile && profile !== "default") return path.resolve(home, ".omp", "profiles", profile, "agent", "config.yml");
+  const agentDirectory = environment("PI_CODING_AGENT_DIR");
+  if (agentDirectory) return path.resolve(agentDirectory, "config.yml");
+  return path.resolve(home, ".omp", "agent", "config.yml");
+}
+
 export function projectConfigPath(repositoryRoot: string): string {
-  return path.join(path.resolve(repositoryRoot), ".omp", "orchestrator.yml");
+  return path.join(path.resolve(repositoryRoot), ".omp", "anvil.yml");
 }
 
 /** Find the nearest Git-style repository root, if the workspace is inside one. */

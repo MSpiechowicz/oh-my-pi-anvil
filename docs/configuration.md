@@ -1,6 +1,6 @@
 # Configuration
 
-Forge assembles an effective configuration before a run. The global user settings file is loaded by default, and an optional repository overlay can override it. The filename `.omp/orchestrator.yml` is an internal, historical storage name; the user-facing command is `/forge` (`/orchestrate` remains an equivalent compatibility alias).
+Forge assembles an effective configuration before a run. The global user settings file is loaded by default, and an optional repository overlay can override it. The canonical project overlay is `.omp/anvil.yml`; `/forge` runs an objective and `/anvil` manages configuration, diagnostics, runs, and updates.
 
 ## Configuration locations and precedence
 
@@ -8,40 +8,32 @@ Settings are merged in this order:
 
 1. built-in `DEFAULT_CONFIG`;
 2. the global user file, `$XDG_CONFIG_HOME/omp/anvil.yml`;
-3. the nearest project overlay, `.omp/orchestrator.yml`.
+3. the nearest project overlay, `.omp/anvil.yml`.
 
-If `XDG_CONFIG_HOME` is not set, the global path is `~/.config/omp/anvil.yml`. Both configuration files are editable YAML. The global file is optional; when it is absent, Forge continues with built-in defaults.
+If `XDG_CONFIG_HOME` is not set, the global Anvil path is `~/.config/omp/anvil.yml`. OMP's global model-role mappings are stored in `~/.omp/agent/config.yml` by default, or in `$PI_CODING_AGENT_DIR/config.yml` when a custom agent directory is active. Named profiles use their profile agent directory. Both configuration files are editable YAML. The Anvil global file is optional; when it is absent, Forge continues with built-in defaults.
 
-On the first OMP session after installation, Anvil automatically creates the global file if it is missing and shows a notification with the exact path to edit. A new OMP session or restart of OMP is required after installation so Anvil can load and perform this setup. It does not modify the current repository during this automatic setup. Existing global settings are left unchanged, so the notification is not repeated on later sessions.
+On the first OMP session after installation, Anvil automatically creates the Anvil global file if it is missing and shows a notification with the exact path to edit. A new OMP session or restart of OMP is required after installation so Anvil can load and perform this setup. It does not modify the current repository during this automatic setup. Existing global settings are left unchanged, so the notification is not repeated on later sessions.
 
-After editing the global file, verify the installation and create a repository overlay when needed:
+Inspect the active paths and verify the installation:
 
 ```text
-/forge doctor
-/forge init
+/anvil config
+/anvil doctor
+/anvil init
+/anvil update check
 ```
 
 
-Initialization creates the missing global file and, at the repository root, creates a small editable `.omp/orchestrator.yml` overlay only when neither the canonical project file nor an alternate repository settings file is present. It never overwrites existing global, canonical, or alternate settings. Running initialization from a repository subdirectory still targets that repository root. If existing settings are found, initialization reports them instead of replacing them. When an alternate is detected without a canonical project file, project initialization is skipped and the alternate path is reported for inspection or migration.
+Initialization creates the missing global file and, at the repository root, creates a small editable `.omp/anvil.yml` overlay. It never overwrites existing global or project settings. Running initialization from a repository subdirectory still targets that repository root. If either file already exists, initialization reports it instead of replacing it.
 
-For migration and inspection, initialization also reports these alternate candidates when present:
-
-```text
-.omp/orchestrator.json
-.omp/anvil.yml
-.anvil.yml
-anvil.yml
-```
-
-The existing canonical project settings filename remains supported as `.omp/orchestrator.yml`, and the runtime directory remains supported under `.omp/.orchestrator/`. Those historical names are independent of the `/forge` and `/orchestrate` command spellings.
 
 The generated project overlay is intentionally sparse so shared global values continue to apply. Add only repository-specific overrides, for example:
 
 ```yaml
 # $XDG_CONFIG_HOME/omp/anvil.yml
 agents:
-  implementation:
-    agent: orchestrator-implementation
+  implementation: # Smith
+    agent: smith
 checks:
   - id: typecheck
     command: [deno, task, typecheck]
@@ -50,10 +42,11 @@ checks:
 ```
 
 ```yaml
-# <repository-root>/.omp/orchestrator.yml
+# <repository-root>/.omp/anvil.yml
+# Values here override the global settings for this repository.
 agents:
-  implementation:
-    agent: my-repository-implementation
+  implementation: # Smith
+    agent: my-repository-smith
 checks:
   - id: lint
     command: [deno, task, lint]
@@ -79,58 +72,64 @@ flowchart LR
     I -- blocking finding --> S
 ```
 
-Use the Forge command to validate the installation and manage runs:
+Use `/forge` with the objective itself as the start point:
 
 ```text
-/forge doctor
-/forge init
-/forge start "Describe the change to make"
-/forge status [run-id]
-/forge resume <run-id>
-/forge findings [run-id]
-/forge cancel <run-id>
+/forge "Describe the change to make"
 ```
 
-The compatibility alias accepts the same subcommands, but new scripts should use `/forge`.
+Use `/anvil` for configuration and run management:
+
+```text
+/anvil config
+/anvil doctor
+/anvil init
+/anvil status [run-id]
+/anvil resume <run-id>
+/anvil findings [run-id]
+/anvil cancel <run-id>
+/anvil update check|install
+```
+
 
 ## Configuration responsibilities
 
 The V1 configuration controls:
 
 - `version` and the named workflow;
-- agent names for planning, implementation, security, and review;
-- deterministic checks, requiredness, and per-check timeouts;
-- security and review policies and retry limits;
-- implementation retry limits;
+- agent mappings for Architect, Smith, Sentinel, and Inquisitor;
+- deterministic Warden checks, requiredness, and per-check timeouts;
+- Sentinel and Inquisitor policies and retry limits;
+- Smith retry limits;
 - total token, request, transition, and wall-clock budgets;
 - handoff and durable-memory limits;
 - persistence options and safety flags.
 
-Model and provider choices remain in the host OMP model-role settings. Anvil does not select a provider for you. The default agent definitions use the configured aliases, for example:
+Model and provider choices remain in the host OMP model-role settings. Anvil does not select a provider for you. The default agent definitions use the canonical role aliases:
 
 ```yaml
 modelRoles:
-  orch_plan: "provider/planner:xhigh"
-  orch_impl: "provider/coding:xhigh"
-  orch_security: "provider/security:xhigh"
-  orch_review: "provider/review:high"
+  architect: "provider/planner:xhigh"
+  smith: "provider/coding:xhigh"
+  sentinel: "provider/security:xhigh"
+  inquisitor: "provider/review:high"
 ```
 
-Agent mappings point to discoverable OMP agent names:
+Warden runs deterministic checks and has no model role. Agent mappings point to discoverable OMP agent names:
 
 ```yaml
 agents:
-  planner:
-    agent: orchestrator-planner
-  implementation:
-    agent: orchestrator-implementation
-  security:
-    agent: orchestrator-security
-  review:
-    agent: orchestrator-reviewer
+  planner: # Architect
+    agent: architect
+  implementation: # Smith
+    agent: smith
+  security: # Sentinel
+    agent: sentinel
+  review: # Inquisitor
+    agent: inquisitor
 ```
 
-All four configured names are checked by `/forge doctor` and at run startup. A missing agent is reported before model work begins.
+All four configured names are checked by `/anvil doctor` and at Forge run startup. A missing agent is reported before model work begins.
 
 ## Revision and gate behavior
 
@@ -140,6 +139,6 @@ A gate pass is usable only when its revision, effective configuration, and gate 
 
 ## Persistence
 
-Runtime state defaults to `.omp/.orchestrator/`, another internal storage name retained for continuity. It contains SQLite state, the effective configuration, bounded handoffs, structured outputs, and command logs. Rendered prompts are not persisted by default.
+Runtime state defaults to `.omp/.anvil/`. It contains SQLite state, the effective configuration, bounded handoffs, structured outputs, and command logs. Rendered prompts are not persisted by default.
 
 You may set a different persistence root through the `persistence.root` option. Runtime files are kept separate from the workspace revision; source edits remain subject to revision checks. See [Persistence and recovery](../README.md#persistence-and-recovery) for the runtime layout and recovery behavior.

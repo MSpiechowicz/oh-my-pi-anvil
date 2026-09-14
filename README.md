@@ -14,7 +14,7 @@
   <img src="assets/anvil-team.webp" alt="The Anvil team in the Forge" width="100%" />
 </p>
 
-Anvil is an OMP extension for taking a software objective from a written plan to a verified workspace revision. The user-facing command is **`/forge`**. Behind that command, Anvil runs a deterministic, persistent workflow engine that coordinates the **Architect**, **Smith**, **Warden**, **Sentinel**, and **Inquisitor**.
+Anvil is an OMP extension for taking a software objective from a written plan to a verified workspace revision. The user-facing workflow command is **`/forge`**; **`/anvil`** handles configuration, diagnostics, run management, and updates. Behind those commands, Anvil runs a deterministic, persistent workflow engine that coordinates the **Architect**, **Smith**, **Warden**, **Sentinel**, and **Inquisitor**.
 
 Unlike prompt-only agent chains, the Forge records state and evidence as it works. Findings return to the Smith for correction, every code mutation invalidates earlier verification, and a run is only **Sealed** when checks, security, and review pass against the same workspace revision.
 
@@ -66,48 +66,47 @@ Every Smith mutation starts the gate sequence again. Read-only gates also verify
 
 ## Quick start
 
-Install Anvil through OMP. A new OMP session or restart of OMP is required after installation so it loads Anvil. In that first session, Anvil automatically creates the editable global settings template and shows its exact path in the OMP notification area; it does not modify the current repository during this first-run setup. Use `/forge init` when you also want a repository-specific overlay.
+Install Anvil through OMP. A new OMP session or restart of OMP is required after installation so it loads Anvil. In that first session, Anvil automatically creates the editable global settings template and shows its exact path in the OMP notification area; it does not modify the current repository during this first-run setup.
 ```bash
 # Register the Anvil marketplace and install the stable release
 omp plugin marketplace add MSpiechowicz/oh-my-pi-anvil
 omp plugin install oh-my-pi-anvil@omp-anvil --scope user
 
 # After installing, open a new OMP session or restart OMP so Anvil loads.
-# Edit the global settings file Anvil created:
-$EDITOR "${XDG_CONFIG_HOME:-$HOME/.config}/omp/anvil.yml"
+# Inspect the global configuration and both global storage paths:
+/anvil config
 
 # Verify the installation:
-/forge doctor
+/anvil doctor
 
 # From the repository where you want a project overlay. Running this from
 # a subdirectory still targets the repository root.
-/forge init
-/forge start "Add scoped API-key rotation with a backwards-compatible migration"
-/forge status
+/anvil init
+
+# The objective text is the Forge start point; no "start" subcommand is needed.
+/forge "Add scoped API-key rotation with a backwards-compatible rollout"
 ```
 
-The automatic first-run setup creates the global file at `$XDG_CONFIG_HOME/omp/anvil.yml` when `XDG_CONFIG_HOME` is set, or at `~/.config/omp/anvil.yml` otherwise. If the file already exists, startup leaves it unchanged and shows no repeated setup notification. `/forge init` creates the optional project overlay at the repository root as `.omp/orchestrator.yml` only when neither that canonical file nor an alternate repository settings file exists. Missing files are created as editable text; existing global, canonical, and alternate settings are preserved. If it detects an alternate and no canonical project file, project initialization is skipped and the alternate path is reported for inspection or migration.
+The automatic first-run setup creates the global file at `$XDG_CONFIG_HOME/omp/anvil.yml` when `XDG_CONFIG_HOME` is set, or at `~/.config/omp/anvil.yml` otherwise. If the file already exists, startup leaves it unchanged and shows no repeated setup notification. `/anvil init` creates the optional project overlay at the repository root as `.omp/anvil.yml`. Missing files are created as editable text; existing settings are preserved.
 
 Forge loads settings in this order, with later values taking precedence:
 
 1. built-in defaults;
 2. the global user file;
-3. the nearest repository `.omp/orchestrator.yml` overlay.
+3. the nearest repository `.omp/anvil.yml` overlay.
 
-The project overlay is intentionally small: put shared checks and agent choices in the global file, then add only repository-specific overrides to `.omp/orchestrator.yml`. `/orchestrate` remains an equivalent alias, including for initialization.
+The project overlay is intentionally small: put shared checks and agent choices in the global file, then add only repository-specific overrides to `.omp/anvil.yml`.
 
-If the process stops, resume from persisted state:
+With an interactive OMP UI, `/anvil` without arguments opens a management menu; the explicit subcommands remain available for scripts and non-interactive sessions.
 
-```bash
-/forge resume run_<id>
+Inspect and control an existing run through `/anvil`:
+
+```text
+/anvil status [run-id]
+/anvil resume run_<id>
+/anvil findings run_<id>
+/anvil cancel run_<id>
 ```
-
-Inspect findings without opening SQLite:
-
-```bash
-/forge findings run_<id>
-```
-
 
 ## Marketplace installation and updates
 
@@ -121,8 +120,8 @@ omp plugin install oh-my-pi-anvil@omp-anvil --scope user
 Anvil exposes the native update path from inside OMP:
 
 ```text
-/forge update check
-/forge update install
+/anvil update check
+/anvil update install
 ```
 
 The standalone command-line entrypoint is also available when the package is on your `PATH`:
@@ -133,7 +132,7 @@ anvil-update install
 ```
 
 Updates verify the published stable GitHub release, refresh the registered marketplace, upgrade only the active unambiguous Anvil installation, and confirm that OMP installed a newer version. Source checkouts are never overwritten; update those with `git pull --ff-only`, then run `deno task build`.
-Interactive OMP startups also request a fresh public release check in the background. A managed installation shows `Anvil update available. Run /forge update install to update it.` as a warning when a newer stable release exists; startup failures stay quiet and no code is installed automatically. Source checkouts do not show this marketplace-update warning.
+Interactive OMP startups also request a fresh public release check in the background. A managed installation shows `Anvil update available. Run /anvil update install to update it.` as a warning when a newer stable release exists; startup failures stay quiet and no code is installed automatically. Source checkouts do not show this marketplace-update warning.
 
 ## Configuration
 
@@ -151,10 +150,12 @@ When `XDG_CONFIG_HOME` is not set, Forge uses:
 ~/.config/omp/anvil.yml
 ```
 
+OMP's global model-role mappings are stored in `~/.omp/agent/config.yml` by default, or in `$PI_CODING_AGENT_DIR/config.yml` when a custom agent directory is active. Named profiles use their profile agent directory. `/anvil config` prints the active paths.
+
 The optional repository-specific overlay is:
 
 ```text
-<repository-root>/.omp/orchestrator.yml
+<repository-root>/.omp/anvil.yml
 ```
 
 For example, keep common agent mappings and checks in the global file, then customize one repository with a small overlay:
@@ -162,10 +163,10 @@ For example, keep common agent mappings and checks in the global file, then cust
 ```yaml
 # $XDG_CONFIG_HOME/omp/anvil.yml
 agents:
-  planner:
-    agent: orchestrator-planner
-  implementation:
-    agent: orchestrator-implementation
+  planner: # Architect
+    agent: architect
+  implementation: # Smith
+    agent: smith
 checks:
   - id: typecheck
     command: [deno, task, typecheck]
@@ -174,11 +175,11 @@ checks:
 ```
 
 ```yaml
-# <repository-root>/.omp/orchestrator.yml
+# <repository-root>/.omp/anvil.yml
 # Values here override the global settings for this repository.
 agents:
-  implementation:
-    agent: my-repository-implementation
+  implementation: # Smith
+    agent: my-repository-smith
 checks:
   - id: lint
     command: [deno, task, lint]
@@ -196,15 +197,14 @@ workflow:
   name: secure-code-change
 
 agents:
-  planner:
-    agent: orchestrator-planner
-  implementation:
-    agent: orchestrator-implementation
-  security:
-    agent: orchestrator-security
-  review:
-    agent: orchestrator-reviewer
-
+  planner: # Architect
+    agent: architect
+  implementation: # Smith
+    agent: smith
+  security: # Sentinel
+    agent: sentinel
+  review: # Inquisitor
+    agent: inquisitor
 checks:
   - id: typecheck
     command: [deno, task, typecheck]
@@ -235,25 +235,25 @@ memory:
   retainOnSuccess: true
 ```
 
-Model selection stays separate in OMP:
+Model selection stays in OMP's global model-role configuration:
 
 ```yaml
 modelRoles:
-  orch_plan: "provider/planner:xhigh"
-  orch_impl: "provider/coding:xhigh"
-  orch_security: "provider/security:xhigh"
-  orch_review: "provider/review:high"
+  architect: "provider/planner:xhigh"
+  smith: "provider/coding:xhigh"
+  sentinel: "provider/security:xhigh"
+  inquisitor: "provider/review:high"
 ```
 
-The default agent definitions reference these aliases. Anvil never chooses a provider for you. For the complete configuration reference, see [Configuration](docs/configuration.md).
+The Warden is deterministic and has no model mapping. The default agent definitions reference the canonical aliases above. Anvil never chooses a provider for you. For the complete configuration reference, see [Configuration](docs/configuration.md).
 
 ## Persistence and recovery
 
-Runtime state lives under `.omp/.orchestrator/` by default. This directory name is an internal, historical storage name; it does not change the `/forge` command.
+Runtime state lives under `.omp/.anvil/` by default.
 
 ```text
-.omp/.orchestrator/
-├── orchestrator.db
+.omp/.anvil/
+├── anvil.db
 ├── lock.json
 └── runs/<run-id>/
     ├── objective.md
