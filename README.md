@@ -134,7 +134,7 @@ anvil-update check
 anvil-update install
 ```
 
-Updates verify the published stable GitHub release, refresh the registered marketplace, upgrade only the active unambiguous Anvil installation, and confirm that OMP installed a newer version. Source checkouts are never overwritten; update those with `git pull --ff-only`, then run `npm install && npm run build`.
+Updates verify the published stable GitHub release, refresh the registered marketplace, upgrade only the active unambiguous Anvil installation, and confirm that OMP installed a newer version. Source checkouts are never overwritten; update those with `git pull --ff-only`, then run `deno task build`.
 
 ## Configuration
 
@@ -157,7 +157,7 @@ agents:
 
 checks:
   - id: typecheck
-    command: [bun, run, typecheck]
+    command: [deno, task, typecheck]
     required: true
     timeoutMs: 180000
 
@@ -264,13 +264,12 @@ The package follows the extension and task-agent concepts documented by OMP. Int
 ## Development
 
 ```bash
-npm install
-npm run typecheck
-npm test
-npm run build
+deno task typecheck
+deno task test
+deno task build
 ```
 
-The repository has no runtime dependency beyond the Bun APIs supplied by the OMP host. Unit and integration tests use injected fake agents and revision providers, so state-machine correctness does not spend model tokens.
+The repository runs on Deno and standard Node-compatible APIs supplied by the OMP host. Unit and integration tests use injected fake agents and revision providers, so state-machine correctness does not spend model tokens.
 
 ## License
 

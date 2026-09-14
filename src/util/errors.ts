@@ -22,10 +22,8 @@ export type ErrorCode =
   | "INVARIANT_VIOLATION";
 
 export class AnvilError extends Error {
-  constructor(readonly code: ErrorCode, message: string, readonly cause?: unknown) {
-    super(message);
-    this.name = `AnvilError(${code})`;
-  }
+  readonly code: ErrorCode;
+  constructor(code: ErrorCode, message: string, cause?: unknown) { super(message, { cause }); this.code = code; this.name = `AnvilError(${code})`; }
 }
 
 export function asAnvilError(error: unknown, fallback: ErrorCode = "PERSISTENCE_ERROR"): AnvilError {

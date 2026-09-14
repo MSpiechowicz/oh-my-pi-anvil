@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "./test-helpers.ts";
 import { CommandRouter } from "../src/commands/router.ts";
 import { latestRelease } from "../src/update.ts";
 describe("release updater metadata", () => {

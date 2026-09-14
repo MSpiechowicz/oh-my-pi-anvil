@@ -1,0 +1,18 @@
+{
+  "tasks": {
+    "test": "deno test --allow-all test/",
+    "typecheck": "deno check src/index.ts src/extension.ts src/update-cli.ts test/artifact.test.ts test/config.test.ts test/engine.test.ts test/findings.test.ts test/invariants.test.ts test/lock.test.ts test/omp-smoke.test.ts test/update.test.ts",
+    "build": "deno eval \"await Deno.mkdir('dist', { recursive: true })\" && deno bundle src/index.ts -o dist/index.js && deno bundle src/extension.ts -o dist/extension.js && deno bundle src/update-cli.ts -o dist/update-cli.js",
+    "update": "deno run --allow-all src/update-cli.ts"
+  },
+  "fmt": {
+    "lineWidth": 140,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+}

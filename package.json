@@ -15,14 +15,10 @@
   },
   "files": ["dist", "agents", "skills", "workflows", "docs", "assets", "README.md", "LICENSE"],
   "scripts": {
-    "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json",
-    "update": "bun run src/update-cli.ts"
-  },
-  "devDependencies": {
-    "@types/node": "^24.0.0",
-    "typescript": "^5.9.2"
+    "test": "deno task test",
+    "typecheck": "deno task typecheck",
+    "build": "deno task build",
+    "update": "deno task update"
   },
   "omp": {
     "extensions": ["./dist/extension.js"],

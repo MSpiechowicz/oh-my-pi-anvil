@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { AnvilError } from "../util/errors.ts";
@@ -19,8 +20,8 @@ export class GitRevisionProvider implements RevisionProvider {
   }
   async changedFiles(from: string, to: string): Promise<string[]> { if (from === to) return []; return this.git(["diff", "--name-only", "--no-ext-diff", "HEAD"]).split(/\r?\n/).filter(Boolean).filter((file) => !this.isIgnored(file)); }
   private isIgnored(file: string): boolean { return [".omp/.orchestrator/", ...(this.options.ignore ?? [])].some((prefix) => prefix.endsWith("/**") ? file.startsWith(prefix.slice(0, -3)) : file === prefix || file.startsWith(prefix)); }
-  private git(args: string[]): string { const result = Bun.spawnSync({ cmd: ["git", "-C", this.root, ...args], stdout: "pipe", stderr: "pipe" }); if (result.exitCode !== 0) throw new AnvilError("WORKSPACE_NOT_GIT", new TextDecoder().decode(result.stderr).trim() || "Workspace is not a Git repository"); return new TextDecoder().decode(result.stdout); }
-  private gitBytes(args: string[]): Uint8Array { const result = Bun.spawnSync({ cmd: ["git", "-C", this.root, ...args], stdout: "pipe", stderr: "pipe" }); if (result.exitCode !== 0) throw new AnvilError("WORKSPACE_NOT_GIT", new TextDecoder().decode(result.stderr).trim() || "Git command failed"); return result.stdout; }
+  private git(args: string[]): string { try { return execFileSync("git", ["-C", this.root, ...args], { encoding: "utf8" }); } catch (error) { const detail = error instanceof Error && "stderr" in error ? String(error.stderr) : ""; throw new AnvilError("WORKSPACE_NOT_GIT", detail.trim() || "Git command failed", error); } }
+  private gitBytes(args: string[]): Uint8Array { try { const output = execFileSync("git", ["-C", this.root, ...args], { encoding: "buffer" }); return new Uint8Array(output); } catch (error) { const detail = error instanceof Error && "stderr" in error ? String(error.stderr) : ""; throw new AnvilError("WORKSPACE_NOT_GIT", detail.trim() || "Git command failed", error); } }
 }
 
 export class StaticRevisionProvider implements RevisionProvider {

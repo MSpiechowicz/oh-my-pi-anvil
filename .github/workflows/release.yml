@@ -23,24 +23,22 @@ concurrency:
 
 jobs:
   check:
-    name: Bun tests and package build
+    name: Deno tests and package build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: denoland/setup-deno@v2
         with:
-          bun-version: latest
-      - name: Install dependencies
-        run: bun install
+          deno-version: v2.x
       - name: Run tests
-        run: bun test
+        run: deno task test
       - name: Typecheck
-        run: bun run typecheck
+        run: deno task typecheck
       - name: Build package
-        run: bun run build
+        run: deno task build
 
   release:
     name: Bump, tag and publish

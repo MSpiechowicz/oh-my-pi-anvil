@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S deno run --allow-all
 import { runUpdate, type UpdateAction, UpdateError } from "./update.ts";
 
 function usage(): never { console.error("Usage: anvil-update check|install [--profile PROFILE]"); process.exit(2); }

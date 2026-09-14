@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "./test-helpers.ts";
 import { containedPath } from "../src/state/paths.ts";
 
 describe("artifact path safety", () => {

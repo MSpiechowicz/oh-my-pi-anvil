@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import { Database } from "./sqlite.ts";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { applyMigrations } from "./migrations.ts";

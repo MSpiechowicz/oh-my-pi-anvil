@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "./test-helpers.ts";
 import { assertLegalTransition } from "../src/workflow/transitions.ts";
 import { AnvilError } from "../src/util/errors.ts";
 import { serializeHandoff } from "../src/context/serializers.ts";

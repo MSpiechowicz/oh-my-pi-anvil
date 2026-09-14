@@ -1,14 +1,13 @@
+import { access, readFile } from "node:fs/promises";
 import { DEFAULT_CONFIG } from "./defaults.ts";
 import { validateConfig } from "./schema.ts";
 import type { WorkflowConfig } from "../workflow/types.ts";
 import { AnvilError } from "../util/errors.ts";
 
 export async function loadConfig(root: string, explicitPath?: string): Promise<WorkflowConfig> {
-  const path = explicitPath ?? `${root}/.omp/orchestrator.yml`;
-  const file = Bun.file(path);
-  if (!(await file.exists())) return validateConfig(structuredClone(DEFAULT_CONFIG));
-  const raw = await file.text();
-  const parsed = path.endsWith(".json") ? JSON.parse(raw) : parseSimpleYaml(raw);
+  const configPath = explicitPath ?? `${root}/.omp/orchestrator.yml`; let raw: string;
+  try { await access(configPath); raw = await readFile(configPath, "utf8"); } catch (error) { if (error instanceof Error && "code" in error && error.code === "ENOENT") return validateConfig(structuredClone(DEFAULT_CONFIG)); throw error; }
+  const parsed = configPath.endsWith(".json") ? JSON.parse(raw) : parseSimpleYaml(raw);
   return validateConfig(mergeConfig(structuredClone(DEFAULT_CONFIG), parsed as Partial<WorkflowConfig>));
 }
 

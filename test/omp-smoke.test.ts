@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "./test-helpers.ts";
 import { OmpSubprocessRunner } from "../src/runners/omp-subprocess-runner.ts";
 
 describe("OMP adapter", () => {
