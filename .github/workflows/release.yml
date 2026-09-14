@@ -33,6 +33,11 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test release CLI
+        run: python -m unittest discover -s test -p '*_test.py' -v
       - name: Run tests
         run: deno task test
       - name: Typecheck

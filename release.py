@@ -33,7 +33,7 @@ def git(repo, *args):
     return subprocess.run(
         ["git", "-C", str(repo), *args], check=True, text=True,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90,
-    ).stdout.strip()
+    ).stdout.rstrip("\n")
 
 
 def catalog_for(repo, source, current_version, version):

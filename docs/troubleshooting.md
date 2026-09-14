@@ -58,3 +58,9 @@ The workspace changed after the gate ran. This is expected protection, not a rep
 ## The runtime directory is hard to find
 
 The default runtime directory is `.omp/.anvil/`. It contains SQLite state and run artifacts. If the project sets `persistence.root`, inspect that configured location instead.
+
+## Release publishing reports a dirty checkout
+
+The release CLI permits CI to rebuild the tracked `extension.js` bundle, but rejects unrelated changed or untracked files. Git's porcelain status uses leading spaces to distinguish staged and unstaged changes; these must be preserved when checking the allowed artifact. A rebuild alone must not trigger `Release checkout must be clean`.
+
+Run the release CLI regression checks with `python -m unittest discover -s test -p '*_test.py' -v`. They publish only to temporary local Git repositories and exercise release resumption without creating a GitHub release.
