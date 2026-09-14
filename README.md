@@ -45,6 +45,8 @@ The correction path is never a shortcut around verification:
 
 Every Smith mutation starts the gate sequence again. Read-only gates also verify before-and-after workspace fingerprints, so a mutation during security or review cannot be mistaken for a pass.
 
+Sentinel and Inquisitor do not need shell or Git execution tools. Anvil captures a durable workspace baseline before implementation and supplies each reviewer with a readable patch and a manifest binding the baseline and target revision IDs and HEADs. The snapshots preserve tracked and relevant untracked bytes, binary files, symlinks, and executable modes; configured runtime artifacts are excluded. Reviewers use their read-only tools to inspect the supplied evidence and surrounding source. This diff is review context, not proof that runtime checks passed.
+
 ## The specialists
 
 <table>
@@ -279,6 +281,7 @@ Recovery is state-aware:
 - interrupted security or review reruns the read-only gate after revision validation.
 - blocked runs are paused: resolve the blocker, then `/anvil resume <run-id>` returns to the saved stage without repeating completed planning or implementation;
 - resume applies current budget settings without resetting usage or attempts; other workflow settings must match the saved effective configuration.
+- older runs without baseline snapshots resume only when Anvil can prove the original baseline from its clean historical commit or an exactly matching current workspace; a lost dirty baseline blocks before another reviewer attempt instead of substituting a `HEAD` diff.
 
 Anvil never resets the repository, cleans user files, stages changes, commits, or pushes.
 
@@ -294,6 +297,8 @@ A run cannot reach `DONE` (**Sealed**) unless all of these are true:
 6. any configured budgets and transition limits were not exceeded.
 
 Security and review are read-only by contract and by before/after fingerprint verification. A mutation invalidates the result and routes the run back through Warden.
+
+Full baseline and target snapshots are stored locally with the run artifacts, so large repositories require corresponding disk space. Snapshot preparation rejects unsupported or ambiguous states, including submodules, unresolved merges, skip-worktree/assume-unchanged entries, and text patches that cannot be rendered losslessly as UTF-8. See [revision evidence recovery](docs/troubleshooting.md#a-reviewer-cannot-inspect-the-revision-diff) for recovery limits.
 
 ## Token discipline
 

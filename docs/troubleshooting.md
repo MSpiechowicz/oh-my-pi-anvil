@@ -59,6 +59,18 @@ Forge recomputes the workspace fingerprint. If files changed, it records the new
 
 The workspace changed after the gate ran. This is expected protection, not a repository repair action. Forge invalidates the old pass and reruns deterministic checks before security and review. Avoid treating a result from an earlier revision as evidence for the current files.
 
+## A reviewer cannot inspect the revision diff
+
+Sentinel and Inquisitor intentionally lack unrestricted shell and browser execution. Anvil supplies a readable `changes.patch` and `manifest.json` through each review handoff's `review-diff` and `review-diff-manifest` evidence pointers. The manifest identifies both revision IDs and HEADs and links the durable baseline and target snapshots. Reviewers should read those artifacts rather than try to reconstruct compressed Git objects themselves.
+
+New runs capture `artifacts/revisions/baseline.json` before the first agent runs. This preserves pre-existing dirty and untracked content; the review patch describes changes from that actual baseline, even if implementation moves `HEAD`. The configured runtime directory is excluded. Snapshots contain full source bytes and can be large; protect them like the repository itself.
+
+On resume, an older run without its baseline artifact is recoverable only when its saved fingerprint proves a clean historical commit still available in Git, or when the current workspace exactly matches the requested strengthened baseline identity. Anvil does not infer missing dirty bytes from `HEAD`, a current checkout, or a changed-file list. If the original baseline cannot be recovered, keep the existing work and start a new `/forge <objective>` run describing what remains. Do not edit SQLite revision IDs or reset the repository to force acceptance.
+
+Missing, corrupt, or unsupported evidence blocks before a security/review attempt is charged. A corrupt artifact must be restored rather than silently replaced. Snapshot preparation also rejects submodules, unresolved index entries, skip-worktree/assume-unchanged paths, and non-UTF-8 text diffs that would be lossy; resolve the reported limitation before starting or resuming a supported run. Binary bytes remain preserved in snapshots and binary patches, but reviewers must state any inspection limits.
+
+Providing the revision diff does not resolve missing runtime verification or a missing implementation handoff. Those findings still require concrete execution evidence from an execution-capable stage; enabling unrestricted tools on the read-only reviewers is not the remedy.
+
 ## The runtime directory is hard to find
 
 The default runtime directory is `.omp/.anvil/`. It contains SQLite state and run artifacts. If the project sets `persistence.root`, inspect that configured location instead.

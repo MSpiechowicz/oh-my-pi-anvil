@@ -6,6 +6,14 @@ export type FindingStatus = "open" | "resolved" | "waived" | "superseded";
 
 export interface ArtifactPointer { id: string; path: string; sha256: string; }
 export interface WorkspaceRevision { id: string; head: string; stagedSha256: string; unstagedSha256: string; untracked: string[]; }
+// Contents are embedded so review evidence never depends on temporary Git objects.
+export interface RevisionSnapshot {
+  revisionId: string;
+  head: string;
+  format: "git-tree-v1" | "static-v1";
+  files: Array<{ path: string; mode: "100644" | "100755" | "120000"; contentBase64: string }>;
+  checksum: string;
+}
 
 export interface RunRecord {
   id: string; workflowName: string; workflowVersion: number; configHash: string;
@@ -49,7 +57,13 @@ export interface AgentRunResult<T> { status: "completed" | "failed" | "aborted";
 
 export interface CheckDefinition { id: string; command: string[]; cwd?: string; env?: Record<string, string>; required: boolean; timeoutMs: number; }
 export interface CheckResult { id: string; status: "passed" | "failed" | "timed_out" | "error"; exitCode?: number; durationMs: number; stdoutArtifact?: ArtifactPointer; stderrArtifact?: ArtifactPointer; summary: string; }
-export interface RevisionProvider { current(): Promise<WorkspaceRevision>; changedFiles(from: string, to: string): Promise<string[]>; }
+export interface RevisionProvider {
+  current(): Promise<WorkspaceRevision>;
+  changedFiles(from: string, to: string): Promise<string[]>;
+  captureSnapshot(expectedRevisionId: string): Promise<RevisionSnapshot>;
+  recoverSnapshot(revisionId: string, head: string): Promise<RevisionSnapshot>;
+  reviewDiff(base: RevisionSnapshot, target: RevisionSnapshot): Promise<{ patch: string; changedFiles: string[] }>;
+}
 export interface CheckRunner { run(check: CheckDefinition, input: { cwd: string; signal?: AbortSignal; runId?: string; epoch?: number }): Promise<CheckResult>; }
 export interface AgentRunner { run<T>(request: AgentRunRequest): Promise<AgentRunResult<T>>; }
 
