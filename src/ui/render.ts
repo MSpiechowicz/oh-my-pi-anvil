@@ -135,16 +135,9 @@ export function renderInit(report: InitReport): string {
 
 export function renderUpdate(report: UpdateReport): string {
   if (report.updated) return report.message ?? `Updated to ${report.currentVersion} using OMP plugin upgrade. Restart OMP to load the updated extension.`;
-  const state = report.updateAvailable ? "AVAILABLE" : "CURRENT";
-  return [
-    `ANVIL · UPDATE ${state}`,
-    "",
-    `${"INSTALLED".padEnd(12)}${report.currentVersion}`,
-    `${"LATEST".padEnd(12)}${report.latestVersion ?? "none"}`,
-    `${"MANAGED".padEnd(12)}${report.managed ? "OMP marketplace" : "source checkout"}`,
-    "",
-    report.message ?? (report.releaseUrl ? `RELEASE    ${report.releaseUrl}` : "No published stable release available."),
-  ].join("\n");
+  if (report.updateAvailable) return `Anvil ${report.currentVersion}: Newer release available. Run /anvil update install to update it.`;
+  if (report.message) return `Anvil ${report.currentVersion}: ${report.message}`;
+  return `Anvil ${report.currentVersion}: No newer release available.`;
 }
 
 export function renderStatus(summary: RunSummary): string {

@@ -5,12 +5,9 @@ import { checkUpdate } from "./update.ts";
 
 export interface ExtensionUI {
   notify?: (message: string, level?: string) => unknown;
-  setStatus?: (key: string, text: string | undefined) => unknown;
   select?: (title: string, options: string[]) => Promise<string | undefined>;
   input?: (prompt: string, defaultValue?: string) => Promise<string | undefined>;
 }
-
-const UPDATE_STATUS_KEY = "anvil-update";
 
 export interface ExtensionContext {
   cwd: string;
@@ -76,9 +73,6 @@ export default function anvilExtension(pi: ExtensionAPI): void {
   const anvilHandler = async (args: string, context: ExtensionContext): Promise<void> => {
     const input = await selectAnvilCommand(args, context);
     if (input === undefined) return;
-    if (input === "update check" || input === "update install") {
-      await context.ui?.setStatus?.(UPDATE_STATUS_KEY, undefined);
-    }
     await notifyOutput(context, await router.handleAdmin(input, { cwd: context.cwd, runtimeContext: context }));
   };
   pi.registerCommand("anvil", { description: "Inspect Anvil configuration and manage updates", handler: anvilHandler });
@@ -94,13 +88,8 @@ export default function anvilExtension(pi: ExtensionAPI): void {
   const checkForUpdate = async (context: ExtensionContext): Promise<void> => {
     try {
       const report = await checkUpdate(process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd);
-      const message = report.updateAvailable && report.managed
-        ? "Anvil update available. Run `/anvil update install` to update it."
-        : undefined;
-      if (typeof context.ui?.setStatus === "function") {
-        await context.ui.setStatus(UPDATE_STATUS_KEY, message);
-      } else if (message) {
-        await notify(context, message, "warning");
+      if (report.updateAvailable && report.managed) {
+        await notify(context, "Anvil update available. Run `/anvil update install` to update it.", "warning");
       }
     } catch {
       // Background startup update checks are best effort and remain quiet.

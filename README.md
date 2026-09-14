@@ -132,7 +132,7 @@ anvil-update install
 ```
 
 Updates verify the published stable GitHub release, refresh the registered marketplace, upgrade only the active unambiguous Anvil installation, and confirm that OMP installed a newer version. Source checkouts are never overwritten; update those with `git pull --ff-only`, then run `deno task build`.
-Interactive OMP startups also request a fresh public release check in the background. A managed installation places `Anvil update available. Run /anvil update install to update it.` in the OMP status area when a newer stable release exists; running either explicit update command clears that stale status before showing the command result. Startup failures stay quiet and no code is installed automatically. Source checkouts do not show this marketplace-update status.
+Interactive OMP startups also request a fresh public release check in the background. A managed installation shows `Anvil update available. Run /anvil update install to update it.` as a warning when a newer stable release exists; `/anvil update check` reports its result as a single plain line such as `Anvil 0.1.11: No newer release available.` Startup failures stay quiet and no code is installed automatically. Source checkouts do not show this marketplace-update warning.
 
 ## Configuration
 

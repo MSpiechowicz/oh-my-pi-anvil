@@ -219,7 +219,6 @@ describe("OMP command registration", () => {
     const previousPath = process.env.PATH;
     const previousFetch = globalThis.fetch;
     const notices: Array<{ message: string; level?: string }> = [];
-    const statuses: Array<{ key: string; text: string | undefined }> = [];
     const scheduled: Array<() => void | Promise<void>> = [];
     let sessionStart: SessionStartHandler | undefined;
     let anvilHandler: ((args: string, context: ExtensionContext) => Promise<void>) | undefined;
@@ -273,20 +272,15 @@ printf '%s\n' '${
           notify(message, level) {
             notices.push({ message, level });
           },
-          setStatus(key, text) {
-            statuses.push({ key, text });
-          },
         },
       });
       expect(notices).toHaveLength(0);
       expect(scheduled).toHaveLength(1);
 
       await scheduled[0]();
-      expect(notices).toHaveLength(0);
-      expect(statuses).toEqual([{
-        key: "anvil-update",
-        text: "Anvil update available. Run `/anvil update install` to update it.",
-      }]);
+      expect(notices).toHaveLength(1);
+      expect(notices[0].message).toBe("Anvil update available. Run `/anvil update install` to update it.");
+      expect(notices[0].level).toBe("warning");
       await anvilHandler("/anvil update check", {
         cwd: packageRoot,
         hasUI: true,
@@ -294,16 +288,11 @@ printf '%s\n' '${
           notify(message, level) {
             notices.push({ message, level });
           },
-          setStatus(key, text) {
-            statuses.push({ key, text });
-          },
         },
       });
-      expect(statuses[1]).toEqual({ key: "anvil-update", text: undefined });
-      expect(notices).toHaveLength(1);
-      expect(notices[0].message).toContain("ANVIL · UPDATE AVAILABLE");
-      expect(notices[0].message).toContain("LATEST      999.0.0");
-      expect(notices[0].level).toBe("info");
+      expect(notices).toHaveLength(2);
+      expect(notices[1].message).toBe("Anvil 0.1.11: Newer release available. Run /anvil update install to update it.");
+      expect(notices[1].level).toBe("info");
       await anvilHandler("/anvil update install", {
         cwd: packageRoot,
         hasUI: true,
@@ -311,14 +300,10 @@ printf '%s\n' '${
           notify(message, level) {
             notices.push({ message, level });
           },
-          setStatus(key, text) {
-            statuses.push({ key, text });
-          },
         },
       });
-      expect(statuses[2]).toEqual({ key: "anvil-update", text: undefined });
-      expect(notices).toHaveLength(2);
-      expect(notices[1].message).toContain("ANVIL · UPDATE FAILED");
+      expect(notices).toHaveLength(3);
+      expect(notices[2].message).toContain("Update failed:");
     } finally {
       if (previousConfig === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousConfig;

@@ -128,7 +128,7 @@ export class CommandRouter {
       }
       throw new AnvilError("CONFIG_INVALID", `Unknown /anvil command: ${command}`);
     } catch (error) {
-      if (error instanceof UpdateError) return `ANVIL · UPDATE FAILED\n\n${error.message}`;
+      if (error instanceof UpdateError) return `Update failed: ${error.message}`;
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL · ${typed.code}\n\n${typed.message}`;
     } finally {

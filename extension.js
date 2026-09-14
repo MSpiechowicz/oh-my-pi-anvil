@@ -2639,16 +2639,9 @@ function renderInit(report) {
 }
 function renderUpdate(report) {
   if (report.updated) return report.message ?? `Updated to ${report.currentVersion} using OMP plugin upgrade. Restart OMP to load the updated extension.`;
-  const state = report.updateAvailable ? "AVAILABLE" : "CURRENT";
-  return [
-    `ANVIL \xB7 UPDATE ${state}`,
-    "",
-    `${"INSTALLED".padEnd(12)}${report.currentVersion}`,
-    `${"LATEST".padEnd(12)}${report.latestVersion ?? "none"}`,
-    `${"MANAGED".padEnd(12)}${report.managed ? "OMP marketplace" : "source checkout"}`,
-    "",
-    report.message ?? (report.releaseUrl ? `RELEASE    ${report.releaseUrl}` : "No published stable release available.")
-  ].join("\n");
+  if (report.updateAvailable) return `Anvil ${report.currentVersion}: Newer release available. Run /anvil update install to update it.`;
+  if (report.message) return `Anvil ${report.currentVersion}: ${report.message}`;
+  return `Anvil ${report.currentVersion}: No newer release available.`;
 }
 function renderStatus(summary) {
   const run = summary.run;
@@ -2981,9 +2974,7 @@ ${typed.message}`;
       }
       throw new AnvilError("CONFIG_INVALID", `Unknown /anvil command: ${command}`);
     } catch (error) {
-      if (error instanceof UpdateError) return `ANVIL \xB7 UPDATE FAILED
-
-${error.message}`;
+      if (error instanceof UpdateError) return `Update failed: ${error.message}`;
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL \xB7 ${typed.code}
 
@@ -2998,7 +2989,6 @@ ${typed.message}`;
 };
 
 // src/extension.ts
-var UPDATE_STATUS_KEY = "anvil-update";
 async function selectAnvilCommand(args, context) {
   let input = args.trim().replace(/^\/anvil\s*/, "");
   if (input === "help" || context.hasUI === false || typeof context.ui?.select !== "function") return input;
@@ -3060,9 +3050,6 @@ function anvilExtension(pi) {
   const anvilHandler = async (args, context) => {
     const input = await selectAnvilCommand(args, context);
     if (input === void 0) return;
-    if (input === "update check" || input === "update install") {
-      await context.ui?.setStatus?.(UPDATE_STATUS_KEY, void 0);
-    }
     await notifyOutput(context, await router.handleAdmin(input, {
       cwd: context.cwd,
       runtimeContext: context
@@ -3086,11 +3073,8 @@ function anvilExtension(pi) {
   const checkForUpdate = async (context) => {
     try {
       const report = await checkUpdate(process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd);
-      const message = report.updateAvailable && report.managed ? "Anvil update available. Run `/anvil update install` to update it." : void 0;
-      if (typeof context.ui?.setStatus === "function") {
-        await context.ui.setStatus(UPDATE_STATUS_KEY, message);
-      } else if (message) {
-        await notify(context, message, "warning");
+      if (report.updateAvailable && report.managed) {
+        await notify(context, "Anvil update available. Run `/anvil update install` to update it.", "warning");
       }
     } catch {
     }

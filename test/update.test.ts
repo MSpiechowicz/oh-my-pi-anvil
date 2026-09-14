@@ -15,6 +15,16 @@ describe("release updater metadata", () => {
     });
     expect(output).toBe("Updated to 0.1.10 using OMP plugin upgrade. Restart OMP to load the updated extension.");
   });
+  test("renders current reports as one plain status line", () => {
+    const output = renderUpdate({
+      currentVersion: "0.1.11",
+      latestVersion: "0.1.11",
+      updateAvailable: false,
+      releaseUrl: "https://github.com/MSpiechowicz/oh-my-pi-anvil/releases/tag/v0.1.11",
+      managed: true,
+    });
+    expect(output).toBe("Anvil 0.1.11: No newer release available.");
+  });
   test("accepts only published stable v-tags", async () => {
     const release = await latestRelease(async () => new Response(JSON.stringify({ draft: false, prerelease: false, tag_name: "v1.2.3" }), { status: 200 })); expect(release).toEqual({ version: "1.2.3", tag: "v1.2.3", url: "https://github.com/MSpiechowicz/oh-my-pi-anvil/releases/tag/v1.2.3" });
   });
