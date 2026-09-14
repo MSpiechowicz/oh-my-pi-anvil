@@ -10,6 +10,12 @@ agents:
     agent: sentinel
   review: # Inquisitor
     agent: inquisitor
+  scout:
+    agent: scout
+  archivist:
+    agent: archivist
+scouting:
+  enabled: true
 checks: []
 security:
   failOn: [critical, high, medium]
@@ -27,6 +33,7 @@ context:
   maxInlineChars: 12000
 memory:
   enabled: true
+  archivist: true
 persistence:
   root: .anvil
 safety:

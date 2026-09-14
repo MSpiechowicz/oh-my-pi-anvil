@@ -5,4 +5,6 @@ export const DEFAULT_AGENT_POLICY: Record<AgentRole, { readOnly: boolean; canSpa
   implementation: { readOnly: false, canSpawnWorkers: false },
   security: { readOnly: true, canSpawnWorkers: false },
   review: { readOnly: true, canSpawnWorkers: false },
+  scout: { readOnly: true, canSpawnWorkers: false },
+  archivist: { readOnly: true, canSpawnWorkers: false },
 };

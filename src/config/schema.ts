@@ -1,9 +1,9 @@
 import { AnvilError } from "../util/errors.ts";
 import type { FindingSeverity, WorkflowConfig } from "../workflow/types.ts";
 
-const ROLES = ["planner", "implementation", "security", "review"] as const;
+import { WORKFLOW_ROLE_ORDER as ROLES } from "../agents/roles.ts";
 const SEVERITIES = ["critical", "high", "medium", "low", "info"] as const;
-const TOP_LEVEL_KEYS = ["version", "workflow", "agents", "checks", "checksFailFast", "security", "review", "implementation", "planning", "budgets", "context", "memory", "persistence", "safety"] as const;
+const TOP_LEVEL_KEYS = ["version", "workflow", "agents", "checks", "checksFailFast", "security", "review", "implementation", "planning", "scouting", "budgets", "context", "memory", "persistence", "safety"] as const;
 function rejectUnknownKeys(value: object, allowed: readonly string[], label: string): void { for (const key of Object.keys(value)) if (!allowed.includes(key)) throw new AnvilError("CONFIG_INVALID", `Unknown ${label} key: ${key}`); }
 
 function normalizeTokenLimit(value: unknown, label: string): number | undefined {
@@ -15,9 +15,11 @@ function normalizeTokenLimit(value: unknown, label: string): number | undefined 
 export function validateConfig(config: WorkflowConfig): WorkflowConfig {
   rejectUnknownKeys(config, TOP_LEVEL_KEYS, "top-level config");
   rejectUnknownKeys(config.workflow, ["name"], "workflow");
+  rejectUnknownKeys(config.agents, ROLES, "agents");
   for (const role of ROLES) {
     const agent = config.agents[role];
     rejectUnknownKeys(agent, ["agent", "model", "thinkingLevel", "effort"], `agents.${role}`);
+    if (typeof agent.agent !== "string" || !agent.agent.trim()) throw new AnvilError("CONFIG_INVALID", `agents.${role}.agent must be a non-empty string`);
     if (agent.model !== undefined && (typeof agent.model !== "string" || !agent.model.trim())) throw new AnvilError("CONFIG_INVALID", `agents.${role}.model must be a non-empty string`);
     if (agent.thinkingLevel !== undefined && !["off", "minimal", "low", "medium", "high", "xhigh", "max", "auto"].includes(agent.thinkingLevel)) throw new AnvilError("CONFIG_INVALID", `Invalid agents.${role}.thinkingLevel`);
   }
@@ -27,10 +29,15 @@ export function validateConfig(config: WorkflowConfig): WorkflowConfig {
   rejectUnknownKeys(config.implementation, ["maxAttempts", "isolation"], "implementation");
   rejectUnknownKeys(config.implementation.isolation, ["enabled", "merge"], "implementation.isolation");
   rejectUnknownKeys(config.planning, ["maxGenerations", "maxAttempts"], "planning");
+  if (!config.scouting || typeof config.scouting !== "object" || Array.isArray(config.scouting)) throw new AnvilError("CONFIG_INVALID", "scouting must be an object");
+  rejectUnknownKeys(config.scouting, ["enabled"], "scouting");
+  if (typeof config.scouting.enabled !== "boolean") throw new AnvilError("CONFIG_INVALID", "scouting.enabled must be a boolean");
   rejectUnknownKeys(config.budgets, ["maxTotalTokens", "maxTotalRequests", "maxTransitions", "maxWallClockMs", "perRole"], "budgets");
+  rejectUnknownKeys(config.budgets.perRole, ROLES, "budgets.perRole");
   for (const role of ROLES) if (config.budgets.perRole[role]) rejectUnknownKeys(config.budgets.perRole[role]!, ["maxTokens", "maxAttempts", "maxRequests"], `budgets.perRole.${role}`);
   rejectUnknownKeys(config.context, ["maxInlineChars", "maxMemoryItems", "maxMemoryChars", "maxFindingSummaryChars", "maxChangedFiles"], "context");
-  rejectUnknownKeys(config.memory, ["enabled", "retainOnSuccess", "maxRetainedLessons"], "memory");
+  rejectUnknownKeys(config.memory, ["enabled", "retainOnSuccess", "archivist", "maxRetainedLessons"], "memory");
+  for (const flag of ["enabled", "retainOnSuccess", "archivist"] as const) if (typeof config.memory[flag] !== "boolean") throw new AnvilError("CONFIG_INVALID", `memory.${flag} must be a boolean`);
   rejectUnknownKeys(config.persistence, ["root", "keepAgentRawArtifacts", "keepCommandLogs", "persistRenderedPrompts"], "persistence");
   rejectUnknownKeys(config.safety, ["oneMutatingRunPerWorkspace", "securityMustBeReadOnly", "reviewerMustBeReadOnly", "refusePathEscapeFromWorkspace"], "safety");
   const ids = new Set<string>();

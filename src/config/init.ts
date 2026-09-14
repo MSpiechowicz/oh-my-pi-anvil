@@ -33,6 +33,14 @@ agents:
     agent: sentinel
   review: # Inquisitor
     agent: inquisitor
+  scout: # Optional reconnaissance before Architect
+    agent: scout
+  archivist: # Optional knowledge curation after Inquisitor
+    agent: archivist
+scouting:
+  enabled: true # Set false to skip Scout.
+memory:
+  archivist: true # Set false to skip Archivist; also requires enabled and retainOnSuccess.
 
 # Nonempty Warden checks here or in .omp/anvil.yml override automatic discovery.
 # Empty checks discover supported finite verification scripts from root manifests.

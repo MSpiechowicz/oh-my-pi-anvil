@@ -28,7 +28,7 @@ const checks: CheckRunner = { async run(check): Promise<CheckResult> { return { 
 const testChecks = [{ id: "test", command: ["test-runner"], required: true, timeoutMs: 1000 }];
 
 async function makeEngine(root: string, provider: RevisionProvider, responses: ConstructorParameters<typeof MockAgentRunner>[0], configure?: (config: WorkflowConfig) => void, checkRunner: CheckRunner = checks) {
-  const state = await StateDatabase.open(path.join(root, ".omp")); const config = structuredClone(DEFAULT_CONFIG); config.persistence.root = path.join(root, ".omp"); config.checks = structuredClone(testChecks); configure?.(config); const artifacts = new ArtifactStore(state, (runId) => path.join(root, ".omp", "runs", runId)); return new WorkflowEngine({ config, state, artifacts, revisions: provider, agents: new MockAgentRunner(responses), checks: checkRunner });
+  const state = await StateDatabase.open(path.join(root, ".omp")); const config = structuredClone(DEFAULT_CONFIG); config.scouting.enabled = false; config.memory.archivist = false; config.persistence.root = path.join(root, ".omp"); config.checks = structuredClone(testChecks); configure?.(config); const artifacts = new ArtifactStore(state, (runId) => path.join(root, ".omp", "runs", runId)); return new WorkflowEngine({ config, state, artifacts, revisions: provider, agents: new MockAgentRunner(responses), checks: checkRunner });
 }
 
 async function initializeReviewWorkspace(root: string) {
@@ -519,6 +519,7 @@ describe("WorkflowEngine", () => {
       const state = await StateDatabase.open(path.join(root, ".omp"));
       try {
         const config = structuredClone(DEFAULT_CONFIG);
+        config.scouting.enabled = false; config.memory.archivist = false;
         config.persistence.root = path.join(root, ".omp");
         config.checks = structuredClone(testChecks);
         config.implementation.isolation.enabled = isolated;
@@ -574,7 +575,7 @@ describe("WorkflowEngine", () => {
     const root = await mkdtemp("/tmp/anvil-agent-failure-");
     const state = await StateDatabase.open(path.join(root, ".omp"));
     try {
-      const config = structuredClone(DEFAULT_CONFIG); config.persistence.root = path.join(root, ".omp"); config.checks = structuredClone(testChecks);
+      const config = structuredClone(DEFAULT_CONFIG); config.scouting.enabled = false; config.memory.archivist = false; config.persistence.root = path.join(root, ".omp"); config.checks = structuredClone(testChecks);
       let observedDurationMs = 0;
       const engine = new WorkflowEngine({
         config, state, artifacts: new ArtifactStore(state, (id) => path.join(root, ".omp", "runs", id)),
@@ -615,7 +616,7 @@ describe("WorkflowEngine", () => {
       expect(calls).toBe(0);
       const paused = await (await makeEngine(root, new StaticRevisionProvider(revision("rev0")), [], (config) => { config.budgets.maxTotalRequests = 0; })).start({ objective: "Legacy empty config", workspaceRoot: root });
       const state = await StateDatabase.open(path.join(root, ".omp"));
-      const config = structuredClone(DEFAULT_CONFIG); config.persistence.root = path.join(root, ".omp"); config.budgets.maxTotalRequests = 0;
+      const config = structuredClone(DEFAULT_CONFIG); config.scouting.enabled = false; config.memory.archivist = false; config.persistence.root = path.join(root, ".omp"); config.budgets.maxTotalRequests = 0;
       const artifacts = new ArtifactStore(state, (id) => path.join(root, ".omp", "runs", id));
       state.db.run("UPDATE runs SET config_hash = ? WHERE id = ?", [configHash(config), paused.run.id]);
       await artifacts.putJson(paused.run.id, "config", "effective-config.json", config); state.close();

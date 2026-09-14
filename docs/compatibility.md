@@ -16,11 +16,13 @@ These are instruction-restricted inspection roles, not execution sandboxes. Shel
 
 ## Agent output contracts
 
-Forge passes complete JSON Schema draft-07 contracts to both OMP subprocesses and isolated tasks. Architect, Smith, Sentinel, and Inquisitor each receive their role's schema from `src/schemas/outputs.ts`; Forge compiles those same schemas with Ajv for local validation. Required fields, nested types, enum values, and unknown fields are checked without coercion, defaults, or field removal. Errors identify the role and failing field path.
+Forge passes complete JSON Schema draft-07 contracts to both OMP subprocesses and isolated tasks. Architect, Smith, Sentinel, Inquisitor, Scout, and Archivist each receive their role's schema from `src/schemas/outputs.ts`; Forge compiles those same schemas with Ajv for local validation. Required fields, nested types, enum values, and unknown fields are checked without coercion, defaults, or field removal. Errors identify the role and failing field path.
 
 Smith's `needs_replan` result requires a nonempty `replanReason`. Both review gates require nonempty findings for a `findings` verdict and a nonempty `blockedReason` for `blocked`. A blocked Inquisitor result stops the run; it cannot seal a passing review gate. Architect's step IDs and dependency references are also checked locally after schema validation.
 
 Warden does not produce an LLM report: its deterministic check results come directly from the process runner.
+
+Optional Scout and Archivist invocations use the same persisted attempts, usage accounting, and strict output validation. Scout runs in PLAN before Architect; Archivist runs in REVIEW after all gates pass, before sealing. Neither is a gate. Invalid or unavailable advisory output is discarded; source mutation still fails Scout or forces all gates to rerun after Archivist. Their attempts do not consume Architect or Inquisitor attempt limits.
 
 Architect's `requiredChecks` names configured Warden command IDs. Browser/manual verification stays in acceptance criteria. Smith can return `verification` entries containing `criterion`, `status` (`passed`, `failed`, or `not_run`), concrete `evidence`, and optional run-root-relative `artifactPaths`. Forge captures supporting files, verifies containment and hashes, and binds the report to the actual resulting revision and mutation epoch before handing it to reviewers. These remain Smith's claims, distinct from authoritative Warden results. Omitting verification is not a passing result.
 
@@ -28,7 +30,7 @@ Sentinel's optional `verificationIndependent` declaration defaults conservativel
 
 ## Per-agent execution summaries
 
-Every settled Architect, Smith, Sentinel and Inquisitor invocation writes a runner-result summary under `<runtime-root>/runs/<run-id>/artifacts/<role>/output-<attempt-sequence>.json` (artifact kind `agent-output`, linked to its attempt). The default runtime root is `.anvil`; roles are `planner`, `implementation`, `security` and `review`. Sequence numbers are run-wide, not per-role. These summaries are separate from domain reports: plans use `artifacts/planner/plan-<sequence>.json`, reviewers use their role's `attempt-<sequence>.json`, and revision-bound Smith manifests use `artifacts/implementation/<attempt-id>/result.json`.
+Every settled agent invocation writes a runner-result summary under `<runtime-root>/runs/<run-id>/artifacts/<role>/output-<attempt-sequence>.json` (artifact kind `agent-output`, linked to its attempt). The default runtime root is `.anvil`; roles are `planner`, `implementation`, `security`, `review`, `scout`, and `archivist`. Sequence numbers are run-wide, not per-role. These summaries are separate from domain reports: plans use `artifacts/planner/plan-<sequence>.json`, reviewers use their role's `attempt-<sequence>.json`, optional specialists use `artifacts/<role>/result-<sequence>.json`, and revision-bound Smith manifests use `artifacts/implementation/<attempt-id>/result.json`.
 
 The summary contains the runner status, usage, structured output when available, error when present, and these execution fields:
 

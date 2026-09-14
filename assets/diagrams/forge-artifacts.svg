@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="990" viewBox="0 0 1040 990" role="img" aria-labelledby="title desc">
+  <title id="title">Anvil artifact directory tree</title>
+  <desc id="desc">The .anvil runtime directory contains the SQLite database, workspace lock, and per-run objective, configuration, artifacts, and logs. Artifact directories include revisions, Scout, Architect, Smith, Warden checks, Sentinel, Inquisitor, Archivist, and findings. Representative reports are shown; directories are created as needed.</desc>
+  <style>
+    .surface { fill: #171b22; }
+    .title { fill: #edf2f7; font: 700 28px system-ui, -apple-system, sans-serif; }
+    .note { fill: #a8b4c3; font: 16px system-ui, -apple-system, sans-serif; }
+    .tree { fill: #edf2f7; font: 22px ui-monospace, "DejaVu Sans Mono", monospace; white-space: pre; }
+    .accent { fill: #e0b36a; }
+    .rule { stroke: #627186; stroke-width: 1; }
+  </style>
+  <rect class="surface" width="1040" height="990" rx="18" />
+  <text class="title" x="40" y="56">Run state and artifacts</text>
+  <text class="note" x="40" y="88">SQLite owns workflow state. Hashed artifacts preserve the evidence.</text>
+  <path class="rule" d="M40 114 H1000" />
+  <g class="tree" xml:space="preserve">
+    <text x="40" y="157" class="accent">.anvil/</text>
+    <text x="40" y="190">├── anvil.db</text>
+    <text x="40" y="223">├── lock.json</text>
+    <text x="40" y="256">└── runs/&lt;run-id&gt;/</text>
+    <text x="40" y="289">    ├── objective.md</text>
+    <text x="40" y="322">    ├── effective-config.json</text>
+    <text x="40" y="355">    ├── artifacts/</text>
+    <text x="40" y="388">    │   ├── revisions/</text>
+    <text x="40" y="421">    │   │   └── baseline.json</text>
+    <text x="40" y="454" class="accent">    │   ├── scout/</text>
+    <text x="40" y="487">    │   │   └── result-&lt;attempt-sequence&gt;.json</text>
+    <text x="40" y="520">    │   ├── planner/</text>
+    <text x="40" y="553">    │   │   └── plan-&lt;attempt-sequence&gt;.json</text>
+    <text x="40" y="586">    │   ├── implementation/</text>
+    <text x="40" y="619">    │   ├── checks/</text>
+    <text x="40" y="652">    │   ├── security/</text>
+    <text x="40" y="685">    │   ├── review/</text>
+    <text x="40" y="718" class="accent">    │   ├── archivist/</text>
+    <text x="40" y="751">    │   │   └── result-&lt;attempt-sequence&gt;.json</text>
+    <text x="40" y="784">    │   └── findings/</text>
+    <text x="40" y="817">    └── logs/</text>
+  </g>
+  <path class="rule" d="M40 855 H1000" />
+  <text class="note" x="40" y="895">Representative files · directories and reports are created as needed.</text>
+  <text class="note" x="40" y="923">Scout and Archivist reports require valid output from the corresponding role.</text>
+  <text class="note" x="40" y="951">Open this SVG directly and use browser zoom for a larger, sharp view.</text>
+</svg>

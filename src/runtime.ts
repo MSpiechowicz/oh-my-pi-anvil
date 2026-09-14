@@ -9,6 +9,7 @@ import { DeterministicCheckRunner } from "./runners/check-runner.ts";
 import { OmpSubprocessRunner } from "./runners/omp-subprocess-runner.ts";
 import { createOmpCompat, resolveAgentSettings, type OmpCompat } from "./runners/omp-compat.ts";
 import { OptionalMemoryAdapter, type OmpMemoryRuntime } from "./memory/adapter.ts";
+import { enabledAgentRoles } from "./agents/roles.ts";
 import { WorkflowEngine } from "./workflow/engine.ts";
 import type { WorkflowConfig } from "./workflow/types.ts";
 
@@ -17,6 +18,6 @@ function memoryFromContext(context: unknown): OmpMemoryRuntime | undefined { if 
 export async function createRuntime(workspaceRoot: string, context: unknown, explicitConfigPath?: string, host?: unknown): Promise<Runtime> {
   const loaded = await loadConfig(workspaceRoot, explicitConfigPath); const absoluteRuntimeRoot = runtimeRoot(workspaceRoot, loaded.persistence.root); await ensureRuntimeRoot(absoluteRuntimeRoot); const config = { ...loaded, persistence: { ...loaded.persistence, root: absoluteRuntimeRoot } };
   await resolveAgentSettings(config, workspaceRoot, context, host);
-  const state = await StateDatabase.open(absoluteRuntimeRoot); const artifacts = new ArtifactStore(state, (runId) => path.join(absoluteRuntimeRoot, "runs", runId)); const compat: OmpCompat = createOmpCompat(context, host); const agents = new OmpSubprocessRunner(compat); const discovered = Object.values(config.agents).map((agent) => agent.agent); await agents.validate(workspaceRoot, discovered);
-  const memory = memoryFromContext(context); const engine = new WorkflowEngine({ config, state, artifacts, revisions: new GitRevisionProvider(workspaceRoot, { ignore: [`${path.relative(workspaceRoot, absoluteRuntimeRoot).split(path.sep).join("/")}/`] }), agents, checks: new DeterministicCheckRunner(artifacts), memory: new OptionalMemoryAdapter(memory) }); return { engine, config, state, runtimeRoot: absoluteRuntimeRoot, lock: new WorkspaceLock(path.join(absoluteRuntimeRoot, "lock.json")) };
+  const state = await StateDatabase.open(absoluteRuntimeRoot); const artifacts = new ArtifactStore(state, (runId) => path.join(absoluteRuntimeRoot, "runs", runId)); const compat: OmpCompat = createOmpCompat(context, host); const agents = new OmpSubprocessRunner(compat); const discovered = enabledAgentRoles(config).map((role) => config.agents[role].agent); await agents.validate(workspaceRoot, discovered);
+  const memory = memoryFromContext(context); const engine = new WorkflowEngine({ config, state, artifacts, revisions: new GitRevisionProvider(workspaceRoot, { ignore: [`${path.relative(workspaceRoot, absoluteRuntimeRoot).split(path.sep).join("/")}/`] }), agents, checks: new DeterministicCheckRunner(artifacts), memory: new OptionalMemoryAdapter(memory, config.memory.maxRetainedLessons) }); return { engine, config, state, runtimeRoot: absoluteRuntimeRoot, lock: new WorkspaceLock(path.join(absoluteRuntimeRoot, "lock.json")) };
 }

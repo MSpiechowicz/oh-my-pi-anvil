@@ -1,7 +1,7 @@
 import { Ajv, type ErrorObject, type ValidateFunction } from "ajv";
 import { AnvilError } from "../util/errors.ts";
-import type { ImplementationOutput, PlanOutput, ReviewOutput, SecurityOutput } from "../workflow/types.ts";
-import { IMPLEMENTATION_OUTPUT_SCHEMA, PLAN_OUTPUT_SCHEMA, REVIEW_OUTPUT_SCHEMA, SECURITY_OUTPUT_SCHEMA } from "./outputs.ts";
+import type { ArchivistOutput, ImplementationOutput, PlanOutput, ReviewOutput, ScoutOutput, SecurityOutput } from "../workflow/types.ts";
+import { ARCHIVIST_OUTPUT_SCHEMA, IMPLEMENTATION_OUTPUT_SCHEMA, PLAN_OUTPUT_SCHEMA, REVIEW_OUTPUT_SCHEMA, SCOUT_OUTPUT_SCHEMA, SECURITY_OUTPUT_SCHEMA } from "./outputs.ts";
 
 const ajv = new Ajv({
   strict: true,
@@ -13,6 +13,8 @@ const validatePlan = ajv.compile<PlanOutput>(PLAN_OUTPUT_SCHEMA);
 const validateImplementation = ajv.compile<ImplementationOutput>(IMPLEMENTATION_OUTPUT_SCHEMA);
 const validateSecurity = ajv.compile<SecurityOutput>(SECURITY_OUTPUT_SCHEMA);
 const validateReview = ajv.compile<ReviewOutput>(REVIEW_OUTPUT_SCHEMA);
+const validateScout = ajv.compile<ScoutOutput>(SCOUT_OUTPUT_SCHEMA);
+const validateArchivist = ajv.compile<ArchivistOutput>(ARCHIVIST_OUTPUT_SCHEMA);
 
 function requireOutput<T>(value: unknown, validate: ValidateFunction<T>, role: string): T {
   if (validate(value)) return value;
@@ -64,4 +66,12 @@ export function requireSecurity(value: unknown): SecurityOutput {
 
 export function requireReview(value: unknown): ReviewOutput {
   return requireOutput(value, validateReview, "Inquisitor");
+}
+
+export function requireScout(value: unknown): ScoutOutput {
+  return requireOutput(value, validateScout, "Scout");
+}
+
+export function requireArchivist(value: unknown): ArchivistOutput {
+  return requireOutput(value, validateArchivist, "Archivist");
 }

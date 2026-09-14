@@ -1,4 +1,5 @@
 import type { AgentRunRequest, AgentRunResult, WorkflowConfig } from "../workflow/types.ts";
+import { enabledAgentRoles } from "../agents/roles.ts";
 
 export interface OmpCompat {
   discoverAgents?: (cwd: string) => Promise<Array<{ name: string; disabled?: boolean }>>;
@@ -23,6 +24,14 @@ const READ_ONLY_TOOL_NAMES: Record<string, true> = {
   memory_edit: true,
   checkpoint: true,
   rewind: true,
+  yield: true,
+};
+
+const ADVISORY_TOOL_NAMES: Record<string, true> = {
+  read: true,
+  grep: true,
+  glob: true,
+  ast_grep: true,
   yield: true,
 };
 
@@ -82,7 +91,8 @@ export async function resolveAgentSettings(config: WorkflowConfig, cwd: string, 
   const roles = settings ? asRecord(settings.get("modelRoles")) : undefined;
   const globalThinking = settings ? stringValue(settings.get("defaultThinkingLevel")) : undefined;
   const discovered = native && typeof native.discoverAgents === "function" ? await discoverNativeAgents(native, cwd) : [];
-  for (const agent of Object.values(config.agents)) {
+  for (const role of enabledAgentRoles(config)) {
+    const agent = config.agents[role];
     const definition = discovered.find((entry) => entry.name === agent.agent);
     let model = agent.model ?? stringValue(overrides?.[agent.agent]) ?? stringValue(roles?.[agent.agent]) ?? stringValue(definition?.model) ?? stringValue(roles?.default) ?? currentModelSelector(context);
     let thinking: string | undefined;
@@ -143,9 +153,10 @@ function currentModelSelector(context: unknown): string | undefined {
 }
 
 function effectiveAgent(agent: AnyRecord, request: AgentRunRequest): AnyRecord {
-  if (!request.readOnly) return agent;
+  const advisory = request.role === "scout" || request.role === "archivist";
+  if (!request.readOnly && !advisory) return agent;
   const tools = Array.isArray(agent.tools)
-    ? agent.tools.filter((tool): tool is string => typeof tool === "string" && (READ_ONLY_TOOL_NAMES[tool] === true || ((request.role === "security" || request.role === "review") && VALIDATION_TOOL_NAMES[tool] === true)))
+    ? agent.tools.filter((tool): tool is string => typeof tool === "string" && (advisory ? ADVISORY_TOOL_NAMES[tool] === true : READ_ONLY_TOOL_NAMES[tool] === true || ((request.role === "security" || request.role === "review") && VALIDATION_TOOL_NAMES[tool] === true)))
     : [];
   if (tools.length === 0) {
     throw new Error(`Configured read-only agent "${String(agent.name)}" has no read-only tools`);

@@ -132,12 +132,13 @@ Use `/anvil` for configuration and run management:
 The V1 configuration controls:
 
 - `version` and the named workflow;
-- agent mappings for Architect, Smith, Sentinel, and Inquisitor;
+- agent mappings for Architect, Smith, Sentinel, Inquisitor, and the optional Scout and Archivist;
 - deterministic Warden checks, requiredness, and per-check timeouts;
 - Sentinel and Inquisitor policies and retry limits;
 - Smith retry limits;
 - optional total and per-role token caps, plus request, transition, and wall-clock budgets;
 - handoff and durable-memory limits;
+- default-enabled pre-plan reconnaissance and pre-seal lesson curation, independently disableable;
 - persistence options and safety flags.
 
 Model and provider choices default to the host OMP model-role settings. Before starting a run, Anvil snapshots each agent's `model` and `thinkingLevel` into `effective-config.json` and uses those values for child execution. Explicit Anvil agent settings win; otherwise models inherit OMP per-agent overrides, named model roles, agent definitions, then the default model. Thinking inherits a model suffix, the agent definition, or OMP's `defaultThinkingLevel`. Anvil does not select a provider for you. The default agent definitions use the canonical role aliases:
@@ -148,6 +149,8 @@ modelRoles:
   smith: "provider/coding:xhigh"
   sentinel: "provider/security:xhigh"
   inquisitor: "provider/review:high"
+  scout: "provider/reconnaissance:high"
+  archivist: "provider/curation:high"
 ```
 
 Warden runs deterministic checks and has no model role. Agent mappings point to discoverable OMP agent names:
@@ -162,9 +165,13 @@ agents:
     agent: sentinel
   review: # Inquisitor
     agent: inquisitor
+  scout: # Optional pre-plan reconnaissance
+    agent: scout
+  archivist: # Optional pre-seal lesson curation
+    agent: archivist
 ```
 
-All four configured names are checked by `/anvil doctor` and at Forge run startup. A missing agent is reported before model work begins.
+The four core configured names are checked by `/anvil doctor` and at Forge run startup. Scout is discovered only when `scouting.enabled` is true; Archivist only when `memory.enabled`, `memory.retainOnSuccess`, and `memory.archivist` are all true. Disabled optional agents need not be installed. A missing enabled agent is reported before model work begins.
 
 Override either value in the global Anvil file or a project overlay:
 
@@ -177,6 +184,40 @@ agents:
 ```
 
 An explicit `thinkingLevel` wins over a model's `:thinking` suffix, including `off`. Omitted fields inherit independently. The existing `effort` setting is passed to OMP as its per-spawn effort hint and can further adjust thinking according to the model and OMP's effort ceiling. Saved configuration records requested settings; agent output artifacts record the actual resolved model and thinking level, including host fallbacks. Existing run artifacts are not rewritten. Changes to these settings are subject to the same resume policy as other non-budget configuration.
+
+## Optional Scout and Archivist
+
+Both optional agent flows are enabled by default. Set `scouting.enabled: false` to disable Scout, or `memory.archivist: false` to disable Archivist in global settings or a project overlay. Existing explicit `false` values are preserved. They run inside existing workflow stages, never introduce new workflow states, and never replace Architect's plan or the exact-revision Warden, Sentinel, and Inquisitor gates:
+
+```yaml
+scouting:
+  enabled: true # Set false to skip Scout.
+
+memory:
+  enabled: true
+  retainOnSuccess: true
+  archivist: true # Set false to skip Archivist.
+  maxRetainedLessons: 3
+
+context:
+  maxMemoryItems: 5
+  maxMemoryChars: 5000
+```
+
+- **Scout** (`agents.scout.agent: scout`) runs at most once per run in `PLAN`, before Architect, when `scouting.enabled: true`. It performs read-only, focused repository reconnaissance and supplies advisory areas, risks, and recommendations to planning. It does not approve a plan or mutate source.
+- **Archivist** (`agents.archivist.agent: archivist`) runs at most once per run in `REVIEW`, after successful review and before sealing, when all three memory flags above are true. It curates durable lessons from persisted, revision-bound successful Smith evidence and the current objective, plan, and gate evidence. It must not invent successes or use recalled memory as proof that acceptance criteria passed.
+- Optional attempts and their outputs are persisted and usage is accounted to their own roles; optional attempts do not consume Architect or Inquisitor attempt limits. Each optional role defaults to a one-attempt cap.
+- Optional invocation or output failures are advisory. Repository mutation is not: a changed revision invalidates earlier gate evidence and must never be sealed using stale passes.
+
+Optional agents use the same strict shared-schema boundary as the core roles. `SCOUT_OUTPUT_SCHEMA` / `requireScout` describe `ScoutOutput`: `{ version: 1, summary: string, areas: Array<{ path: string, findings: string }>, risks: string[], recommendations: string[] }`. `ARCHIVIST_OUTPUT_SCHEMA` / `requireArchivist` describe `ArchivistOutput`: `{ version: 1, lessons: Array<{ content: string, importance: number }> }`. Archivist returns at most 20 lessons, each with nonblank content of at most 2000 characters and finite importance between 0 and 1. Unknown fields and malformed reports are rejected rather than coerced.
+
+### Durable memory is optional context
+
+`memory.enabled` permits bounded recall into Architect and Smith handoffs. `context.maxMemoryItems` and `context.maxMemoryChars` bound recalled items and their total content characters. Oversized entries are omitted rather than truncated into potentially misleading fragments. Recalled text is advisory project context, never workflow state, verification evidence, or permission to bypass a finding.
+
+`memory.retainOnSuccess` permits saving durable lessons after success when memory is enabled. With `memory.archivist: false`, lessons come from persisted successful Smith output; enabling Archivist adds pre-seal curation. `memory.maxRetainedLessons` caps saves per successful run, rather than always saving three. Retention rejects blank, oversized, credential-like, or transient finding-ID content, removes case-insensitive trimmed duplicates, and prioritizes higher importance. Saving is best effort: one failed provider save does not prevent other selected saves or alter workflow correctness.
+
+Anvil uses the real OMP extension `context.memory.search(query, { limit, signal })` and `context.memory.save({ content, context, source, importance })` APIs, available in OMP 18.1.22. OMP supplies the configured backend; Anvil neither creates a substitute memory database nor selects a provider. Search/save availability depends on that backend and the active host session. Older hosts without this API, OMP's `off` backend, and backends without structured search/save simply provide no corresponding memory service. Anvil continues without recall or retention; provider errors are nonfatal. Enabling Anvil's memory flags does not enable an OMP backend or guarantee that a save was stored.
 
 ## Optional token limits
 

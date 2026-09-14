@@ -66,6 +66,8 @@ Anvil supplies reviewers with a readable baseline-to-target patch, revision mani
 
 <p align="center"><img src="assets/roles/archivist.webp" alt="Archivist" width="48%" /><br /><strong>Archivist</strong><br />Optional durable project knowledge. Memory never owns workflow correctness.</p>
 
+Scout and Archivist are enabled by default. Set `scouting.enabled: false` to skip Scout or `memory.archivist: false` to skip Archivist. Scout runs once before Architect within `PLAN`; Archivist runs once before sealing within `REVIEW`, provided `memory.enabled` and `memory.retainOnSuccess` are also true. Scout supplies advisory reconnaissance; Archivist curates lessons from persisted successful Smith evidence. Their attempts, outputs, and usage are recorded independently of the main roles. They do not add workflow states or bypass exact-revision gates, and any repository mutation still invalidates earlier verification.
+
 ## Quick start
 
 Install Anvil through OMP. A new OMP session or restart of OMP is required after installation so it loads Anvil. In that first session, Anvil automatically creates the editable global settings template and shows its exact path in the OMP notification area; it does not modify the current repository during this first-run setup.
@@ -209,6 +211,14 @@ agents:
     agent: sentinel
   review: # Inquisitor
     agent: inquisitor
+  scout: # Optional
+    agent: scout
+  archivist: # Optional
+    agent: archivist
+
+scouting:
+  enabled: true # Set false to skip Scout.
+
 checks:
   - id: typecheck
     command: [deno, task, typecheck]
@@ -234,10 +244,13 @@ budgets:
 context:
   maxInlineChars: 12000
   maxMemoryItems: 5
+  maxMemoryChars: 5000
 
 memory:
   enabled: true
   retainOnSuccess: true
+  archivist: true # Set false to skip Archivist.
+  maxRetainedLessons: 3
 ```
 
 Model selection stays in OMP's global model-role configuration:
@@ -248,15 +261,28 @@ modelRoles:
   smith: "provider/coding:xhigh"
   sentinel: "provider/security:xhigh"
   inquisitor: "provider/review:high"
+  scout: "provider/reconnaissance:high"
+  archivist: "provider/curation:high"
 ```
 
 The Warden is deterministic and has no model mapping. The default agent definitions reference the canonical aliases above. Anvil never chooses a provider for you. For the complete configuration reference, see [Configuration](docs/configuration.md).
 
 Each new run snapshots the inherited OMP models and thinking levels into `effective-config.json` under `agents.<role>.model` and `agents.<role>.thinkingLevel`. Set either field explicitly in your Anvil configuration to override inheritance; the saved values are also applied to child execution.
 
+Disabled optional agents are not required by discovery or startup checks. See [Optional Scout and Archivist](docs/configuration.md#optional-scout-and-archivist) for activation rules and strict output contracts.
+
+Memory is bounded, best-effort context for Architect and Smith, not a source of workflow truth. Retention filters unsafe/transient lessons, deduplicates them, and respects `memory.maxRetainedLessons`. Anvil uses OMP's native `context.memory.search` / `save` API (available in OMP 18.1.22), backed by the host's configured memory backend. It does not create a fake provider or enable a backend for you. With no provider, disabled backend, or provider errors, Forge continues without the unavailable memory operation. Archivist failures are advisory; source mutations never permit stale evidence to seal a run.
+
 ## Persistence and recovery
 
 Runtime state lives under `.anvil/` by default.
+
+[![Anvil artifact directory tree, including Scout reconnaissance and Archivist lessons](assets/diagrams/forge-artifacts.svg)](assets/diagrams/forge-artifacts.svg?raw=1)
+
+[Open the full-size SVG](assets/diagrams/forge-artifacts.svg?raw=1), then use browser zoom (`Ctrl`/`Cmd` + `+`) to enlarge it without losing detail.
+
+<details>
+<summary>Text version of the artifact tree</summary>
 
 ```text
 .anvil/
@@ -266,14 +292,25 @@ Runtime state lives under `.anvil/` by default.
     ├── objective.md
     ├── effective-config.json
     ├── artifacts/
+    │   ├── revisions/
+    │   │   └── baseline.json
+    │   ├── scout/
+    │   │   └── result-<attempt-sequence>.json
     │   ├── planner/
     │   │   └── plan-<attempt-sequence>.json
     │   ├── implementation/
     │   ├── checks/
     │   ├── security/
-    │   └── review/
+    │   ├── review/
+    │   ├── archivist/
+    │   │   └── result-<attempt-sequence>.json
+    │   └── findings/
     └── logs/
 ```
+
+</details>
+
+Directories and reports are created as needed. Scout and Archivist reports are present only when those roles produce valid output; the tree shows representative files, not every handoff, snapshot, or captured verification artifact.
 
 SQLite is authoritative for workflow state. Artifacts are hashed and written atomically. Runtime files are excluded from the workspace revision; source edits are not.
 

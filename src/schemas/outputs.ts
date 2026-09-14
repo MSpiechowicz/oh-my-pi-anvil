@@ -73,6 +73,57 @@ export const PLAN_OUTPUT_SCHEMA = {
   },
 };
 
+export const SCOUT_OUTPUT_SCHEMA = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  title: "ScoutOutput",
+  type: "object",
+  additionalProperties: false,
+  required: ["version", "summary", "areas", "risks", "recommendations"],
+  properties: {
+    version: { type: "number", const: 1 },
+    summary: { type: "string", minLength: 1, maxLength: 2000, pattern: "\\S" },
+    areas: {
+      type: "array",
+      maxItems: 20,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["path", "findings"],
+        properties: {
+          path: { type: "string", minLength: 1, maxLength: 1024, pattern: "\\S" },
+          findings: { type: "string", minLength: 1, maxLength: 2000, pattern: "\\S" },
+        },
+      },
+    },
+    risks: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 1000, pattern: "\\S" } },
+    recommendations: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 1000, pattern: "\\S" } },
+  },
+};
+
+export const ARCHIVIST_OUTPUT_SCHEMA = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  title: "ArchivistOutput",
+  type: "object",
+  additionalProperties: false,
+  required: ["version", "lessons"],
+  properties: {
+    version: { type: "number", const: 1 },
+    lessons: {
+      type: "array",
+      maxItems: 20,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["content", "importance"],
+        properties: {
+          content: { type: "string", minLength: 1, maxLength: 2000, pattern: "\\S" },
+          importance: { type: "number", minimum: 0, maximum: 1 },
+        },
+      },
+    },
+  },
+};
+
 export const IMPLEMENTATION_OUTPUT_SCHEMA = {
   $schema: "http://json-schema.org/draft-07/schema#",
   title: "ImplementationOutput",
