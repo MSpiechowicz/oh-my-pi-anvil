@@ -14,9 +14,9 @@
   <img src="assets/anvil-team.webp" alt="The Anvil team in the Forge" width="100%" />
 </p>
 
-Anvil is a stateful multi-agent orchestrator for `oh-my-pi`. It delegates planning to the **Architect**, implementation to the **Smith**, deterministic verification to the **Warden**, security review to the **Sentinel**, and final engineering review to the **Inquisitor**.
+Anvil is an OMP extension for taking a software objective from a written plan to a verified workspace revision. The user-facing command is **`/forge`**. Behind that command, Anvil runs a deterministic, persistent workflow engine that coordinates the **Architect**, **Smith**, **Warden**, **Sentinel**, and **Inquisitor**.
 
-Unlike prompt-only agent chains, Anvil's **Forge** is a deterministic, persistent workflow engine. Findings route back to the Smith, every code mutation invalidates earlier verification, and a run is only **Sealed** when checks, security, and review pass the exact same workspace revision.
+Unlike prompt-only agent chains, the Forge records state and evidence as it works. Findings return to the Smith for correction, every code mutation invalidates earlier verification, and a run is only **Sealed** when checks, security, and review pass against the same workspace revision.
 
 ## Why Anvil
 
@@ -31,43 +31,32 @@ Unlike prompt-only agent chains, Anvil's **Forge** is a deterministic, persisten
 
 ## The Forge
 
-```text
-OBJECTIVE
-    |
-    v
-ARCHITECT  -> strict plan.json
-    |
-    v
-SMITH      -> repository mutation
-    |
-    v
-WARDEN     -> configured deterministic checks
-    |  fail
-    +------------------------------+
-    |                               |
-    +--------------------------> SMITH
-    |
-    | pass
-    v
-SENTINEL   -> read-only security gate
-    | findings                 | pass
-    +--------------------------> SMITH
-                                  |
-                                  v
-INQUISITOR -> read-only final review
-    | findings                 | pass + exact gates
-    +--------------------------> SMITH
-                                  |
-                                  v
-                               SEALED
+The lifecycle is deliberately linear between corrections. Each gate evaluates the exact current revision; a failure or blocking finding sends the run back to the Smith instead of allowing a stale pass to continue.
+
+```mermaid
+flowchart LR
+    O([Objective]) --> A[Architect<br/>strict plan]
+    A --> S[Smith<br/>repository mutation]
+    S --> W{Warden<br/>deterministic checks<br/>exact revision}
+    W -- fail --> S
+    W -- pass --> T{Sentinel<br/>security gate<br/>exact revision}
+    T -- findings --> S
+    T -- pass --> I{Inquisitor<br/>final review<br/>exact revision}
+    I -- findings --> S
+    I -- pass --> Z([Sealed<br/>all gates agree])
 ```
 
-The crucial rule is the correction loop. A review fix never jumps directly back to review:
+The correction path is never a shortcut around verification:
 
-```text
-review finding -> Smith -> Warden -> Sentinel -> Inquisitor
-security finding -> Smith -> Warden -> Sentinel -> Inquisitor
+```mermaid
+flowchart LR
+    F[Failure or finding] --> S[Smith applies fix]
+    S --> W[Warden]
+    W --> T[Sentinel]
+    T --> I[Inquisitor]
 ```
+
+Every Smith mutation starts the gate sequence again. Read-only gates also verify before-and-after workspace fingerprints, so a mutation during security or review cannot be mistaken for a pass.
 
 ## The specialists
 
@@ -90,26 +79,32 @@ security finding -> Smith -> Warden -> Sentinel -> Inquisitor
 
 ## Quick start
 
-Install the package through the OMP package mechanism, then expose the bundled extension and agents. In a project, create `.omp/orchestrator.yml` and map the model roles in normal OMP configuration.
+Install Anvil through OMP, then expose the bundled extension and agents. In the project where you want to run it, create `.omp/orchestrator.yml` and map the model roles using normal OMP configuration. The filename is an internal, historical storage name; the command you use is `/forge`.
 
 ```bash
-# from an OMP project
-/orchestrate doctor
-/orchestrate start "Add scoped API-key rotation with a backwards-compatible migration"
-/orchestrate status
+# Register the Anvil marketplace and install the stable release
+omp plugin marketplace add MSpiechowicz/oh-my-pi-anvil
+omp plugin install oh-my-pi-anvil@omp-anvil --scope user
+
+# From an OMP project
+/forge doctor
+/forge start "Add scoped API-key rotation with a backwards-compatible migration"
+/forge status
 ```
 
 If the process stops, resume from persisted state:
 
 ```bash
-/orchestrate resume run_<id>
+/forge resume run_<id>
 ```
 
 Inspect findings without opening SQLite:
 
 ```bash
-/orchestrate findings run_<id>
+/forge findings run_<id>
 ```
+
+`/orchestrate` remains an equivalent compatibility alias for existing scripts and habits. New documentation and new invocations should use `/forge`.
 
 ## Marketplace installation and updates
 
@@ -120,11 +115,11 @@ omp plugin marketplace add MSpiechowicz/oh-my-pi-anvil
 omp plugin install oh-my-pi-anvil@omp-anvil --scope user
 ```
 
-Anvil exposes the same native update path from inside OMP:
+Anvil exposes the native update path from inside OMP:
 
 ```text
-/orchestrate update check
-/orchestrate update install
+/forge update check
+/forge update install
 ```
 
 The standalone command-line entrypoint is also available when the package is on your `PATH`:
@@ -195,11 +190,11 @@ modelRoles:
   orch_review: "provider/review:high"
 ```
 
-The default agent definitions reference these aliases. Anvil never chooses a provider for you.
+The default agent definitions reference these aliases. Anvil never chooses a provider for you. For the complete configuration reference, see [Configuration](docs/configuration.md).
 
 ## Persistence and recovery
 
-Runtime state lives under `.omp/.orchestrator/` by default:
+Runtime state lives under `.omp/.orchestrator/` by default. This directory name is an internal, historical storage name; it does not change the `/forge` command.
 
 ```text
 .omp/.orchestrator/
@@ -231,7 +226,7 @@ Anvil never resets the repository, cleans user files, stages changes, commits, o
 
 ## Safety invariants
 
-A run cannot reach `DONE` unless all of these are true:
+A run cannot reach `DONE` (**Sealed**) unless all of these are true:
 
 1. current workspace revision equals the revision recorded by the run;
 2. checks have a passing result for that exact revision and effective config;

@@ -4,12 +4,12 @@
     "name": "MSpiechowicz"
   },
   "metadata": {
-    "description": "Persistent, bounded multi-agent Forge for Oh My Pi"
+    "description": "Persistent, bounded multi-agent workflow for Oh My Pi"
   },
   "plugins": [
     {
       "name": "oh-my-pi-anvil",
-      "description": "Stateful multi-agent orchestration with exact revision gates and resumable workflow state",
+      "description": "Forge workflow for Oh My Pi with exact revision gates and resumable state",
       "version": "0.1.2",
       "source": {
         "source": "github",

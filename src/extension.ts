@@ -7,5 +7,11 @@ export interface ExtensionAPI { setLabel?(label: string): void; registerCommand(
 export default function anvilExtension(pi: ExtensionAPI): void {
   pi.setLabel?.("Anvil · The Forge");
   const router = new CommandRouter(async (context) => createRuntime(context.cwd, context.runtimeContext ?? context));
-  pi.registerCommand("orchestrate", { description: "Run and manage Anvil's stateful multi-agent Forge", handler: async (args, context) => { const input = args.trim().replace(/^\/orchestrate\s*/, ""); const output = await router.handle(input, { cwd: context.cwd, runtimeContext: context }); await context.respond?.(output); } });
+  const handler = async (args: string, context: ExtensionContext): Promise<void> => {
+    const input = args.trim().replace(/^\/(?:forge|orchestrate)\s*/, "");
+    const output = await router.handle(input, { cwd: context.cwd, runtimeContext: context });
+    await context.respond?.(output);
+  };
+  pi.registerCommand("forge", { description: "Run and manage Anvil's stateful multi-agent Forge", handler });
+  pi.registerCommand("orchestrate", { description: "Compatibility alias for /forge", handler });
 }

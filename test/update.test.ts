@@ -11,6 +11,6 @@ describe("release updater metadata", () => {
   });
 
   test("routes update syntax without opening workflow state", async () => {
-    const router = new CommandRouter(async () => { throw new Error("workflow state should not open for update syntax errors"); }); const response = await router.handle("update", { cwd: "/tmp" }); expect(response).toContain("Usage: /orchestrate update check|install");
+    const router = new CommandRouter(async () => { throw new Error("workflow state should not open for update syntax errors"); }); const response = await router.handle("update", { cwd: "/tmp" }); expect(response).toContain("Usage: /forge update check|install");
   });
 });
