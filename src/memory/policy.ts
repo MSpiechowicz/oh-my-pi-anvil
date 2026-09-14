@@ -1,0 +1,1 @@
+export function safeDurableLesson(content: string): boolean { return content.trim().length > 0 && content.length <= 2000 && !/secret|password|api[_-]?key|bearer\s+/i.test(content) && !/\b(?:SEC|REV|CHK)-\d+\b/.test(content); }

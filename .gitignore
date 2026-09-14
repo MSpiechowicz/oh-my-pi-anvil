@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.omp/.orchestrator/
+coverage/
+.cache/
+__pycache__/

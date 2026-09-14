@@ -1,0 +1,2 @@
+import type { AgentRole } from "../workflow/types.ts";
+export function memoryQuery(role: AgentRole, summary: string): string { const subjects = { planner: "project architecture conventions", implementation: "implementation conventions and previous decisions", security: "security invariants and threat model", review: "code review conventions and architectural constraints" }; return `${subjects[role]} relevant to: ${summary}`; }

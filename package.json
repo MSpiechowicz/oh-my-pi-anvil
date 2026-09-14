@@ -1,0 +1,32 @@
+{
+  "name": "@anvil/omp-anvil",
+  "version": "0.1.0",
+  "description": "Anvil: a persistent, bounded multi-agent Forge for oh-my-pi",
+  "type": "module",
+  "private": false,
+  "license": "GPL-3.0-only",
+  "exports": {
+    ".": "./dist/index.js",
+    "./extension": "./dist/extension.js",
+    "./update": "./dist/update.js"
+  },
+  "bin": {
+    "anvil-update": "./dist/update-cli.js"
+  },
+  "files": ["dist", "agents", "skills", "workflows", "docs", "assets", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "update": "bun run src/update-cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.2"
+  },
+  "omp": {
+    "extensions": ["./dist/extension.js"],
+    "agents": "./agents",
+    "skills": "./skills"
+  }
+}

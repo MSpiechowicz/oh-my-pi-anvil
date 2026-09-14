@@ -1,0 +1,37 @@
+version: 1
+workflow:
+  name: secure-code-change
+agents:
+  planner:
+    agent: orchestrator-planner
+  implementation:
+    agent: orchestrator-implementation
+  security:
+    agent: orchestrator-security
+  review:
+    agent: orchestrator-reviewer
+checks: []
+security:
+  failOn: [critical, high, medium]
+  maxAttempts: 3
+review:
+  maxAttempts: 3
+implementation:
+  maxAttempts: 6
+planning:
+  maxGenerations: 2
+budgets:
+  maxTotalTokens: 250000
+  maxTotalRequests: 120
+  maxTransitions: 40
+context:
+  maxInlineChars: 12000
+memory:
+  enabled: true
+persistence:
+  root: .omp/.orchestrator
+safety:
+  oneMutatingRunPerWorkspace: true
+  securityMustBeReadOnly: true
+  reviewerMustBeReadOnly: true
+  refusePathEscapeFromWorkspace: true

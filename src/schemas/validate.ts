@@ -1,0 +1,13 @@
+import { AnvilError } from "../util/errors.ts";
+import type { ImplementationOutput, PlanOutput, ReviewOutput, SecurityOutput } from "../workflow/types.ts";
+
+export function requirePlan(value: unknown): PlanOutput {
+  const plan = value as PlanOutput;
+  if (!plan || plan.version !== 1 || !plan.summary || !Array.isArray(plan.steps) || plan.steps.length === 0 || !Array.isArray(plan.globalAcceptanceCriteria) || plan.globalAcceptanceCriteria.length === 0) throw new AnvilError("SCHEMA_INVALID", "Planner output does not match PlanOutput");
+  const ids = new Set<string>(); for (const step of plan.steps) { if (!step.id || ids.has(step.id) || !step.objective || !Array.isArray(step.acceptanceCriteria) || step.acceptanceCriteria.length === 0) throw new AnvilError("SCHEMA_INVALID", "Planner step is invalid"); ids.add(step.id); }
+  for (const step of plan.steps) for (const dependency of step.dependsOn) if (!ids.has(dependency)) throw new AnvilError("SCHEMA_INVALID", `Planner dependency ${dependency} does not exist`);
+  return plan;
+}
+export function requireImplementation(value: unknown): ImplementationOutput { const output = value as ImplementationOutput; if (!output || output.version !== 1 || !["completed", "blocked", "needs_replan"].includes(output.status) || typeof output.summary !== "string" || !Array.isArray(output.claimedChangedFiles)) throw new AnvilError("SCHEMA_INVALID", "Implementation output does not match ImplementationOutput"); return output; }
+export function requireSecurity(value: unknown): SecurityOutput { const output = value as SecurityOutput; if (!output || output.version !== 1 || !["pass", "findings", "blocked"].includes(output.verdict) || !output.scope || !Array.isArray(output.findings)) throw new AnvilError("SCHEMA_INVALID", "Security output does not match SecurityOutput"); if (output.verdict === "findings" && output.findings.length === 0) throw new AnvilError("SCHEMA_INVALID", "Security findings verdict requires findings"); if (output.verdict === "blocked" && !output.blockedReason) throw new AnvilError("SCHEMA_INVALID", "Blocked security output requires blockedReason"); return output; }
+export function requireReview(value: unknown): ReviewOutput { const output = value as ReviewOutput; if (!output || output.version !== 1 || !["pass", "findings", "blocked"].includes(output.verdict) || !Array.isArray(output.acceptance) || !Array.isArray(output.findings)) throw new AnvilError("SCHEMA_INVALID", "Review output does not match ReviewOutput"); if (output.verdict === "blocked" && !output.blockedReason) throw new AnvilError("SCHEMA_INVALID", "Blocked review output requires blockedReason"); return output; }

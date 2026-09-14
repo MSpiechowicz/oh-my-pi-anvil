@@ -1,0 +1,2 @@
+import { safeDurableLesson } from "./policy.ts";
+export function filterLessons(lessons: Array<{ content: string; importance: number }>, maxItems: number): Array<{ content: string; importance: number }> { const seen = new Set<string>(); return lessons.filter((lesson) => { const key = lesson.content.trim().toLowerCase(); if (!safeDurableLesson(lesson.content) || seen.has(key)) return false; seen.add(key); return true; }).sort((a, b) => b.importance - a.importance).slice(0, maxItems); }
