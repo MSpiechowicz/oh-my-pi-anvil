@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 470" role="img" aria-labelledby="title desc">
+  <title id="title">Anvil Forge lifecycle</title>
+  <desc id="desc">An objective moves from Architect to Smith, through Warden, Sentinel, and Inquisitor gates, and becomes Sealed only when all gates pass on the exact revision. Failures and findings return to Smith.</desc>
+  <style>
+    .surface { fill: #171b22; }
+    .node { fill: #202732; stroke: #627186; stroke-width: 2; }
+    .gate { fill: #293342; }
+    .terminal { fill: #e0b36a; stroke: #e0b36a; }
+    .terminal-text { fill: #171b22; font-weight: 700; }
+    .title { fill: #edf2f7; font: 700 22px system-ui, -apple-system, sans-serif; letter-spacing: .02em; }
+    .subtitle { fill: #a8b4c3; font: 14px system-ui, -apple-system, sans-serif; }
+    .label { fill: #a8b4c3; font: 600 13px system-ui, -apple-system, sans-serif; }
+    .pass { fill: #77d1ad; }
+    .warn { fill: #e88c8c; }
+    .flow { fill: none; stroke: #627186; stroke-width: 3; marker-end: url(#arrow); }
+    .return { fill: none; stroke: #e88c8c; stroke-width: 2.5; stroke-dasharray: 8 7; marker-end: url(#arrow-warn); }
+    .note { fill: #a8b4c3; font: 600 14px system-ui, -apple-system, sans-serif; }
+    .arrow { fill: #627186; }
+    .arrow-warn { fill: #e88c8c; }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path class="arrow" d="M0,0 L10,5 L0,10 Z" />
+    </marker>
+    <marker id="arrow-warn" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path class="arrow-warn" d="M0,0 L10,5 L0,10 Z" />
+    </marker>
+  </defs>
+
+  <rect class="surface" width="1400" height="470" rx="18" />
+  <text class="label" x="40" y="42">PRIMARY PATH · EVERY GATE EVALUATES THE CURRENT REVISION</text>
+
+  <path class="flow" d="M164 160 H205" />
+  <path class="flow" d="M365 160 H410" />
+  <path class="flow" d="M570 160 H615" />
+  <path class="flow" d="M775 160 H820" />
+  <path class="flow" d="M980 160 H1025" />
+  <path class="flow" d="M1185 160 H1230" />
+
+  <rect class="terminal" x="40" y="125" width="124" height="70" rx="35" />
+  <text class="terminal-text" x="102" y="154" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="700">OBJECTIVE</text>
+  <text class="terminal-text" x="102" y="175" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">requested change</text>
+
+  <rect class="node" x="205" y="112" width="160" height="96" rx="12" />
+  <text class="title" x="285" y="151" text-anchor="middle">Architect</text>
+  <text class="subtitle" x="285" y="176" text-anchor="middle">strict plan +</text>
+  <text class="subtitle" x="285" y="194" text-anchor="middle">acceptance criteria</text>
+
+  <rect class="node" x="410" y="112" width="160" height="96" rx="12" />
+  <text class="title" x="490" y="151" text-anchor="middle">Smith</text>
+  <text class="subtitle" x="490" y="176" text-anchor="middle">repository</text>
+  <text class="subtitle" x="490" y="194" text-anchor="middle">mutation</text>
+
+  <rect class="node gate" x="615" y="102" width="160" height="116" rx="12" />
+  <text class="title" x="695" y="143" text-anchor="middle">Warden</text>
+  <text class="subtitle" x="695" y="168" text-anchor="middle">deterministic</text>
+  <text class="subtitle" x="695" y="186" text-anchor="middle">checks</text>
+  <text class="subtitle" x="695" y="206" text-anchor="middle">exact revision</text>
+
+  <rect class="node gate" x="820" y="102" width="160" height="116" rx="12" />
+  <text class="title" x="900" y="143" text-anchor="middle">Sentinel</text>
+  <text class="subtitle" x="900" y="168" text-anchor="middle">read-only</text>
+  <text class="subtitle" x="900" y="186" text-anchor="middle">security gate</text>
+  <text class="subtitle" x="900" y="206" text-anchor="middle">exact revision</text>
+
+  <rect class="node gate" x="1025" y="102" width="160" height="116" rx="12" />
+  <text class="title" x="1105" y="143" text-anchor="middle">Inquisitor</text>
+  <text class="subtitle" x="1105" y="168" text-anchor="middle">read-only</text>
+  <text class="subtitle" x="1105" y="186" text-anchor="middle">final review</text>
+  <text class="subtitle" x="1105" y="206" text-anchor="middle">exact revision</text>
+
+  <rect class="terminal" x="1230" y="125" width="130" height="70" rx="35" />
+  <text class="terminal-text" x="1295" y="154" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="700">SEALED</text>
+  <text class="terminal-text" x="1295" y="175" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12">evidence agrees</text>
+
+  <text class="label warn" x="695" y="255" text-anchor="middle">FAIL</text>
+  <text class="label warn" x="900" y="255" text-anchor="middle">FINDINGS</text>
+  <text class="label warn" x="1105" y="255" text-anchor="middle">FINDINGS</text>
+
+  <path class="return" d="M695 220 C695 330 515 350 490 220" />
+  <path class="return" d="M900 220 C900 385 515 410 490 220" />
+  <path class="return" d="M1105 220 C1105 440 515 450 490 220" />
+
+  <rect x="40" y="392" width="1320" height="44" rx="12" fill="#202732" />
+  <text class="note" x="700" y="420" text-anchor="middle">Any mutation or blocking finding restarts the gate sequence at Smith.</text>
+</svg>

@@ -33,28 +33,15 @@ Unlike prompt-only agent chains, the Forge records state and evidence as it work
 
 The lifecycle is deliberately linear between corrections. Each gate evaluates the exact current revision; a failure or blocking finding sends the run back to the Smith instead of allowing a stale pass to continue.
 
-```mermaid
-flowchart LR
-    O([Objective]) --> A[Architect<br/>strict plan]
-    A --> S[Smith<br/>repository mutation]
-    S --> W{Warden<br/>deterministic checks<br/>exact revision}
-    W -- fail --> S
-    W -- pass --> T{Sentinel<br/>security gate<br/>exact revision}
-    T -- findings --> S
-    T -- pass --> I{Inquisitor<br/>final review<br/>exact revision}
-    I -- findings --> S
-    I -- pass --> Z([Sealed<br/>all gates agree])
-```
+<p align="center">
+  <img src="assets/diagrams/forge-lifecycle.svg" alt="Forge lifecycle: Architect plans, Smith mutates, Warden checks, Sentinel audits security, Inquisitor reviews, and Sealed is reached only when exact-revision gates pass." width="100%" />
+</p>
 
 The correction path is never a shortcut around verification:
 
-```mermaid
-flowchart LR
-    F[Failure or finding] --> S[Smith applies fix]
-    S --> W[Warden]
-    W --> T[Sentinel]
-    T --> I[Inquisitor]
-```
+<p align="center">
+  <img src="assets/diagrams/forge-correction-loop.svg" alt="Forge correction loop: a failure or finding returns to Smith, then passes through Warden, Sentinel, and Inquisitor again." width="100%" />
+</p>
 
 Every Smith mutation starts the gate sequence again. Read-only gates also verify before-and-after workspace fingerprints, so a mutation during security or review cannot be mistaken for a pass.
 

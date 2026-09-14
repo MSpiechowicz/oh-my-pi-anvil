@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 250" role="img" aria-labelledby="title desc">
+  <title id="title">Anvil Forge correction loop</title>
+  <desc id="desc">A failure or finding goes to Smith for a fix, then passes through Warden, Sentinel, and Inquisitor again.</desc>
+  <style>
+    .surface { fill: #171b22; }
+    .node { fill: #202732; stroke: #627186; stroke-width: 2; }
+    .finding { stroke: #e88c8c; }
+    .title { fill: #edf2f7; font: 700 19px system-ui, -apple-system, sans-serif; }
+    .subtitle { fill: #a8b4c3; font: 13px system-ui, -apple-system, sans-serif; }
+    .label { fill: #a8b4c3; font: 600 13px system-ui, -apple-system, sans-serif; letter-spacing: .08em; }
+    .flow { fill: none; stroke: #627186; stroke-width: 3; marker-end: url(#arrow); }
+    .arrow { fill: #627186; }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path class="arrow" d="M0,0 L10,5 L0,10 Z" />
+    </marker>
+  </defs>
+
+  <rect class="surface" width="1200" height="250" rx="18" />
+  <text class="label" x="40" y="38">CORRECTION LOOP · NO SHORTCUTS AROUND VERIFICATION</text>
+
+  <path class="flow" d="M210 134 H250" />
+  <path class="flow" d="M470 134 H510" />
+  <path class="flow" d="M730 134 H770" />
+  <path class="flow" d="M990 134 H1030" />
+
+  <rect class="node finding" x="40" y="90" width="170" height="88" rx="12" />
+  <text class="title" x="125" y="126" text-anchor="middle">Failure / finding</text>
+  <text class="subtitle" x="125" y="151" text-anchor="middle">new evidence</text>
+
+  <rect class="node" x="250" y="90" width="220" height="88" rx="12" />
+  <text class="title" x="360" y="126" text-anchor="middle">Smith</text>
+  <text class="subtitle" x="360" y="151" text-anchor="middle">apply the corrective change</text>
+
+  <rect class="node" x="510" y="90" width="220" height="88" rx="12" />
+  <text class="title" x="620" y="126" text-anchor="middle">Warden</text>
+  <text class="subtitle" x="620" y="151" text-anchor="middle">deterministic checks</text>
+
+  <rect class="node" x="770" y="90" width="220" height="88" rx="12" />
+  <text class="title" x="880" y="126" text-anchor="middle">Sentinel</text>
+  <text class="subtitle" x="880" y="151" text-anchor="middle">security gate</text>
+
+  <rect class="node" x="1030" y="90" width="130" height="88" rx="12" />
+  <text class="title" x="1095" y="126" text-anchor="middle">Inquisitor</text>
+  <text class="subtitle" x="1095" y="151" text-anchor="middle">final review</text>
+
+  <text class="subtitle" x="600" y="218" text-anchor="middle">The next gate only sees the corrected workspace revision.</text>
+</svg>

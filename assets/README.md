@@ -6,4 +6,7 @@ The supplied Anvil artwork is intentionally kept local so README previews work o
 - `anvil-mark.webp` is the forge mark.
 - `roles/` contains the portrait plates for Architect, Smith, Warden, Sentinel, Inquisitor, Scout, and Archivist.
 
+- `diagrams/forge-lifecycle.svg` is the static lifecycle diagram used in the README.
+- `diagrams/forge-correction-loop.svg` is the static correction-loop diagram used in the README.
+
 The implementation uses the images as editorial documentation assets, not as runtime dependencies of the workflow engine.
