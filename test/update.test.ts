@@ -3,7 +3,7 @@ import { CommandRouter } from "../src/commands/router.ts";
 import { renderUpdate } from "../src/ui/render.ts";
 import { latestRelease } from "../src/update.ts";
 describe("release updater metadata", () => {
-  test("renders updated reports with aligned metadata and a separated message", () => {
+  test("renders updated reports as the update message", () => {
     const output = renderUpdate({
       currentVersion: "0.1.10",
       latestVersion: "0.1.10",
@@ -13,13 +13,7 @@ describe("release updater metadata", () => {
       updated: true,
       message: "Updated to 0.1.10 using OMP plugin upgrade. Restart OMP to load the updated extension.",
     });
-    const lines = output.split("\n");
-    expect(lines[0]).toBe("ANVIL · UPDATED");
-    expect(lines[2]).toBe("INSTALLED   0.1.10");
-    expect(lines[3]).toBe("LATEST      0.1.10");
-    expect(lines[4]).toBe("MANAGED     OMP marketplace");
-    expect(lines[5]).toBe("");
-    expect(lines[6]).toContain("Updated to 0.1.10");
+    expect(output).toBe("Updated to 0.1.10 using OMP plugin upgrade. Restart OMP to load the updated extension.");
   });
   test("accepts only published stable v-tags", async () => {
     const release = await latestRelease(async () => new Response(JSON.stringify({ draft: false, prerelease: false, tag_name: "v1.2.3" }), { status: 200 })); expect(release).toEqual({ version: "1.2.3", tag: "v1.2.3", url: "https://github.com/MSpiechowicz/oh-my-pi-anvil/releases/tag/v1.2.3" });

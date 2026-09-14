@@ -2638,10 +2638,10 @@ function renderInit(report) {
   ].join("\n");
 }
 function renderUpdate(report) {
-  const state = report.updated ? "UPDATED" : report.updateAvailable ? "AVAILABLE" : "CURRENT";
-  const heading = report.updated ? "ANVIL \xB7 UPDATED" : `ANVIL \xB7 UPDATE ${state}`;
+  if (report.updated) return report.message ?? `Updated to ${report.currentVersion} using OMP plugin upgrade. Restart OMP to load the updated extension.`;
+  const state = report.updateAvailable ? "AVAILABLE" : "CURRENT";
   return [
-    heading,
+    `ANVIL \xB7 UPDATE ${state}`,
     "",
     `${"INSTALLED".padEnd(12)}${report.currentVersion}`,
     `${"LATEST".padEnd(12)}${report.latestVersion ?? "none"}`,
