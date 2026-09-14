@@ -2,15 +2,19 @@
 
 Use `/forge` for all diagnostics and run management. Configuration is assembled from built-in defaults, the global `$XDG_CONFIG_HOME/omp/anvil.yml` file (or `~/.config/omp/anvil.yml` when `XDG_CONFIG_HOME` is unset), and the nearest project `.omp/orchestrator.yml` overlay. Project values win. `/orchestrate` is retained as an equivalent compatibility alias, so existing scripts can continue to call it while new usage should prefer `/forge`.
 
+On the first OMP session after installation, Anvil creates the missing global settings template automatically and shows the path in an OMP notification. It does not modify the current repository during this automatic setup. If the global file already exists, it remains untouched and no setup notification is repeated.
+
 ## Set up or inspect configuration
 
-Use `/forge init` as the safe setup command:
+Use `/forge init` when you also want a repository-specific overlay:
 
 ```text
 /forge init
 ```
 
 It creates the missing editable global file and creates `.omp/orchestrator.yml` at the repository root only when no canonical project file or alternate repository settings file is present; it never overwrites existing global, canonical, or alternate settings. Initialization from a repository subdirectory still updates the root's `.omp/orchestrator.yml` location. Initialization reports existing canonical settings and any alternate candidates it detects. When an alternate is detected without a canonical project file, project initialization is skipped and the alternate path is reported for migration or inspection:
+
+The alternate candidates are:
 
 ```text
 .omp/orchestrator.json
@@ -19,7 +23,6 @@ It creates the missing editable global file and creates `.omp/orchestrator.yml` 
 anvil.yml
 ```
 
-If a run does not use an expected setting, first inspect the global file selected by `XDG_CONFIG_HOME` (or its `~/.config` fallback), then the nearest `.omp/orchestrator.yml`. The project overlay is intentionally small: values it contains override the global values, while omitted values continue to come from the global file or built-in defaults. `/orchestrate init` is equivalent to `/forge init`.
 
 ## `/forge doctor` reports a missing agent
 

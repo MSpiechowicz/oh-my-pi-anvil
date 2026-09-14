@@ -1,6 +1,6 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { globalConfigPath, findRepositoryRoot, projectConfigPath } from "../state/paths.ts";
+import { findRepositoryRoot, globalConfigPath, projectConfigPath } from "../state/paths.ts";
 
 /** A non-destructive result for one configuration file. */
 export interface InitFileReport {
@@ -53,6 +53,11 @@ const ALTERNATE_PROJECT_SETTINGS = [
   "anvil.yml",
 ];
 
+/** Create the editable global settings file without touching any repository. */
+export async function ensureGlobalConfig(): Promise<InitFileReport> {
+  return createIfMissing(globalConfigPath(), GLOBAL_CONFIG_TEMPLATE);
+}
+
 /**
  * Create missing global and repository configuration files without replacing user data.
  * A repository overlay is only created when a Git-style root can be found.
@@ -94,7 +99,7 @@ export async function initConfig(workspaceRoot: string): Promise<InitReport> {
     }
   }
 
-  const detected = [ ...(project?.status === "existing" ? [project.path] : []), ...detectedAlternates ];
+  const detected = [...(project?.status === "existing" ? [project.path] : []), ...detectedAlternates];
   return { global, project, repositoryRoot, created, existing, detected, detectedAlternates, alternates: detectedAlternates };
 }
 

@@ -1,8 +1,25 @@
 import { createRuntime } from "./runtime.ts";
 import { CommandRouter } from "./commands/router.ts";
+import { ensureGlobalConfig } from "./config/init.ts";
 
-export interface ExtensionContext { cwd: string; runtimeContext?: unknown; respond?: (message: string) => void | Promise<void>; [key: string]: unknown; }
-export interface ExtensionAPI { setLabel?(label: string): void; registerCommand(name: string, definition: { description: string; handler: (args: string, context: ExtensionContext) => Promise<void> }): void; on?(event: string, handler: () => void | Promise<void>): void; }
+export interface ExtensionUI {
+  notify?: (message: string, level?: string) => unknown;
+}
+export interface ExtensionContext {
+  cwd: string;
+  runtimeContext?: unknown;
+  ui?: ExtensionUI;
+  respond?: (message: string) => void | Promise<void>;
+  [key: string]: unknown;
+}
+export interface ExtensionAPI {
+  setLabel?(label: string): void;
+  registerCommand(
+    name: string,
+    definition: { description: string; handler: (args: string, context: ExtensionContext) => Promise<void> },
+  ): void;
+  on?(event: string, handler: (event: unknown, context: ExtensionContext) => void | Promise<void>): void;
+}
 
 export default function anvilExtension(pi: ExtensionAPI): void {
   pi.setLabel?.("Anvil · The Forge");
@@ -14,4 +31,31 @@ export default function anvilExtension(pi: ExtensionAPI): void {
   };
   pi.registerCommand("forge", { description: "Run and manage Anvil's stateful multi-agent Forge", handler });
   pi.registerCommand("orchestrate", { description: "Compatibility alias for /forge", handler });
+  const notify = async (context: ExtensionContext, message: string, level: string): Promise<void> => {
+    try {
+      if (context.ui?.notify) await context.ui.notify(message, level);
+      else await context.respond?.(message);
+    } catch {
+      // Startup notifications must never prevent OMP from opening.
+    }
+  };
+
+  pi.on?.("session_start", async (_event, context) => {
+    try {
+      const report = await ensureGlobalConfig();
+      if (report.status !== "created") return;
+      await notify(
+        context,
+        `Anvil global setup is ready. Created ${report.path}. Edit this file to customize Forge for every repository. Run /forge init inside a repository to add a project overlay.`,
+        "info",
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      await notify(
+        context,
+        `Anvil could not create its global configuration: ${detail}. Check the configuration directory permissions and run /forge init after fixing them.`,
+        "warning",
+      );
+    }
+  });
 }

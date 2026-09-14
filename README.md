@@ -66,24 +66,25 @@ Every Smith mutation starts the gate sequence again. Read-only gates also verify
 
 ## Quick start
 
-Install Anvil through OMP, then expose the bundled extension and agents. Use `/forge init` to create editable configuration safely; it creates the user-wide global settings file when missing and creates a small repository overlay only when no canonical or alternate repository settings are present. The filename `.omp/orchestrator.yml` is an internal, historical storage name; the command you use is `/forge`.
+Install Anvil through OMP. On the first OMP session, Anvil automatically creates the editable global settings template and shows its path in the OMP notification area; it does not modify the current repository during this first-run setup. Use `/forge init` when you also want a repository-specific overlay.
 
 ```bash
 # Register the Anvil marketplace and install the stable release
 omp plugin marketplace add MSpiechowicz/oh-my-pi-anvil
 omp plugin install oh-my-pi-anvil@omp-anvil --scope user
 
-# From the repository where you want to run the Forge. Running this from a
-# subdirectory still targets the repository root.
+# After opening a new OMP session, edit the global settings Anvil created:
+$EDITOR "${XDG_CONFIG_HOME:-$HOME/.config}/omp/anvil.yml"
+
+# Optional: from the repository where you want a project overlay. Running
+# this from a subdirectory still targets the repository root.
 /forge init
 /forge doctor
 /forge start "Add scoped API-key rotation with a backwards-compatible migration"
 /forge status
 ```
 
-`/forge init` creates the global file at `$XDG_CONFIG_HOME/omp/anvil.yml` when `XDG_CONFIG_HOME` is set, or at `~/.config/omp/anvil.yml` otherwise, if it is missing. It creates the optional project overlay at the repository root as `.omp/orchestrator.yml` only when neither that canonical file nor an alternate repository settings file exists. Missing files are created as editable text; existing global, canonical, and alternate settings are preserved. If it detects an alternate and no canonical project file, project initialization is skipped and the alternate path is reported for inspection or migration.
-
-The alternate candidates `/forge init` reports are `.omp/orchestrator.json`, `.omp/anvil.yml`, `.anvil.yml`, and `anvil.yml`; these files are preserved for you to inspect or migrate.
+The automatic first-run setup creates the global file at `$XDG_CONFIG_HOME/omp/anvil.yml` when `XDG_CONFIG_HOME` is set, or at `~/.config/omp/anvil.yml` otherwise. If the file already exists, startup leaves it unchanged and shows no repeated setup notification. `/forge init` creates the optional project overlay at the repository root as `.omp/orchestrator.yml` only when neither that canonical file nor an alternate repository settings file exists. Missing files are created as editable text; existing global, canonical, and alternate settings are preserved. If it detects an alternate and no canonical project file, project initialization is skipped and the alternate path is reported for inspection or migration.
 
 Forge loads settings in this order, with later values taking precedence:
 
