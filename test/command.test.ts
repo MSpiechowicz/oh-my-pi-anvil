@@ -291,7 +291,7 @@ printf '%s\n' '${
         },
       });
       expect(notices).toHaveLength(2);
-      expect(notices[1].message).toBe("Anvil 0.1.11: Newer release available. Run /anvil update install to update it.");
+      expect(notices[1].message).toBe(`Anvil ${packageVersion}: Newer release available. Run /anvil update install to update it.`);
       expect(notices[1].level).toBe("info");
       await anvilHandler("/anvil update install", {
         cwd: packageRoot,
