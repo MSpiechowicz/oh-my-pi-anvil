@@ -62,7 +62,10 @@ function statusText(update: WorkflowProgressUpdate, frame: string, activeStage?:
     ? `${ACTIVITIES[update.run.currentState]} (during ${displayState(activeStage)})`
     : ACTIVITIES[update.run.currentState];
   if (update.kind === "finished") {
-    return `${update.run.status === "done" ? "✓" : "!"} ${displayState(update.run.currentState)} · ${activity}`;
+    const budgetDetails = update.run.failureCode === "BUDGET_EXHAUSTED"
+      ? ` · /anvil status ${update.run.id} for usage and limits`
+      : "";
+    return `${update.run.status === "done" ? "✓" : "!"} ${displayState(update.run.currentState)} · ${activity}${budgetDetails}`;
   }
   return `${frame} ${displayState(update.run.currentState)} · ${activity}`;
 }

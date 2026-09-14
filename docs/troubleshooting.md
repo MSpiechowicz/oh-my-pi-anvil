@@ -55,13 +55,19 @@ Resume the persisted run:
 
 Forge recomputes the workspace fingerprint. If files changed, it records the new mutation epoch and starts at Warden checks. It never resets or cleans the repository.
 
+## Warden has no checks or a required check is missing
+
+Configure executable check IDs in `.omp/anvil.yml` or the global settings before starting a run. Empty checks stop with `CONFIG_INVALID` before any model call. Architect's `requiredChecks` must refer to configured IDs; at least one configured or plan-selected check must be required. A package script or a check name mentioned in prose does not configure Warden. Put browser/manual obligations in acceptance criteria and provide verification evidence separately.
+
+Changing check configuration changes workflow policy. Preserve existing source work, fix the overlay, and start a new run describing only what remains; budget-only resume cannot adopt new check commands. See [Warden verification requirements](configuration.md#warden-verification-requirements).
+
 ## A gate says the revision is stale
 
 The workspace changed after the gate ran. This is expected protection, not a repository repair action. Forge invalidates the old pass and reruns deterministic checks before security and review. Avoid treating a result from an earlier revision as evidence for the current files.
 
 ## A reviewer cannot inspect the revision diff
 
-Sentinel and Inquisitor intentionally lack unrestricted shell and browser execution. Anvil supplies a readable `changes.patch` and `manifest.json` through each review handoff's `review-diff` and `review-diff-manifest` evidence pointers. The manifest identifies both revision IDs and HEADs and links the durable baseline and target snapshots. Reviewers should read those artifacts rather than try to reconstruct compressed Git objects themselves.
+Anvil supplies a readable `changes.patch` and `manifest.json` through each review handoff's `review-diff` and `review-diff-manifest` evidence pointers. The manifest identifies both revision IDs and HEADs and links durable snapshots. Reviewers should read those artifacts rather than reconstruct compressed Git objects. Sentinel and Inquisitor can also use scoped `curl`/`gh` and browser validation, but those tools do not repair a missing historical baseline.
 
 New runs capture `artifacts/revisions/baseline.json` before the first agent runs. This preserves pre-existing dirty and untracked content; the review patch describes changes from that actual baseline, even if implementation moves `HEAD`. The configured runtime directory is excluded. Snapshots contain full source bytes and can be large; protect them like the repository itself.
 
@@ -69,7 +75,7 @@ On resume, an older run without its baseline artifact is recoverable only when i
 
 Missing, corrupt, or unsupported evidence blocks before a security/review attempt is charged. A corrupt artifact must be restored rather than silently replaced. Snapshot preparation also rejects submodules, unresolved index entries, skip-worktree/assume-unchanged paths, and non-UTF-8 text diffs that would be lossy; resolve the reported limitation before starting or resuming a supported run. Binary bytes remain preserved in snapshots and binary patches, but reviewers must state any inspection limits.
 
-Providing the revision diff does not resolve missing runtime verification or a missing implementation handoff. Those findings still require concrete execution evidence from an execution-capable stage; enabling unrestricted tools on the read-only reviewers is not the remedy.
+Reviewer handoffs also carry persisted Smith results, revision-bound verification evidence, real finding artifacts, and current Warden results. Smith should record targeted observations as `passed`, `failed`, or `not_run`; missing verification is never treated as passed. Supporting files must be run-root-relative and are captured into hash-checked attempt artifacts. Reviewers should inspect that evidence before requesting repeat work. They may perform targeted live checks with the available execution tools, but may not mutate source or remote resources without authorization.
 
 ## The runtime directory is hard to find
 

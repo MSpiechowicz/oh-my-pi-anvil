@@ -96,13 +96,17 @@ export function containedPath(root: string, relativePath: string): string {
   return resolved;
 }
 export async function assertSafeSymlink(root: string, target: string): Promise<void> {
-  try {
-    const info = await lstat(target);
-    if (!info.isSymbolicLink()) return;
-    const resolved = await realpath(target);
-    containedPath(root, path.relative(root, resolved));
-  } catch (error) {
-    if (error instanceof AnvilError) throw error;
+  const resolvedRoot = path.resolve(root);
+  containedPath(resolvedRoot, path.relative(resolvedRoot, target));
+  let current = path.parse(resolvedRoot).root;
+  for (const part of path.resolve(target).slice(current.length).split(path.sep)) {
+    current = path.join(current, part);
+    try {
+      if ((await lstat(current)).isSymbolicLink()) throw new AnvilError("ARTIFACT_CORRUPT", `Symlink artifact path component is not accepted: ${current}`);
+    } catch (error) {
+      if (isMissing(error)) return;
+      throw error;
+    }
   }
 }
 

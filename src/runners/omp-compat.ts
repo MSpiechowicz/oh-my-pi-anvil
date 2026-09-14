@@ -26,6 +26,10 @@ const READ_ONLY_TOOL_NAMES: Record<string, true> = {
   yield: true,
 };
 
+// These are inspection capabilities, not a sandbox: the gate still rejects
+// repository mutations and the assignment forbids unauthorized remote writes.
+const VALIDATION_TOOL_NAMES: Record<string, true> = { bash: true, eval: true, github: true };
+
 function asRecord(value: unknown): AnyRecord | undefined {
   if (value === null || (typeof value !== "object" && typeof value !== "function") || Array.isArray(value)) return undefined;
   return value as AnyRecord;
@@ -77,6 +81,14 @@ function configureSettings(settings: NativeSettings, request: AgentRunRequest): 
   // Forge owns completion accounting, so a child must settle before the
   // workflow advances even when the host normally enables background tasks.
   applySetting(settings, "async.enabled", false);
+  if (request.role === "security" || request.role === "review") {
+    applySetting(settings, "github.enabled", true);
+    applySetting(settings, "browser.enabled", true);
+    // Do not inherit the parent's authenticated browser or visible tab.
+    applySetting(settings, "browser.relay", false);
+    applySetting(settings, "browser.cdpUrl", "");
+    applySetting(settings, "browser.cmux", false);
+  }
   if (request.isolation?.requested) {
     applySetting(settings, "task.isolation.enabled", true);
     applySetting(settings, "task.isolation.apply", request.isolation.apply ?? true);
@@ -91,10 +103,10 @@ function currentModelSelector(context: unknown): string | undefined {
   return provider && id ? `${provider}/${id}` : undefined;
 }
 
-function effectiveAgent(agent: AnyRecord, readOnly: boolean): AnyRecord {
-  if (!readOnly) return agent;
+function effectiveAgent(agent: AnyRecord, request: AgentRunRequest): AnyRecord {
+  if (!request.readOnly) return agent;
   const tools = Array.isArray(agent.tools)
-    ? agent.tools.filter((tool): tool is string => typeof tool === "string" && READ_ONLY_TOOL_NAMES[tool] === true)
+    ? agent.tools.filter((tool): tool is string => typeof tool === "string" && (READ_ONLY_TOOL_NAMES[tool] === true || ((request.role === "security" || request.role === "review") && VALIDATION_TOOL_NAMES[tool] === true)))
     : [];
   if (tools.length === 0) {
     throw new Error(`Configured read-only agent "${String(agent.name)}" has no read-only tools`);
@@ -223,9 +235,10 @@ function mapNativeResult<T>(request: AgentRunRequest, value: unknown): AgentRunR
   return {
     status,
     agentName: stringValue(result.agent) ?? request.agentName,
-    resolvedModel: stringValue(result.resolvedModel),
+    resolvedModel: stringValue(result.resolvedModel) ?? null,
+    resolvedThinkingLevel: stringValue(result.resolvedThinkingLevel) ?? null,
     usage,
-    durationMs: numberValue(result.durationMs) ?? 0,
+    durationMs: numberValue(result.durationMs),
     ...(completed ? { structured: structuredData as T } : {}),
     ...(status !== "completed"
       ? {
@@ -243,7 +256,8 @@ function failedResult<T>(request: AgentRunRequest, code: string, message: string
     status,
     agentName: request.agentName,
     usage: { requests: 0 },
-    durationMs: 0,
+    resolvedModel: null,
+    resolvedThinkingLevel: null,
     error: { code, message },
   };
 }
@@ -254,7 +268,7 @@ async function executeNativeSubprocess<T>(context: unknown, host: AnyRecord, req
   if (!found) return failedResult(request, "OMP_AGENT_NOT_FOUND", `Configured agent was not discovered: ${request.agentName}`);
   let agent: AnyRecord;
   try {
-    agent = effectiveAgent(found, request.readOnly);
+    agent = effectiveAgent(found, request);
   } catch (error) {
     return failedResult(request, "OMP_READ_ONLY_AGENT_REQUIRED", error instanceof Error ? error.message : String(error));
   }

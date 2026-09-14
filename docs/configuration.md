@@ -25,7 +25,7 @@ Inspect the active paths and verify the installation:
 
 
 Initialization creates the missing global file and, at the repository root, creates a small editable `.omp/anvil.yml` overlay. It never overwrites existing global or project settings. Running initialization from a repository subdirectory still targets that repository root. If either file already exists, initialization reports it instead of replacing it.
-`/anvil config` reports the effective configuration as `STATUS VALID` even when the optional global file is absent, because built-in defaults remain usable. It also marks the global file and project overlay as `present` or `not present`; run `/anvil init` when this repository needs its `.omp/anvil.yml` overlay.
+`/anvil config` reports schema-valid settings as `STATUS VALID` even when the optional global file is absent. That does not establish execution readiness: configure Warden checks before `/forge`. It also marks the global file and project overlay as `present` or `not present`; run `/anvil init` when this repository needs its `.omp/anvil.yml` overlay.
 
 
 The generated project overlay is intentionally sparse so shared global values continue to apply. Add only repository-specific overrides, for example:
@@ -56,6 +56,28 @@ checks:
 ```
 
 Here the project-specific agent replaces the global implementation agent, and the project `checks` list is the repository's configured checks list. Other global and default settings remain in effect.
+
+## Warden verification requirements
+
+Warden is a command runner, not a model agent. Built-in checks are empty because Forge cannot safely assume which commands a repository should execute. Configure them explicitly; Forge does not discover or run `package.json` scripts automatically. An empty list stops a run with `CONFIG_INVALID` before any model invocation instead of recording an empty passing gate.
+
+At least one configured check must be required, either through `required: true` or Architect's `requiredChecks`. Architect receives the configured IDs; an unknown plan-required ID or a plan with no effective required check is rejected before Smith starts. A plan-required check is authoritative even if its configured `required` flag is false: its failure stops the gate and participates in fail-fast behavior. Browser/manual verification belongs in acceptance criteria and Smith's verification evidence, not an invented Warden command ID.
+
+For a repository that exposes Yarn `check` and `build` scripts, a project overlay can use:
+
+```yaml
+checks:
+  - id: typecheck
+    command: [yarn, check]
+    required: true
+    timeoutMs: 180000
+  - id: build
+    command: [yarn, build]
+    required: true
+    timeoutMs: 180000
+```
+
+Choose commands appropriate for the repository; avoid watch-mode commands. A project `checks` list replaces, rather than appends to, the inherited list. Changing checks changes workflow policy, so configure them before starting a new run; an old run cannot adopt changed check policy through budget-only resume.
 
 ## Workflow and command surface
 
@@ -160,9 +182,11 @@ Other workflow settings must still match the saved effective configuration; budg
 
 ## Revision and gate behavior
 
-Smith is the mutating stage. Warden runs the configured checks after each implementation mutation. Sentinel and Inquisitor are read-only gates over the exact current workspace revision. A failure or blocking finding returns the run to Smith; the correction path then passes through Warden, Sentinel, and Inquisitor again.
+Smith is the mutating stage. Every source mutation invalidates prior gates and starts Warden again. Sentinel and Inquisitor must keep repository files unchanged; before-and-after revision checks reject a reviewer mutation.
 
-A gate pass is usable only when its revision, effective configuration, and gate policy still match the current run. If the workspace changes after a gate, Forge invalidates that result rather than treating it as current.
+Verification-only Smith work may reuse Warden and Sentinel passes only when the exact revision, mutation epoch, configuration, policy, and recorded evidence dependencies remain valid, without relevant open findings or a later failed/blocked gate. The gate that raised a finding runs again. Sentinel defaults to depending on Smith verification; only an explicit `verificationIndependent: true` permits reuse after successful verification additions. Reuse also requires an explicit `liveValidation: false`: live or unknown external-state dependence is never inferred away from source identity. Missing or changed dependencies reject reuse rather than weakening verification.
+
+The bundled reviewers have `bash` for scoped `curl`/`gh`, the optional native `github` tool, and `eval` for OMP's browser API. Browser validation starts with managed tabs rather than inherited authenticated sessions. These execution tools are not a read-only sandbox: reviewer instructions forbid repository changes and unauthorized remote writes. Source fingerprints detect repository changes, not remote side effects. Live HTTP/GitHub/browser results must be reported as live validation; they are not durable proof of future remote state.
 
 ## Persistence
 

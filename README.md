@@ -43,9 +43,9 @@ The correction path is never a shortcut around verification:
   <img src="assets/diagrams/forge-correction-loop.svg" alt="Forge correction loop: a failure or finding returns to Smith, then passes through Warden, Sentinel, and Inquisitor again." width="100%" />
 </p>
 
-Every Smith mutation starts the gate sequence again. Read-only gates also verify before-and-after workspace fingerprints, so a mutation during security or review cannot be mistaken for a pass.
+Every Smith source mutation starts the gate sequence again. Verification-only work can reuse valid Warden/Sentinel passes when revision, policy, mutation epoch, and evidence dependencies remain valid; the gate that raised a finding runs again. Reviewers verify before-and-after workspace fingerprints, so a source mutation during security or review cannot be mistaken for a pass.
 
-Sentinel and Inquisitor do not need shell or Git execution tools. Anvil captures a durable workspace baseline before implementation and supplies each reviewer with a readable patch and a manifest binding the baseline and target revision IDs and HEADs. The snapshots preserve tracked and relevant untracked bytes, binary files, symlinks, and executable modes; configured runtime artifacts are excluded. Reviewers use their read-only tools to inspect the supplied evidence and surrounding source. This diff is review context, not proof that runtime checks passed.
+Anvil supplies reviewers with a readable baseline-to-target patch, revision manifest, persisted Smith report, verification evidence, and Warden results. The baseline preserves pre-existing dirty content; runtime artifacts are excluded from source revisions. Sentinel and Inquisitor also have scoped `curl`/`gh` access through `bash` and browser access through `eval` for targeted validation. Their instructions prohibit source changes and unauthorized remote writes, but general-purpose execution tools are not a read-only sandbox. Live validation is not reusable evidence of unchanged remote state. See [Configuration](docs/configuration.md#revision-and-gate-behavior).
 
 ## The specialists
 
@@ -98,6 +98,8 @@ Forge loads settings in this order, with later values taking precedence:
 3. the nearest repository `.omp/anvil.yml` overlay.
 
 The project overlay is intentionally small: put shared checks and agent choices in the global file, then add only repository-specific overrides to `.omp/anvil.yml`.
+
+Configure Warden commands before starting `/forge`: built-in checks are empty, and an empty list now stops before model work instead of passing without verification. Architect can require only configured check IDs; browser/manual proof belongs in acceptance evidence. See [Warden verification requirements](docs/configuration.md#warden-verification-requirements).
 
 With an interactive OMP UI, `/anvil` without arguments opens a management menu; the explicit subcommands remain available for scripts and non-interactive sessions.
 
@@ -261,9 +263,9 @@ Runtime state lives under `.omp/.anvil/` by default.
 └── runs/<run-id>/
     ├── objective.md
     ├── effective-config.json
-    ├── plan.json
     ├── artifacts/
     │   ├── planner/
+    │   │   └── plan-<attempt-sequence>.json
     │   ├── implementation/
     │   ├── checks/
     │   ├── security/
@@ -272,6 +274,8 @@ Runtime state lives under `.omp/.anvil/` by default.
 ```
 
 SQLite is authoritative for workflow state. Artifacts are hashed and written atomically. Runtime files are excluded from the workspace revision; source edits are not.
+
+Each agent invocation retains `artifacts/<role>/output-<attempt-sequence>.json`, including model, thinking level, duration, result, and usage. Smith additionally writes a revision/epoch-bound `artifacts/implementation/<attempt-id>/result.json` and captured supporting files. Warden results use `artifacts/checks/attempt-<attempt-sequence>.json`; gate dependency manifests preserve the evidence used for reuse decisions. Planner outputs are attempt-scoped so replanning does not overwrite earlier gate inputs.
 
 Recovery is state-aware:
 

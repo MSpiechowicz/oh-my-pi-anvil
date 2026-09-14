@@ -1,4 +1,4 @@
-import { boundedText, stableJson } from "../util/json.ts";
+import { stableJson } from "../util/json.ts";
 import { AnvilError } from "../util/errors.ts";
 import type { HandoffEnvelope } from "../workflow/types.ts";
 
@@ -9,10 +9,7 @@ export function serializeHandoff(envelope: HandoffEnvelope, maxChars: number): s
   if (rendered.length <= maxChars) return rendered;
   const reduced = { ...required, acceptance: envelope.acceptance, openFindings: envelope.openFindings?.map(({ id, source, severity, title, artifact }) => ({ id, source, severity, title, artifact })), changedFiles: envelope.changedFiles?.slice(0, 50) };
   rendered = stableJson(reduced);
-  if (rendered.length > maxChars && envelope.evidence?.length) {
-    rendered = stableJson({ ...required, acceptance: reduced.acceptance, openFindings: reduced.openFindings });
-    if (rendered.length > maxChars) throw new AnvilError("AGENT_EXECUTION_FAILED", `Required handoff evidence and review criteria exceed context.maxInlineChars (${maxChars}); increase this limit before starting a new run. Evidence, findings, and acceptance criteria cannot be truncated safely.`);
-    return rendered;
-  }
-  return rendered.length <= maxChars ? rendered : boundedText(rendered, maxChars);
+  if (rendered.length > maxChars) rendered = stableJson({ ...required, acceptance: reduced.acceptance, openFindings: reduced.openFindings });
+  if (rendered.length > maxChars) throw new AnvilError("AGENT_EXECUTION_FAILED", `Required handoff evidence and review criteria exceed context.maxInlineChars (${maxChars}); increase this limit before starting a new run. Evidence, findings, and acceptance criteria cannot be truncated safely.`);
+  return rendered;
 }

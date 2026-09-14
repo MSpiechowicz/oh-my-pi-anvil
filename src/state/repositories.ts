@@ -30,8 +30,8 @@ export class RunRepository {
 export class GateRepository {
   constructor(private readonly state: StateDatabase) {}
   save(input: Omit<GateResult, "id">): GateResult { const result = { ...input, id: `gate_${crypto.randomUUID()}` }; this.state.db.run("INSERT OR REPLACE INTO gate_results(id, run_id, gate, revision_id, mutation_epoch, config_hash, gate_policy_hash, verdict, attempt_id, artifact_id, started_at, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [result.id, result.runId, result.gate, result.revisionId, result.mutationEpoch, result.configHash, result.gatePolicyHash, result.verdict, result.attemptId ?? null, result.artifactId ?? null, result.startedAt, result.endedAt]); return result; }
-  latestPassing(runId: string, gate: GateName): GateResult | undefined { const row = this.state.db.query<Record<string, unknown>>("SELECT * FROM gate_results WHERE run_id = ? AND gate = ? AND verdict = 'pass' ORDER BY ended_at DESC LIMIT 1").get(runId, gate); return row ? mapGate(row) : undefined; }
-  currentPass(runId: string, gate: GateName, revisionId: string, configHash: string, policyHash: string): GateResult | undefined { const row = this.state.db.query<Record<string, unknown>>("SELECT * FROM gate_results WHERE run_id = ? AND gate = ? AND revision_id = ? AND config_hash = ? AND gate_policy_hash = ? AND verdict = 'pass' ORDER BY ended_at DESC LIMIT 1").get(runId, gate, revisionId, configHash, policyHash); return row ? mapGate(row) : undefined; }
+  latestPassing(runId: string, gate: GateName): GateResult | undefined { const row = this.state.db.query<Record<string, unknown>>("SELECT * FROM gate_results WHERE run_id = ? AND gate = ? ORDER BY rowid DESC LIMIT 1").get(runId, gate); return row?.verdict === "pass" ? mapGate(row) : undefined; }
+  currentPass(runId: string, gate: GateName, revisionId: string, configHash: string, policyHash: string): GateResult | undefined { const latest = this.latestPassing(runId, gate); return latest?.revisionId === revisionId && latest.configHash === configHash && latest.gatePolicyHash === policyHash ? latest : undefined; }
 }
 
 export class FindingRepository {

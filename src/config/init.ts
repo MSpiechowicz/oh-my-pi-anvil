@@ -34,12 +34,18 @@ agents:
   review: # Inquisitor
     agent: inquisitor
 
-# Add shared checks or override budgets below.
+# Configure Warden commands here or in each repository's .omp/anvil.yml.
+# Forge refuses empty checks; package scripts are not automatically executed.
+# See docs/configuration.md for check IDs, argv commands, requiredness and timeouts.
+# Optional budget overrides may also be added below.
 `;
 
 /** Deliberately sparse repository overlay; values here override global settings. */
 export const PROJECT_CONFIG_TEMPLATE = `# Repository-specific Forge overrides.
 # Values here override the global settings; omitted values continue to inherit.
+# Configure repository Warden checks unless inherited from the global file.
+# At least one check must be required by configuration or by Architect's plan.
+# No checks are inferred from package.json; see docs/configuration.md.
 version: 1
 `;
 

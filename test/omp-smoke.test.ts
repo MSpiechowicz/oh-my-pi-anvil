@@ -5,7 +5,7 @@ import { OmpSubprocessRunner } from "../src/runners/omp-subprocess-runner.ts";
 const request = {
   runId: "run",
   attemptId: "attempt",
-  role: "security" as const,
+  role: "planner" as const,
   agentName: "architect",
   assignment: "check",
   context: "handoff",
@@ -87,6 +87,29 @@ describe("OMP adapter", () => {
     expect(result.usage.total).toBe(10);
   });
 
+  test("allows reviewer validation capabilities without exposing source edit tools or expanding planner access", async () => {
+    for (const role of ["planner", "security", "review"] as const) {
+      const configured = ["read", "bash", "eval", "github", "write", "edit", "ast_edit", "task"];
+      const compat = createOmpCompat({}, {
+        Settings: { loadReadOnly: () => ({ get: () => [], override: () => {} }) },
+        discoverAgents: () => ({ agents: [{ name: role, tools: configured }] }),
+        runSubprocess: (options: { agent: { tools: string[] } }) => {
+          const allowed = new Set(options.agent.tools);
+          const denied = ["write", "edit", "ast_edit", "task"];
+          const validation = ["bash", "eval", "github"];
+          if (denied.some((name) => allowed.has(name)) ||
+            validation.some((name) => allowed.has(name) !== (role !== "planner"))) {
+            return { exitCode: 1, error: "Role capability boundary violated" };
+          }
+          return { exitCode: 0, structuredOutput: { status: "valid", data: { inspected: role } } };
+        },
+      });
+      const result = await compat.execute!({ ...request, role, agentName: role });
+      expect(result.status).toBe("completed");
+      expect(result.structured).toEqual({ inspected: role });
+    }
+  });
+
   test("uses TaskTool for isolated implementation requests", async () => {
     const compat = createOmpCompat(
       {},
@@ -143,6 +166,30 @@ describe("OMP adapter", () => {
 
     expect(result.status).toBe("completed");
     expect(result.structured).toEqual({ version: 1 });
+  });
+
+  test("does not infer thinking metadata from configured or display model suffixes on failed tasks", async () => {
+    let resolvedThinkingLevel: string | undefined = undefined;
+    const compat = createOmpCompat({ model: { provider: "parent", id: "configured" } }, {
+      Settings: { loadReadOnly: async () => ({ get: () => "high", override: () => {} }) },
+      TaskTool: { create: async () => ({
+        execute: async () => ({ details: { results: [{
+          agent: "smith", exitCode: 1, aborted: true, error: "Cancelled after model fallback",
+          resolvedModel: "serving/model:high",
+          resolvedThinkingLevel,
+          modelOverride: "configured/model:low",
+        }] } }),
+      }) },
+    });
+    const result = await compat.execute!({ ...request, readOnly: false, isolation: { requested: true, apply: true, merge: "patch" } });
+    expect(result.status).toBe("aborted");
+    expect(result.resolvedModel).toBe("serving/model:high");
+    expect(result.resolvedThinkingLevel).toBe(null);
+    expect(result.durationMs).toBe(undefined);
+    expect(result.structured).toBe(undefined);
+    resolvedThinkingLevel = "off";
+    const reported = await compat.execute!({ ...request, readOnly: false, isolation: { requested: true, apply: true, merge: "patch" } });
+    expect(reported.resolvedThinkingLevel).toBe("off");
   });
 
 });

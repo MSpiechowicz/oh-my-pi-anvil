@@ -177,7 +177,14 @@ export function renderStatus(summary: RunSummary): string {
     statusRow("FINDINGS", String(open.length)),
     ...open.slice(0, 8).map((finding) => `    ${finding.id}  ${finding.severity.toUpperCase()}  ${finding.title}`),
     "",
-    statusRow("USAGE", `${run.usedTokens.toLocaleString()} tokens · ${run.usedRequests} requests`),
+    statusRow("USAGE", `${run.usedTokens.toLocaleString()} tokens consumed / ${run.maxTotalTokens === undefined ? "no token limit" : `${run.maxTotalTokens.toLocaleString()} token limit`} · ${run.usedRequests} requests`),
+    statusRow("TOKEN BASIS", "Executor-reported aggregate, including cache when the host includes it; input + output fallback if no total is reported. Not monetary cost."),
+    statusRow("INPUT", `${run.usedInputTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
+    statusRow("OUTPUT", `${run.usedOutputTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
+    statusRow("CACHE-READ", `${run.usedCacheReadTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
+    statusRow("CACHE-WRITE", `${run.usedCacheWriteTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
+    statusRow("REPORTING", "Components may be incomplete; zero can mean unreported. They need not sum to the aggregate."),
+    statusRow("LIMIT CHECK", "Between stages; an in-flight child is not interrupted by token caps."),
     statusRow("ARTIFACTS", `${run.workspaceRoot}/.omp/.anvil/runs/${run.id}`),
   ].join("\n");
 }

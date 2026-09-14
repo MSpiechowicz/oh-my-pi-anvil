@@ -86,6 +86,20 @@ export const IMPLEMENTATION_OUTPUT_SCHEMA = {
     claimedChangedFiles: STRING_ARRAY,
     addressedFindingIds: STRING_ARRAY,
     remainingConcerns: STRING_ARRAY,
+    verification: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["criterion", "status", "evidence"],
+        properties: {
+          criterion: NONEMPTY_STRING,
+          status: { type: "string", enum: ["passed", "failed", "not_run"] },
+          evidence: NONEMPTY_STRING,
+          artifactPaths: { type: "array", items: NONEMPTY_STRING, uniqueItems: true },
+        },
+      },
+    },
     replanReason: { type: "string" },
     durableLessons: {
       type: "array",
@@ -145,6 +159,8 @@ export const SECURITY_OUTPUT_SCHEMA = {
       },
     },
     residualRisks: STRING_ARRAY,
+    verificationIndependent: { type: "boolean" },
+    liveValidation: { type: "boolean" },
     blockedReason: { type: "string" },
   },
   allOf: GATE_CONDITIONS,

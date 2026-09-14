@@ -53,6 +53,12 @@ const implementation: ImplementationOutput = {
   addressedFindingIds: ["tenant-read"],
   remainingConcerns: ["Legacy callers need a separate audit"],
   durableLessons: [{ content: "Scope record lookups before returning data", importance: 0.8 }],
+  verification: [{
+    criterion: "Cross-tenant requests cannot return another tenant's data",
+    status: "passed",
+    evidence: "Tenant B received HTTP 403 for tenant A's record; no record fields were returned",
+    artifactPaths: ["verification/tenant-response.json"],
+  }],
 };
 
 const security: SecurityOutput = {
@@ -225,6 +231,15 @@ describe("Smith implementation contract", () => {
     rejects(smithContract, { ...withoutLessons, durableLessons: null }, "durableLessons");
   });
 
+  test("requires explicit verification outcomes and observations without coercion", () => {
+    const verification = implementation.verification![0];
+    rejects(smithContract, { ...implementation, verification: [{ ...verification, status: true }] }, "status");
+    rejects(smithContract, { ...implementation, verification: [{ ...verification, evidence: "" }] }, "evidence");
+    accepts(smithContract, { ...implementation, verification: [{
+      criterion: verification.criterion, status: "not_run", evidence: "No authenticated fixture was available",
+    }] });
+  });
+
   test("requires a nonempty reason only when replanning is requested", () => {
     const replan = { ...implementation, status: "needs_replan" };
     rejects(smithContract, replan, "replanReason");
@@ -234,6 +249,12 @@ describe("Smith implementation contract", () => {
 });
 
 describe("Sentinel security contract", () => {
+  test("does not coerce declarations that control security pass reuse", () => {
+    rejects(sentinelContract, { ...security, verificationIndependent: "true" }, "verificationIndependent");
+    rejects(sentinelContract, { ...security, liveValidation: "false" }, "liveValidation");
+    accepts(sentinelContract, { ...security, verificationIndependent: false, liveValidation: true });
+  });
+
   test("requires the full scope and rejects malformed reviewed areas", () => {
     rejects(sentinelContract, { ...security, scope: { reviewedAreas: [] } }, "revisionId");
     rejects(sentinelContract, { ...security, scope: { ...security.scope, reviewedAreas: [false] } }, "reviewedAreas");

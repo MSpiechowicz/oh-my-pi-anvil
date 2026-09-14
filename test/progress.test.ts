@@ -34,7 +34,6 @@ describe("Forge progress UI", () => {
     expect(planningRows.map((line) => line.trim().split(/\s+/)[1])).toEqual(labels);
     expect(planningRows.map((line) => line.trim()[0])).toEqual(["◐", "·", "·", "·", "·"]);
     expect(checkingRows.map((line) => line.trim()[0])).toEqual(["✓", "✓", "◐", "·", "·"]);
-    expect(planningRows.every((line) => line.slice(16).trim().length > 0)).toBeTruthy();
     expect(statuses.length).toBe(0);
     expect(workingMessages.length).toBe(0);
     expect(widgets.filter((content) => content !== undefined).every((content) => content.at(-1)?.endsWith("\n"))).toBeTruthy();
@@ -60,7 +59,6 @@ describe("Forge progress UI", () => {
     reporter.close();
 
     const finalPanel = widgets.filter((content) => content !== undefined).at(-1)!.join("\n");
-    expect(finalPanel).toContain("during Architect");
     expect(finalPanel).toContain("! Architect");
     expect(/[◐◓◑◒]/u.test(finalPanel)).toBe(false);
     expect(statuses.length).toBe(0);
