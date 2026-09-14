@@ -24,6 +24,7 @@ review:
   maxAttempts: 3
 implementation:
   maxAttempts: 6
+  maxParallel: 4
 planning:
   maxGenerations: 2
 budgets:

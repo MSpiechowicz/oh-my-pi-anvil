@@ -24,6 +24,7 @@ describe("workflow configuration", () => {
       const config = await loadConfig(root);
       expect(config.workflow.name).toBe("global-workflow");
       expect(config.budgets.maxTotalRequests).toBe(17);
+      expect(config.implementation.maxParallel).toBe(4);
     } finally {
       if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousXdg;
@@ -306,6 +307,25 @@ describe("workflow configuration", () => {
         Object.assign(roleConfig.budgets.perRole[role]!, { maxTokens: value });
         assert.throws(() => validateConfig(roleConfig), { code: "CONFIG_INVALID" });
       }
+    }
+  });
+
+  test("defaults legacy implementation configuration and accepts bounded parallelism", () => {
+    const legacy = structuredClone(DEFAULT_CONFIG);
+    delete legacy.implementation.maxParallel;
+    expect(validateConfig(legacy).implementation.maxParallel).toBe(4);
+    for (const maxParallel of [1, 32]) {
+      const config = structuredClone(DEFAULT_CONFIG);
+      config.implementation.maxParallel = maxParallel;
+      expect(validateConfig(config).implementation.maxParallel).toBe(maxParallel);
+    }
+  });
+
+  test("rejects out-of-range or non-integer Smith parallelism without coercion", () => {
+    for (const maxParallel of [0, -1, 33, 1.5, NaN, Infinity, "4", null, true]) {
+      const config = structuredClone(DEFAULT_CONFIG);
+      Object.assign(config.implementation, { maxParallel });
+      assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
     }
   });
 

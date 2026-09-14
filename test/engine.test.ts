@@ -13,7 +13,7 @@ import { createOmpCompat } from "../src/runners/omp-compat.ts";
 import { OmpSubprocessRunner } from "../src/runners/omp-subprocess-runner.ts";
 import { DeterministicCheckRunner } from "../src/runners/check-runner.ts";
 import { WorkflowEngine } from "../src/workflow/engine.ts";
-import type { ArtifactPointer, CheckRunner, CheckResult, HandoffEnvelope, RevisionProvider, RevisionSnapshot, WorkflowConfig, WorkspaceRevision } from "../src/workflow/types.ts";
+import type { AgentRunner, AgentRunRequest, ArtifactPointer, CheckRunner, CheckResult, HandoffEnvelope, RevisionProvider, RevisionSnapshot, WorkflowConfig, WorkspaceRevision } from "../src/workflow/types.ts";
 import { serializeHandoff } from "../src/context/serializers.ts";
 import { sha256 } from "../src/util/hash.ts";
 import { GateRepository } from "../src/state/repositories.ts";
@@ -28,7 +28,20 @@ const checks: CheckRunner = { async run(check): Promise<CheckResult> { return { 
 const testChecks = [{ id: "test", command: ["test-runner"], required: true, timeoutMs: 1000 }];
 
 async function makeEngine(root: string, provider: RevisionProvider, responses: ConstructorParameters<typeof MockAgentRunner>[0], configure?: (config: WorkflowConfig) => void, checkRunner: CheckRunner = checks) {
-  const state = await StateDatabase.open(path.join(root, ".omp")); const config = structuredClone(DEFAULT_CONFIG); config.scouting.enabled = false; config.memory.archivist = false; config.persistence.root = path.join(root, ".omp"); config.checks = structuredClone(testChecks); configure?.(config); const artifacts = new ArtifactStore(state, (runId) => path.join(root, ".omp", "runs", runId)); return new WorkflowEngine({ config, state, artifacts, revisions: provider, agents: new MockAgentRunner(responses), checks: checkRunner });
+  const state = await StateDatabase.open(path.join(root, ".omp")); const config = structuredClone(DEFAULT_CONFIG); config.scouting.enabled = false; config.memory.archivist = false; config.persistence.root = path.join(root, ".omp"); config.checks = structuredClone(testChecks); configure?.(config); const artifacts = new ArtifactStore(state, (runId) => path.join(root, ".omp", "runs", runId));
+  const scripted = new MockAgentRunner(responses);
+  const agents: AgentRunner = {
+    async run<T>(request: AgentRunRequest) {
+      const schema = request.outputSchema;
+      if (request.role === "planner" && schema && typeof schema === "object" && "title" in schema && schema.title === "SmithDispatchOutput") {
+        const handoff = JSON.parse(request.context!) as HandoffEnvelope;
+        const structured = { version: 1, tasks: [{ id: "repair", objective: "Resolve the supplied outstanding work", dependsOn: [], ownedFiles: [], acceptanceCriteria: ["All supplied findings are corrected"], findingIds: handoff.openFindings?.map((finding) => finding.id) ?? [] }] };
+        return { status: "completed" as const, agentName: request.agentName, usage: { requests: 1, total: 1 }, structured: structured as T };
+      }
+      return scripted.run<T>(request);
+    },
+  };
+  return new WorkflowEngine({ config, state, artifacts, revisions: provider, agents, checks: checkRunner });
 }
 
 async function initializeReviewWorkspace(root: string) {
@@ -441,8 +454,7 @@ describe("WorkflowEngine", () => {
       ]);
       const resumed = await uncapped.resume(blocked.run.id);
       expect(resumed.run.currentState).toBe("DONE");
-      expect(resumed.attempts.map((attempt) => attempt.state)).toEqual(["PLAN", "IMPLEMENT", "IMPLEMENT", "CHECKS", "SECURITY", "REVIEW"]);
-      expect(resumed.run.usedTokens).toBe(blocked.run.usedTokens + 3);
+      expect(resumed.run.usedTokens).toBe(blocked.run.usedTokens + 4);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
@@ -745,7 +757,7 @@ describe("WorkflowEngine", () => {
         expect(summary.attempts.filter((attempt) => attempt.state === "CHECKS")).toHaveLength(scenario === "source-mutation" ? 2 : 1);
         expect(summary.attempts.filter((attempt) => attempt.state === "SECURITY")).toHaveLength(scenario === "verification-only" ? 1 : 2);
         expect(summary.events.some((event) => event.type === "SECURITY_REUSED")).toBe(scenario === "verification-only");
-        expect(summary.run.usedRequests).toBe(scenario === "verification-only" ? 6 : 7);
+        expect(summary.run.usedRequests).toBe(scenario === "verification-only" ? 7 : 8);
         expect(summary.findings.filter((finding) => finding.status === "open")).toEqual([]);
       } finally { await rm(root, { recursive: true, force: true }); }
     });

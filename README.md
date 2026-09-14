@@ -31,7 +31,7 @@ Unlike prompt-only agent chains, the Forge records state and evidence as it work
 
 ## The Forge
 
-The lifecycle is deliberately linear between corrections. Each gate evaluates the exact current revision; a failure or blocking finding sends the run back to the Smith instead of allowing a stale pass to continue.
+Gates remain ordered, but implementation can fan out. Architect can propose one or more Smith tasks with explicit ownership, dependencies, and acceptance criteria. Independent tasks run concurrently; overlapping or dependent work stays sequential. Warden failures and Sentinel/Inquisitor findings use the same dispatch path: reviewers may propose repair tasks, otherwise Architect decomposes the open findings. Every gate evaluates the combined current revision, never a partially finished Smith batch.
 
 <p align="center">
   <img src="assets/diagrams/forge-lifecycle.svg" alt="Forge lifecycle: Architect plans, Smith mutates, Warden checks, Sentinel audits security, Inquisitor reviews, and Sealed is reached only when exact-revision gates pass." width="100%" />
@@ -234,6 +234,7 @@ review:
 
 implementation:
   maxAttempts: 6
+  maxParallel: 4 # Set 1 to serialize Smith tasks.
 
 budgets:
   # Token caps are optional and disabled by default.

@@ -6,10 +6,11 @@ import {
   PLAN_OUTPUT_SCHEMA,
   REVIEW_OUTPUT_SCHEMA,
   SECURITY_OUTPUT_SCHEMA,
+  SMITH_DISPATCH_OUTPUT_SCHEMA,
 } from "../src/schemas/outputs.ts";
-import { requireImplementation, requirePlan, requireReview, requireSecurity } from "../src/schemas/validate.ts";
+import { requireImplementation, requirePlan, requireReview, requireSecurity, requireSmithDispatch } from "../src/schemas/validate.ts";
 import { AnvilError } from "../src/util/errors.ts";
-import type { ImplementationOutput, PlanOutput, ReviewOutput, SecurityOutput } from "../src/workflow/types.ts";
+import type { ImplementationOutput, PlanOutput, ReviewOutput, SecurityOutput, SmithDispatchOutput } from "../src/workflow/types.ts";
 
 const plan: PlanOutput = {
   version: 1,
@@ -105,10 +106,18 @@ const review: ReviewOutput = {
   notes: ["The primary endpoint enforces tenant isolation"],
 };
 
+const dispatch: SmithDispatchOutput = {
+  version: 1,
+  tasks: [
+    { id: "authorize", objective: "Scope record lookup", dependsOn: [], ownedFiles: ["src/records.ts"], acceptanceCriteria: ["Cross-tenant reads are denied"], findingIds: ["tenant-read"] },
+    { id: "regression", objective: "Protect tenant isolation", dependsOn: ["authorize"], ownedFiles: ["test/"], acceptanceCriteria: ["Cross-tenant denial is covered"], findingIds: [] },
+  ],
+};
+
 interface OutputContract {
   role: string;
   title: string;
-  fixture: PlanOutput | ImplementationOutput | SecurityOutput | ReviewOutput;
+  fixture: PlanOutput | ImplementationOutput | SecurityOutput | ReviewOutput | SmithDispatchOutput;
   host: (value: unknown) => boolean;
   local: (value: unknown) => unknown;
 }
@@ -130,6 +139,10 @@ const sentinelContract: OutputContract = {
 const reviewContract: OutputContract = {
   role: "Inquisitor", title: "ReviewOutput", fixture: review,
   host: ajv.compile(REVIEW_OUTPUT_SCHEMA), local: requireReview,
+};
+const dispatchContract: OutputContract = {
+  role: "Architect dispatch", title: "SmithDispatchOutput", fixture: dispatch,
+  host: ajv.compile(SMITH_DISPATCH_OUTPUT_SCHEMA), local: requireSmithDispatch,
 };
 
 function accepts(contract: OutputContract, value: unknown): void {
@@ -160,7 +173,7 @@ function rejects(contract: OutputContract, value: unknown, field?: string): void
   rejectsLocally(contract, value, field);
 }
 
-for (const contract of [plannerContract, smithContract, sentinelContract, reviewContract]) {
+for (const contract of [plannerContract, smithContract, sentinelContract, reviewContract, dispatchContract]) {
   describe(`${contract.role} shared output contract`, () => {
     test("accepts a complete nested report without changing its data", () => {
       accepts(contract, contract.fixture);
@@ -316,3 +329,54 @@ for (const contract of [sentinelContract, reviewContract]) {
     });
   });
 }
+
+describe("Smith dispatch contract", () => {
+  test("accepts out-of-order acyclic dependencies and exclusive or uncertain ownership", () => {
+    accepts(dispatchContract, { ...dispatch, tasks: [dispatch.tasks[1], dispatch.tasks[0]] });
+    accepts(dispatchContract, { ...dispatch, tasks: [{ ...dispatch.tasks[0], ownedFiles: [] }] });
+    accepts(dispatchContract, { ...dispatch, tasks: [{ ...dispatch.tasks[0], ownedFiles: ["src/**/*.ts"] }] });
+  });
+
+  test("bounds dispatch size and requires meaningful task acceptance", () => {
+    rejects(dispatchContract, { ...dispatch, tasks: [] });
+    const tasks = Array.from({ length: 32 }, (_, index) => ({ ...dispatch.tasks[0], id: `task-${index}` }));
+    accepts(dispatchContract, { ...dispatch, tasks });
+    rejects(dispatchContract, { ...dispatch, tasks: [...tasks, { ...tasks[0], id: "task-32" }] });
+    for (const acceptanceCriteria of [[], [""], [" \t"]]) {
+      rejects(dispatchContract, { ...dispatch, tasks: [{ ...dispatch.tasks[0], acceptanceCriteria }] });
+    }
+  });
+
+  test("rejects ambiguous, absolute, traversal, and non-normalized ownership", () => {
+    for (const ownedFile of ["", " ", "/etc/passwd", "C:/work/file.ts", "\\\\server\\file", "../file.ts", "src/../file.ts", ".", "src/./file.ts", "src//file.ts", "src\\file.ts", "src/\u0000file.ts", " src/file.ts", "src/file.ts\n"]) {
+      rejects(dispatchContract, { ...dispatch, tasks: [{ ...dispatch.tasks[0], ownedFiles: [ownedFile] }] });
+    }
+  });
+
+  for (const contract of [dispatchContract, plannerContract, sentinelContract, reviewContract]) {
+    const withTasks = (tasks: unknown): unknown => contract === dispatchContract
+      ? { ...dispatch, tasks }
+      : { ...contract.fixture, smithTasks: tasks };
+
+    test(`${contract.title} rejects duplicate identities, unknown dependencies, self-dependencies, and cycles`, () => {
+      const [first, second] = dispatch.tasks;
+      for (const tasks of [
+        [first, { ...second, id: first.id }],
+        [{ ...first, dependsOn: ["missing-task"] }],
+        [{ ...first, dependsOn: [first.id] }],
+        [{ ...first, dependsOn: [second.id] }, second],
+        [first, { ...second, dependsOn: ["third"] }, { ...first, id: "third", dependsOn: [second.id] }],
+      ]) rejectsLocally(contract, withTasks(tasks));
+    });
+
+    if (contract !== dispatchContract) {
+      test(`${contract.title} preserves opt-in dispatch and enforces nested task structure`, () => {
+        accepts(contract, withTasks(dispatch.tasks));
+        rejects(contract, withTasks([]));
+        rejects(contract, withTasks(null));
+        rejects(contract, withTasks([{ ...dispatch.tasks[0], ownedFiles: ["../outside.ts"] }]));
+        rejects(contract, withTasks([{ ...dispatch.tasks[0], acceptanceCriteria: [] }]));
+      });
+    }
+  }
+});

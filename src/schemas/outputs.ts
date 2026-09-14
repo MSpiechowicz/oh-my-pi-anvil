@@ -13,6 +13,48 @@ const GATE_CONDITIONS = [
   },
 ];
 
+const TASK_STRING = { type: "string", minLength: 1, pattern: "\\S" };
+const SMITH_TASKS = {
+  type: "array",
+  minItems: 1,
+  maxItems: 32,
+  items: {
+    type: "object",
+    additionalProperties: false,
+    required: ["id", "objective", "dependsOn", "ownedFiles", "acceptanceCriteria", "findingIds"],
+    properties: {
+      id: TASK_STRING,
+      objective: TASK_STRING,
+      dependsOn: { type: "array", items: TASK_STRING, uniqueItems: true },
+      ownedFiles: {
+        type: "array",
+        uniqueItems: true,
+        items: {
+          type: "string",
+          minLength: 1,
+          // Relative normalized paths, directory prefixes, and safe globs.
+          // Globs are uncertain ownership and must be serialized by the engine.
+          pattern: "^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!\\s)(?!.*\\s$)[^\\\\:\\u0000-\\u001f\\u007f]+$",
+        },
+      },
+      acceptanceCriteria: { type: "array", items: TASK_STRING, minItems: 1 },
+      findingIds: { type: "array", items: TASK_STRING, uniqueItems: true },
+    },
+  },
+};
+
+export const SMITH_DISPATCH_OUTPUT_SCHEMA = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  title: "SmithDispatchOutput",
+  type: "object",
+  additionalProperties: false,
+  required: ["version", "tasks"],
+  properties: {
+    version: { type: "number", const: 1 },
+    tasks: SMITH_TASKS,
+  },
+};
+
 export const PLAN_OUTPUT_SCHEMA = {
   $schema: "http://json-schema.org/draft-07/schema#",
   title: "PlanOutput",
@@ -70,6 +112,7 @@ export const PLAN_OUTPUT_SCHEMA = {
       },
     },
     replanTriggers: STRING_ARRAY,
+    smithTasks: SMITH_TASKS,
   },
 };
 
@@ -213,6 +256,7 @@ export const SECURITY_OUTPUT_SCHEMA = {
     verificationIndependent: { type: "boolean" },
     liveValidation: { type: "boolean" },
     blockedReason: { type: "string" },
+    smithTasks: SMITH_TASKS,
   },
   allOf: GATE_CONDITIONS,
 };
@@ -261,6 +305,7 @@ export const REVIEW_OUTPUT_SCHEMA = {
     },
     notes: STRING_ARRAY,
     blockedReason: { type: "string" },
+    smithTasks: SMITH_TASKS,
   },
   allOf: GATE_CONDITIONS,
 };

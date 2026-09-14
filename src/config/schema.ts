@@ -26,7 +26,9 @@ export function validateConfig(config: WorkflowConfig): WorkflowConfig {
   for (const check of config.checks ?? []) rejectUnknownKeys(check, ["id", "command", "cwd", "env", "required", "timeoutMs"], `check ${check.id}`);
   rejectUnknownKeys(config.security, ["failOn", "maxAttempts", "policyVersion"], "security");
   rejectUnknownKeys(config.review, ["maxAttempts", "blockOn", "policyVersion"], "review");
-  rejectUnknownKeys(config.implementation, ["maxAttempts", "isolation"], "implementation");
+  rejectUnknownKeys(config.implementation, ["maxAttempts", "maxParallel", "isolation"], "implementation");
+  if (config.implementation.maxParallel === undefined) config.implementation.maxParallel = 4;
+  if (!Number.isInteger(config.implementation.maxParallel) || config.implementation.maxParallel < 1 || config.implementation.maxParallel > 32) throw new AnvilError("CONFIG_INVALID", "implementation.maxParallel must be an integer from 1 to 32");
   rejectUnknownKeys(config.implementation.isolation, ["enabled", "merge"], "implementation.isolation");
   rejectUnknownKeys(config.planning, ["maxGenerations", "maxAttempts"], "planning");
   if (!config.scouting || typeof config.scouting !== "object" || Array.isArray(config.scouting)) throw new AnvilError("CONFIG_INVALID", "scouting must be an object");

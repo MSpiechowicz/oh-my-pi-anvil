@@ -135,7 +135,7 @@ The V1 configuration controls:
 - agent mappings for Architect, Smith, Sentinel, Inquisitor, and the optional Scout and Archivist;
 - deterministic Warden checks, requiredness, and per-check timeouts;
 - Sentinel and Inquisitor policies and retry limits;
-- Smith retry limits;
+- Smith attempt and concurrency limits;
 - optional total and per-role token caps, plus request, transition, and wall-clock budgets;
 - handoff and durable-memory limits;
 - default-enabled pre-plan reconnaissance and pre-seal lesson curation, independently disableable;
@@ -248,6 +248,14 @@ Other workflow settings must still match the saved effective configuration; budg
 ## Revision and gate behavior
 
 Smith is the mutating stage. Every source mutation invalidates prior gates and starts Warden again. Sentinel and Inquisitor must keep repository files unchanged; before-and-after revision checks reject a reviewer mutation.
+
+### Smith dispatch
+
+`implementation.maxParallel` bounds concurrent Smiths (default `4`, range `1..32`; `1` serializes tasks). Architect can supply optional `smithTasks` in its plan. Without initial decomposition, one Smith implements the plan. Each task declares `id`, `objective`, `dependsOn`, `ownedFiles`, `acceptanceCriteria`, and `findingIds`. Ownership is workspace-relative files or directories, not permission to alter unrelated work. Empty ownership means exclusive work. Dependencies must form a DAG; overlapping ownership is serialized. Isolated execution is serialized because independently applying concurrent worktrees is not assumed merge-safe.
+
+The same mechanism handles corrections from all three gates. Sentinel and Inquisitor may supply optional `smithTasks`; their `findingIds` reference new findings by zero-based array position encoded as decimal strings, or existing findings by persisted ID. Forge translates these references and requires coverage of all open findings. Otherwise Architect returns `SmithDispatchOutput` (`{ version: 1, tasks: [...] }`) against the persisted open findings, including Warden failures. Repair dispatch planning consumes Architect attempts and usage, but does not replace the active plan or consume its generation limit.
+
+Each Smith consumes its own implementation attempt and usage budget. The default Architect role budget is eight attempts, allowing planning plus repair decomposition; explicitly configured caps still apply. Concurrency does not multiply configured attempt or request allowances. Workers skip shared validation, and Forge waits for the complete dispatch before running Warden, Sentinel, and Inquisitor on the combined revision. Each worker's report remains a claim, not gate proof.
 
 Verification-only Smith work may reuse Warden and Sentinel passes only when the exact revision, mutation epoch, configuration, policy, and recorded evidence dependencies remain valid, without relevant open findings or a later failed/blocked gate. The gate that raised a finding runs again. Sentinel defaults to depending on Smith verification; only an explicit `verificationIndependent: true` permits reuse after successful verification additions. Reuse also requires an explicit `liveValidation: false`: live or unknown external-state dependence is never inferred away from source identity. Missing or changed dependencies reject reuse rather than weakening verification.
 
