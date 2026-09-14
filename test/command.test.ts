@@ -113,20 +113,36 @@ describe("OMP command registration", () => {
     expect(response).toContain("ANVIL · FORGE RUN run_test");
   });
 
-  test("lists global configuration and model mapping locations", async () => {
+  test("lists configuration locations with aligned values", async () => {
     const router = new CommandRouter(async () => {
       throw new Error("config inspection should not initialize workflow state");
     });
 
     const response = await router.handleAdmin("config", { cwd: "/tmp" });
+    const labels = [
+      "STATUS",
+      "Anvil config",
+      "OMP model maps",
+      "Overlay",
+      "Runtime state",
+      "Architect",
+      "Smith",
+      "Sentinel",
+      "Inquisitor",
+      "Warden",
+    ];
+    const rows = labels.map((label) => response.split("\n").find((line) => line.startsWith(`  ${label}`)));
+    const valueColumns = labels.map((label, index) => {
+      const row = rows[index];
+      if (!row) return -1;
+      return row.indexOf(row.slice(2 + label.length).trimStart(), 2 + label.length);
+    });
 
     expect(response).toContain("GLOBAL LOCATIONS");
-    expect(response).toContain("Anvil config");
-    expect(response).toContain("OMP model maps");
-    expect(response).toContain("Architect");
-    expect(response).toContain("Warden");
-    expect(response).toContain("STATUS            VALID");
-    expect(response.includes("CONFIGURATION     VALID")).toBe(false);
+    expect(response).toContain("PROJECT LOCATIONS");
+    expect(response).toContain("MODEL ROLES");
+    expect(response).toContain("COMMANDS");
+    expect(valueColumns.every((column) => column === 18)).toBe(true);
   });
 
   test("reports a valid default status when the global config is absent", async () => {
@@ -138,8 +154,8 @@ describe("OMP command registration", () => {
         throw new Error("config inspection should not initialize workflow state");
       });
       const response = await router.handleAdmin("config", { cwd: "/tmp" });
-      expect(response).toContain("STATUS            VALID");
-      expect(response).toContain(`Anvil config     ${path.join(configHome, "omp", "anvil.yml")} (not present)`);
+      expect(response).toContain("  STATUS          VALID");
+      expect(response).toContain(`  Anvil config    ${path.join(configHome, "omp", "anvil.yml")} (not present)`);
     } finally {
       if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousXdg;

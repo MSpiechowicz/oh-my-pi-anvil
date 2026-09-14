@@ -2572,34 +2572,39 @@ function renderAnvilHelp() {
     "Run a workflow with /forge <objective>."
   ].join("\n");
 }
+var CONFIGURATION_LABEL_WIDTH = 16;
+function configurationRow(label, value2) {
+  return `  ${label.padEnd(CONFIGURATION_LABEL_WIDTH)}${value2}`;
+}
 function renderConfiguration(locations) {
   const globalState = locations.globalConfigPresent ? "present" : "not present";
   const projectState = locations.projectConfigPresent ? "present" : "not present";
   const configState = locations.configError ? `INVALID  ${locations.configError}` : "VALID";
-  const roleLines = WORKFLOW_ROLE_ORDER.map((role) => `  ${ROLE_LABELS[role].padEnd(11)} @${MODEL_ROLE_ALIASES[role]}`);
   return [
     "ANVIL \xB7 CONFIGURATION",
     "",
-    `STATUS            ${configState}`,
+    configurationRow("STATUS", configState),
     "",
     "GLOBAL LOCATIONS",
-    `  Anvil config     ${locations.globalConfig} (${globalState})`,
-    `  OMP model maps   ${locations.globalModels}`,
+    configurationRow("Anvil config", `${locations.globalConfig} (${globalState})`),
+    configurationRow("OMP model maps", locations.globalModels),
     "",
     "PROJECT LOCATIONS",
-    `  Overlay          ${locations.projectConfig} (${projectState})`,
-    `  Runtime state    ${locations.runtimeRoot}`,
+    configurationRow("Overlay", `${locations.projectConfig} (${projectState})`),
+    configurationRow("Runtime state", locations.runtimeRoot),
     "",
     "MODEL ROLES",
-    ...roleLines,
-    "  Warden       deterministic checks (no model)",
+    ...WORKFLOW_ROLE_ORDER.map((role) => configurationRow(ROLE_LABELS[role], `@${MODEL_ROLE_ALIASES[role]}`)),
+    configurationRow("Warden", "deterministic checks (no model)"),
     "",
     "COMMANDS",
-    "  /anvil config",
-    "  /anvil doctor",
-    "  /anvil init",
-    "  /anvil update check|install",
-    "  /forge <objective>"
+    ...[
+      "/anvil config",
+      "/anvil doctor",
+      "/anvil init",
+      "/anvil update check|install",
+      "/forge <objective>"
+    ].map((command) => `  ${command}`)
   ].join("\n");
 }
 function renderDoctor(locations) {
