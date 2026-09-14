@@ -1,12 +1,67 @@
+import { Ajv, type ErrorObject, type ValidateFunction } from "ajv";
 import { AnvilError } from "../util/errors.ts";
 import type { ImplementationOutput, PlanOutput, ReviewOutput, SecurityOutput } from "../workflow/types.ts";
+import { IMPLEMENTATION_OUTPUT_SCHEMA, PLAN_OUTPUT_SCHEMA, REVIEW_OUTPUT_SCHEMA, SECURITY_OUTPUT_SCHEMA } from "./outputs.ts";
+
+const ajv = new Ajv({
+  strict: true,
+  coerceTypes: false,
+  useDefaults: false,
+  removeAdditional: false,
+});
+const validatePlan = ajv.compile<PlanOutput>(PLAN_OUTPUT_SCHEMA);
+const validateImplementation = ajv.compile<ImplementationOutput>(IMPLEMENTATION_OUTPUT_SCHEMA);
+const validateSecurity = ajv.compile<SecurityOutput>(SECURITY_OUTPUT_SCHEMA);
+const validateReview = ajv.compile<ReviewOutput>(REVIEW_OUTPUT_SCHEMA);
+
+function requireOutput<T>(value: unknown, validate: ValidateFunction<T>, role: string): T {
+  if (validate(value)) return value;
+
+  const error: ErrorObject<string, Record<string, unknown>> | undefined = validate.errors?.[0];
+  let path = error?.instancePath ?? "";
+  const property = error?.keyword === "required"
+    ? error.params.missingProperty
+    : error?.keyword === "additionalProperties"
+    ? error.params.additionalProperty
+    : undefined;
+  if (typeof property === "string") path += `/${property.replaceAll("~", "~0").replaceAll("/", "~1")}`;
+  const detail = error ? `${error.message} (${JSON.stringify(error.params)})` : "does not match its output schema";
+  throw new AnvilError("SCHEMA_INVALID", `${role} output ${path || "/"} ${detail}`);
+}
+
 export function requirePlan(value: unknown): PlanOutput {
-  const plan = value as PlanOutput;
-  if (!plan || plan.version !== 1 || !plan.summary || !Array.isArray(plan.steps) || plan.steps.length === 0 || !Array.isArray(plan.globalAcceptanceCriteria) || plan.globalAcceptanceCriteria.length === 0) throw new AnvilError("SCHEMA_INVALID", "Architect output does not match PlanOutput");
-  const ids = new Set<string>(); for (const step of plan.steps) { if (!step.id || ids.has(step.id) || !step.objective || !Array.isArray(step.acceptanceCriteria) || step.acceptanceCriteria.length === 0) throw new AnvilError("SCHEMA_INVALID", "Architect step is invalid"); ids.add(step.id); }
-  for (const step of plan.steps) for (const dependency of step.dependsOn) if (!ids.has(dependency)) throw new AnvilError("SCHEMA_INVALID", `Architect dependency ${dependency} does not exist`);
+  const plan = requireOutput(value, validatePlan, "Architect");
+  const ids = new Set<string>();
+  for (let index = 0; index < plan.steps.length; index++) {
+    const step = plan.steps[index];
+    if (ids.has(step.id)) {
+      throw new AnvilError("SCHEMA_INVALID", `Architect output /steps/${index}/id duplicates step ID ${JSON.stringify(step.id)}`);
+    }
+    ids.add(step.id);
+  }
+  for (let index = 0; index < plan.steps.length; index++) {
+    const dependencies = plan.steps[index].dependsOn;
+    for (let dependencyIndex = 0; dependencyIndex < dependencies.length; dependencyIndex++) {
+      const dependency = dependencies[dependencyIndex];
+      if (!ids.has(dependency)) {
+        throw new AnvilError(
+          "SCHEMA_INVALID",
+          `Architect output /steps/${index}/dependsOn/${dependencyIndex} references unknown step ID ${JSON.stringify(dependency)}`,
+        );
+      }
+    }
+  }
   return plan;
 }
-export function requireImplementation(value: unknown): ImplementationOutput { const output = value as ImplementationOutput; if (!output || output.version !== 1 || !["completed", "blocked", "needs_replan"].includes(output.status) || typeof output.summary !== "string" || !Array.isArray(output.claimedChangedFiles)) throw new AnvilError("SCHEMA_INVALID", "Smith output does not match ImplementationOutput"); return output; }
-export function requireSecurity(value: unknown): SecurityOutput { const output = value as SecurityOutput; if (!output || output.version !== 1 || !["pass", "findings", "blocked"].includes(output.verdict) || !output.scope || !Array.isArray(output.findings)) throw new AnvilError("SCHEMA_INVALID", "Sentinel output does not match SecurityOutput"); if (output.verdict === "findings" && output.findings.length === 0) throw new AnvilError("SCHEMA_INVALID", "Sentinel findings verdict requires findings"); if (output.verdict === "blocked" && !output.blockedReason) throw new AnvilError("SCHEMA_INVALID", "Blocked Sentinel output requires blockedReason"); return output; }
-export function requireReview(value: unknown): ReviewOutput { const output = value as ReviewOutput; if (!output || output.version !== 1 || !["pass", "findings", "blocked"].includes(output.verdict) || !Array.isArray(output.acceptance) || !Array.isArray(output.findings)) throw new AnvilError("SCHEMA_INVALID", "Inquisitor output does not match ReviewOutput"); if (output.verdict === "blocked" && !output.blockedReason) throw new AnvilError("SCHEMA_INVALID", "Blocked Inquisitor output requires blockedReason"); return output; }
+
+export function requireImplementation(value: unknown): ImplementationOutput {
+  return requireOutput(value, validateImplementation, "Smith");
+}
+
+export function requireSecurity(value: unknown): SecurityOutput {
+  return requireOutput(value, validateSecurity, "Sentinel");
+}
+
+export function requireReview(value: unknown): ReviewOutput {
+  return requireOutput(value, validateReview, "Inquisitor");
+}

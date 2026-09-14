@@ -10,6 +10,14 @@ Current OMP releases expose these capabilities through the SDK namespace on `Ext
 
 The workflow engine never imports `ToolSession`, does not replay parent transcripts, and does not assume one provider or model family. When OMP changes task executor signatures, update the compatibility adapter rather than the state machine.
 
+## Agent output contracts
+
+Forge passes complete JSON Schema draft-07 contracts to both OMP subprocesses and isolated tasks. Architect, Smith, Sentinel, and Inquisitor each receive their role's schema from `src/schemas/outputs.ts`; Forge compiles those same schemas with Ajv for local validation. Required fields, nested types, enum values, and unknown fields are checked without coercion, defaults, or field removal. Errors identify the role and failing field path.
+
+Smith's `needs_replan` result requires a nonempty `replanReason`. Both review gates require nonempty findings for a `findings` verdict and a nonempty `blockedReason` for `blocked`. A blocked Inquisitor result stops the run; it cannot seal a passing review gate. Architect's step IDs and dependency references are also checked locally after schema validation.
+
+Warden does not produce an LLM report: its deterministic check results come directly from the process runner.
+
 ## Commands and storage names
 
 Use the management command for setup and the Forge command for objectives:

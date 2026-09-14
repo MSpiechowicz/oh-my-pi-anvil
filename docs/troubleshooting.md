@@ -24,7 +24,7 @@ If `/anvil doctor` reports `RUNTIME UNAVAILABLE`, the installed host is not expo
 
 ## Watch a running Forge
 
-Interactive OMP sessions show a Forge-owned status line and progress widget while `/forge` runs. The widget identifies the active run, marks the current specialist, and advances through Architect, Smith, Warden, Sentinel, and Inquisitor. Its spinner is only presentation; the persisted SQLite state remains authoritative.
+Interactive OMP sessions show one themed Forge progress panel above the input while `/forge` runs, with a blank line separating the panel from the editor. The panel shows a shortened run ID, the current activity, and a compact trail through Architect, Smith, Warden, Sentinel, and Inquisitor. Checkmarks identify completed stages, a chevron marks the active stage, and an exclamation mark identifies an interrupted stage. Progress is not repeated below the input; hosts without widgets use a single status or working-message fallback. The spinner is only presentation; the persisted SQLite state remains authoritative. Use `/anvil status` for full run IDs and details.
 
 Forge also refreshes the workspace lock heartbeat during long runs. If a previous OMP process exited after a run reached a terminal state, the next Forge command checks that persisted state and safely reclaims the lock. A live run remains protected; inspect it with `/anvil status <run-id>` instead of deleting `lock.json`.
 
@@ -37,7 +37,9 @@ Inspect the run and its findings:
 /anvil findings <run-id>
 ```
 
-Blocked runs include a typed reason. Common reasons include budget exhaustion, repeated attempts, schema errors, a read-only mutation, or an unavailable agent. Resolve the reported configuration, agent, or workspace issue before starting or resuming work.
+Blocked and failed runs include a typed reason. Common reasons include budget exhaustion, repeated attempts, schema errors, a read-only mutation, or an unavailable agent. Schema errors identify the role and failing field, such as `Smith output /claimedChangedFiles`. Forge uses the same complete output schemas for OMP and local validation; do not disable strict validation to work around a malformed report.
+
+A run already marked `FAILED` or `BLOCKED` is terminal: `/anvil resume` shows its status without restarting stages. Resolve the reported issue, inspect any existing workspace changes, and start a new `/forge` run from that workspace. Forge does not reset those changes. The resume procedure below applies to interrupted, nonterminal runs.
 
 ## A run stopped during implementation
 

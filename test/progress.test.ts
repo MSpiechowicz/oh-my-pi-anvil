@@ -26,12 +26,17 @@ describe("Forge progress UI", () => {
     reporter.onProgress(update("DONE", "finished"));
     reporter.close();
 
-    expect(statuses.some((text) => text?.includes("Architect · planning the objective"))).toBeTruthy();
-    expect(statuses.some((text) => text?.includes("Warden · running deterministic checks"))).toBeTruthy();
-    expect(widgets.some((content) => content?.includes("  [>] Warden"))).toBeTruthy();
-    expect(statuses[statuses.length - 1]).toBe(undefined);
+    const panelText = widgets.flatMap((content) => content ?? []).join("\n");
+    expect(panelText).toContain("Architect");
+    expect(panelText).toContain("Warden");
+    expect(statuses.length).toBe(0);
+    expect(workingMessages.length).toBe(0);
+    expect(widgets.filter((content) => content !== undefined).every((content) => content.at(-1)?.endsWith("\n"))).toBeTruthy();
     expect(widgets[widgets.length - 1]).toBe(undefined);
-    expect(workingMessages[workingMessages.length - 1]).toBe(undefined);
+    const count = widgets.length;
+    reporter.onProgress(update("IMPLEMENT", "stage"));
+    reporter.close();
+    expect(widgets.length).toBe(count);
   });
   test("identifies the stage that failed", () => {
     const statuses: Array<string | undefined> = [];
@@ -41,14 +46,33 @@ describe("Forge progress UI", () => {
       setWidget: (_key, content) => widgets.push(content),
     });
 
-    reporter.onProgress(update("PLAN", "stage"));
+    reporter.onProgress(update("PLAN", "started"));
     reporter.onProgress({
       kind: "finished",
       run: { id: "run_live", currentState: "FAILED", status: "failed" } as WorkflowProgressUpdate["run"],
     });
     reporter.close();
 
-    expect(statuses.some((text) => text?.includes("workflow failed (during Architect)"))).toBeTruthy();
-    expect(widgets.some((content) => content?.includes("  [>] Architect"))).toBeTruthy();
+    const finalPanel = widgets.filter((content) => content !== undefined).at(-1)!.join("\n");
+    expect(finalPanel).toContain("during Architect");
+    expect(finalPanel).toContain("! Architect");
+    expect(finalPanel.includes("› Architect")).toBe(false);
+    expect(statuses.length).toBe(0);
+  });
+  test("uses only one fallback surface when widgets are unavailable", () => {
+    for (const useStatus of [true, false]) {
+      const statuses: Array<string | undefined> = [];
+      const messages: Array<string | undefined> = [];
+      const reporter = createForgeProgressReporter({
+        ...(useStatus ? { setStatus: (_key: string, text: string | undefined) => statuses.push(text) } : {}),
+        setWorkingMessage: (text) => messages.push(text),
+      });
+      reporter.onProgress(update("CHECKS", "stage"));
+      reporter.close();
+      const active = useStatus ? statuses : messages;
+      expect(active[0]).toContain("Warden");
+      expect(active.at(-1)).toBe(undefined);
+      if (useStatus) expect(messages.length).toBe(0);
+    }
   });
 });
