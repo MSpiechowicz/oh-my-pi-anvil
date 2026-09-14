@@ -66,18 +66,32 @@ Every Smith mutation starts the gate sequence again. Read-only gates also verify
 
 ## Quick start
 
-Install Anvil through OMP, then expose the bundled extension and agents. In the project where you want to run it, create `.omp/orchestrator.yml` and map the model roles using normal OMP configuration. The filename is an internal, historical storage name; the command you use is `/forge`.
+Install Anvil through OMP, then expose the bundled extension and agents. Use `/forge init` to create editable configuration safely; it creates the user-wide global settings file when missing and creates a small repository overlay only when no canonical or alternate repository settings are present. The filename `.omp/orchestrator.yml` is an internal, historical storage name; the command you use is `/forge`.
 
 ```bash
 # Register the Anvil marketplace and install the stable release
 omp plugin marketplace add MSpiechowicz/oh-my-pi-anvil
 omp plugin install oh-my-pi-anvil@omp-anvil --scope user
 
-# From an OMP project
+# From the repository where you want to run the Forge. Running this from a
+# subdirectory still targets the repository root.
+/forge init
 /forge doctor
 /forge start "Add scoped API-key rotation with a backwards-compatible migration"
 /forge status
 ```
+
+`/forge init` creates the global file at `$XDG_CONFIG_HOME/omp/anvil.yml` when `XDG_CONFIG_HOME` is set, or at `~/.config/omp/anvil.yml` otherwise, if it is missing. It creates the optional project overlay at the repository root as `.omp/orchestrator.yml` only when neither that canonical file nor an alternate repository settings file exists. Missing files are created as editable text; existing global, canonical, and alternate settings are preserved. If it detects an alternate and no canonical project file, project initialization is skipped and the alternate path is reported for inspection or migration.
+
+The alternate candidates `/forge init` reports are `.omp/orchestrator.json`, `.omp/anvil.yml`, `.anvil.yml`, and `anvil.yml`; these files are preserved for you to inspect or migrate.
+
+Forge loads settings in this order, with later values taking precedence:
+
+1. built-in defaults;
+2. the global user file;
+3. the nearest repository `.omp/orchestrator.yml` overlay.
+
+The project overlay is intentionally small: put shared checks and agent choices in the global file, then add only repository-specific overrides to `.omp/orchestrator.yml`. `/orchestrate` remains an equivalent alias, including for initialization.
 
 If the process stops, resume from persisted state:
 
@@ -91,7 +105,6 @@ Inspect findings without opening SQLite:
 /forge findings run_<id>
 ```
 
-`/orchestrate` remains an equivalent compatibility alias for existing scripts and habits. New documentation and new invocations should use `/forge`.
 
 ## Marketplace installation and updates
 
@@ -120,7 +133,58 @@ Updates verify the published stable GitHub release, refresh the registered marke
 
 ## Configuration
 
-The V1 workflow is intentionally fixed. Configuration controls specialists, deterministic checks, policies, budgets, persistence, and memory, while the state machine remains code-owned.
+The V1 workflow is intentionally fixed. Configuration controls specialists, deterministic checks, policies, budgets, persistence, and memory, while the state machine remains code-owned. Settings are assembled from built-in defaults, the global user file, and an optional project overlay; project values override global values.
+
+The shared global file is:
+
+```text
+$XDG_CONFIG_HOME/omp/anvil.yml
+```
+
+When `XDG_CONFIG_HOME` is not set, Forge uses:
+
+```text
+~/.config/omp/anvil.yml
+```
+
+The optional repository-specific overlay is:
+
+```text
+<repository-root>/.omp/orchestrator.yml
+```
+
+For example, keep common agent mappings and checks in the global file, then customize one repository with a small overlay:
+
+```yaml
+# $XDG_CONFIG_HOME/omp/anvil.yml
+agents:
+  planner:
+    agent: orchestrator-planner
+  implementation:
+    agent: orchestrator-implementation
+checks:
+  - id: typecheck
+    command: [deno, task, typecheck]
+    required: true
+    timeoutMs: 180000
+```
+
+```yaml
+# <repository-root>/.omp/orchestrator.yml
+# Values here override the global settings for this repository.
+agents:
+  implementation:
+    agent: my-repository-implementation
+checks:
+  - id: lint
+    command: [deno, task, lint]
+    required: true
+    timeoutMs: 120000
+```
+
+An overlay can contain only the fields it needs. In this example, the project `checks` list replaces the inherited list, while the other global and default values remain in effect.
+
+The complete configuration shape is:
 
 ```yaml
 version: 1

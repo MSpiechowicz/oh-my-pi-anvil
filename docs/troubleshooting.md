@@ -1,10 +1,29 @@
 # Troubleshooting
 
-Use `/forge` for all diagnostics and run management. `/orchestrate` is retained as an equivalent compatibility alias, so existing scripts can continue to call it while new usage should prefer `/forge`.
+Use `/forge` for all diagnostics and run management. Configuration is assembled from built-in defaults, the global `$XDG_CONFIG_HOME/omp/anvil.yml` file (or `~/.config/omp/anvil.yml` when `XDG_CONFIG_HOME` is unset), and the nearest project `.omp/orchestrator.yml` overlay. Project values win. `/orchestrate` is retained as an equivalent compatibility alias, so existing scripts can continue to call it while new usage should prefer `/forge`.
+
+## Set up or inspect configuration
+
+Use `/forge init` as the safe setup command:
+
+```text
+/forge init
+```
+
+It creates the missing editable global file and creates `.omp/orchestrator.yml` at the repository root only when no canonical project file or alternate repository settings file is present; it never overwrites existing global, canonical, or alternate settings. Initialization from a repository subdirectory still updates the root's `.omp/orchestrator.yml` location. Initialization reports existing canonical settings and any alternate candidates it detects. When an alternate is detected without a canonical project file, project initialization is skipped and the alternate path is reported for migration or inspection:
+
+```text
+.omp/orchestrator.json
+.omp/anvil.yml
+.anvil.yml
+anvil.yml
+```
+
+If a run does not use an expected setting, first inspect the global file selected by `XDG_CONFIG_HOME` (or its `~/.config` fallback), then the nearest `.omp/orchestrator.yml`. The project overlay is intentionally small: values it contains override the global values, while omitted values continue to come from the global file or built-in defaults. `/orchestrate init` is equivalent to `/forge init`.
 
 ## `/forge doctor` reports a missing agent
 
-Confirm that the four configured agent names are discoverable from the project or user OMP agent paths. Forge validates every role mapping before it spends model tokens. Check the `agents.planner`, `agents.implementation`, `agents.security`, and `agents.review` entries in `.omp/orchestrator.yml`.
+Confirm that the four configured agent names are discoverable from the project or user OMP agent paths. Forge validates every role mapping before it spends model tokens. Check the effective `agents.planner`, `agents.implementation`, `agents.security`, and `agents.review` entries: shared mappings usually belong in `$XDG_CONFIG_HOME/omp/anvil.yml` (or `~/.config/omp/anvil.yml`), and repository-specific replacements belong in `.omp/orchestrator.yml`.
 
 ## A run is blocked
 

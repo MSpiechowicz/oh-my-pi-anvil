@@ -1,22 +1,67 @@
 import { access, readFile } from "node:fs/promises";
+import path from "node:path";
 import { DEFAULT_CONFIG } from "./defaults.ts";
 import { validateConfig } from "./schema.ts";
 import type { WorkflowConfig } from "../workflow/types.ts";
 import { AnvilError } from "../util/errors.ts";
+import { globalConfigPath, nearestProjectConfigPath } from "../state/paths.ts";
 
 export async function loadConfig(root: string, explicitPath?: string): Promise<WorkflowConfig> {
-  const configPath = explicitPath ?? `${root}/.omp/orchestrator.yml`; let raw: string;
-  try { await access(configPath); raw = await readFile(configPath, "utf8"); } catch (error) { if (error instanceof Error && "code" in error && error.code === "ENOENT") return validateConfig(structuredClone(DEFAULT_CONFIG)); throw error; }
-  const parsed = configPath.endsWith(".json") ? JSON.parse(raw) : parseSimpleYaml(raw);
-  return validateConfig(mergeConfig(structuredClone(DEFAULT_CONFIG), parsed as Partial<WorkflowConfig>));
+  const layers: Array<Record<string, unknown> | undefined> = [
+    await readConfigFile(globalConfigPath()),
+  ];
+  const configPath = explicitPath ?? await nearestProjectConfigPath(root);
+  if (configPath) layers.push(await readConfigFile(configPath));
+  let merged = structuredClone(DEFAULT_CONFIG);
+  for (const layer of layers) if (layer) merged = mergeConfig(merged, layer);
+  return validateConfig(merged);
+}
+function mergeConfig(base: WorkflowConfig, input: Record<string, unknown>): WorkflowConfig {
+  const merge = (target: Record<string, unknown>, source: Record<string, unknown>): void => {
+    for (const [key, value] of Object.entries(source)) {
+      if (isRecord(value)) {
+        const existing = target[key];
+        const child = isRecord(existing) ? existing : {};
+        merge(child, value);
+        target[key] = child;
+      } else {
+        target[key] = value;
+      }
+    }
+  };
+  merge(base as unknown as Record<string, unknown>, input);
+  return base;
 }
 
-function mergeConfig(base: WorkflowConfig, input: Partial<WorkflowConfig>): WorkflowConfig {
-  const merge = (a: Record<string, unknown>, b: Record<string, unknown>): Record<string, unknown> => {
-    for (const [key, value] of Object.entries(b)) a[key] = value && typeof value === "object" && !Array.isArray(value) ? merge((a[key] as Record<string, unknown> | undefined) ?? {}, value as Record<string, unknown>) : value;
-    return a;
-  };
-  return merge(base as unknown as Record<string, unknown>, input as unknown as Record<string, unknown>) as unknown as WorkflowConfig;
+async function readConfigFile(configPath: string): Promise<Record<string, unknown> | undefined> {
+  let raw: string;
+  try {
+    await access(configPath);
+    raw = await readFile(configPath, "utf8");
+  } catch (error) {
+    if (isMissing(error)) return undefined;
+    throw error;
+  }
+  try {
+    const parsed: unknown = path.extname(configPath).toLowerCase() === ".json" || raw.trim().startsWith("{")
+      ? JSON.parse(raw)
+      : parseSimpleYaml(raw);
+    if (!isRecord(parsed)) {
+      throw new AnvilError("CONFIG_INVALID", `Configuration must be an object: ${configPath}`);
+    }
+    return parsed;
+  } catch (error) {
+    if (error instanceof AnvilError) throw error;
+    throw new AnvilError("CONFIG_INVALID", `Invalid configuration: ${configPath}`, error);
+  }
+}
+
+function isMissing(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseSimpleYaml(text: string): Record<string, unknown> {

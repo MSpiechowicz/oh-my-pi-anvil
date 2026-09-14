@@ -1,5 +1,6 @@
+import { initConfig } from "../config/init.ts";
 import { createRuntime } from "../runtime.ts";
-import { renderFindings, renderHelp, renderStatus, renderUpdate } from "../ui/render.ts";
+import { renderFindings, renderHelp, renderInit, renderStatus, renderUpdate } from "../ui/render.ts";
 import { AnvilError } from "../util/errors.ts";
 import { runUpdate, UpdateError, type UpdateAction } from "../update.ts";
 import type { WorkflowEngine } from "../workflow/engine.ts";
@@ -10,6 +11,15 @@ export class CommandRouter {
   constructor(private readonly engineFactory: (context: CommandContext) => Promise<{ engine: WorkflowEngine; state: { close(): void }; config: unknown; lock: WorkspaceLock }>) {}
   async handle(raw: string, context: CommandContext): Promise<string> {
     const [command, ...rest] = raw.trim().split(/\s+/); if (!command || command === "help") return renderHelp();
+    if (command === "init") {
+      try {
+        if (rest.length > 0) throw new AnvilError("CONFIG_INVALID", "Usage: /forge init");
+        return renderInit(await initConfig(context.cwd));
+      } catch (error) {
+        const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
+        return `ANVIL · ${typed.code}\n\n${typed.message}`;
+      }
+    }
     if (command === "update") { try { if (rest.length !== 1 || (rest[0] !== "check" && rest[0] !== "install")) throw new AnvilError("CONFIG_INVALID", "Usage: /forge update check|install"); return renderUpdate(await runUpdate(rest[0] as UpdateAction, process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd)); } catch (error) { if (error instanceof UpdateError) return `ANVIL · UPDATE FAILED\n\n${error.message}`; const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error)); return `ANVIL · ${typed.code}\n\n${typed.message}`; } }
     const runtime = await this.engineFactory(context); const engine = runtime.engine; const needsLock = command === "start" || command === "resume" || command === "cancel"; let lockHeld = false;
     try {
