@@ -72,19 +72,22 @@ function widgetLines(update: WorkflowProgressUpdate, frame: string, activeStage?
   const stage = interrupted ? activeStage ?? update.run.currentState : update.run.currentState;
   const paint = (color: Parameters<NonNullable<ForgeProgressUI["theme"]>["fg"]>[0], text: string): string =>
     theme ? theme.fg(color, text) : text;
-  const stages = STAGES.map((state) => {
+  const stages = STAGES.flatMap((state, index) => {
     const marker = interrupted && state === stage ? "!" : stageMarker(state, stage);
-    const text = `${marker} ${displayState(state)}`;
-    return paint(marker === "!" ? "error" : marker === "›" ? "accent" : marker === "✓" ? "success" : "dim", text);
+    const color = marker === "!" ? "error" : marker === "›" ? "accent" : marker === "✓" ? "success" : "dim";
+    const text = `${marker === "›" ? frame : marker} ${displayState(state).padEnd(10)}  ${ACTIVITIES[state]}`;
+    const row = `  ${paint(color, text)}`;
+    return index < STAGES.length - 1 ? [row, `  ${paint("dim", "│")}`] : [row];
   });
   const title = theme ? theme.bold("FORGE") : "FORGE";
   const runId = update.run.id.replace(/^run_/, "").slice(0, 8);
   return [
     `  ${paint("accent", title)} ${paint("dim", `· ${runId}`)}`,
-    `  ${paint(interrupted ? "error" : update.kind === "finished" ? "success" : "accent", statusText(update, frame, activeStage))}`,
+    ...(interrupted || update.kind === "finished" || !STAGES.includes(stage)
+      ? [`  ${paint(interrupted ? "error" : update.kind === "finished" ? "success" : "accent", statusText(update, frame, activeStage))}`]
+      : []),
     "",
-    `  ${stages.slice(0, 3).join(paint("dim", "  →  "))}`,
-    `  ${stages.slice(3).join(paint("dim", "  →  "))}`,
+    ...stages,
     "",
   ];
 }

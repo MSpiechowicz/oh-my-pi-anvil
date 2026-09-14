@@ -348,6 +348,12 @@ printf '%s\n' '${
       expect(notices).toHaveLength(2);
       expect(notices[1].message).toBe(`Anvil ${packageVersion}: Newer release available. Run /anvil update install to update it.`);
       expect(notices[1].level).toBe("info");
+      const releaseFetch = globalThis.fetch;
+      let noticesAtInstallCheck = 0;
+      globalThis.fetch = (...args) => {
+        noticesAtInstallCheck = notices.length;
+        return releaseFetch(...args);
+      };
       await anvilHandler("/anvil update install", {
         cwd: packageRoot,
         hasUI: true,
@@ -357,8 +363,10 @@ printf '%s\n' '${
           },
         },
       });
-      expect(notices).toHaveLength(3);
-      expect(notices[2].message).toContain("Update failed:");
+      expect(notices).toHaveLength(4);
+      expect(noticesAtInstallCheck).toBe(3);
+      expect(notices[2].level).toBe("info");
+      expect(notices[3].message).toContain("Update failed:");
     } finally {
       if (previousConfig === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousConfig;

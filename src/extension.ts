@@ -83,6 +83,9 @@ export default function anvilExtension(pi: ExtensionAPI): void {
     const progress = /^resume\s+\S+$/.test(input) ? createForgeProgressReporter(context.ui) : undefined;
     progress?.begin();
     try {
+      if (/^update\s+install$/.test(input)) {
+        await notifyOutput(context, "Installing Anvil update via the OMP plugin pipeline…");
+      }
       await notifyOutput(context, await router.handleAdmin(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi, progress: progress?.onProgress }));
     } finally {
       progress?.close();
