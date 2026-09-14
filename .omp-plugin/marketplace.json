@@ -10,11 +10,11 @@
     {
       "name": "oh-my-pi-anvil",
       "description": "Forge workflow for Oh My Pi with exact revision gates and resumable state",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "source": {
         "source": "github",
         "repo": "MSpiechowicz/oh-my-pi-anvil",
-        "ref": "v0.1.11"
+        "ref": "v0.1.12"
       },
       "homepage": "https://github.com/MSpiechowicz/oh-my-pi-anvil"
     }
