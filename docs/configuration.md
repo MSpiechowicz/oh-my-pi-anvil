@@ -190,6 +190,6 @@ The bundled reviewers have `bash` for scoped `curl`/`gh`, the optional native `g
 
 ## Persistence
 
-Runtime state defaults to `.omp/.anvil/`. It contains SQLite state, the effective configuration, bounded handoffs, structured outputs, and command logs. Rendered prompts are not persisted by default.
+Runtime state defaults to `.anvil/`. It contains SQLite state, the effective configuration, bounded handoffs, structured outputs, and command logs. Rendered prompts are not persisted by default.
 
 You may set a different persistence root through the `persistence.root` option. Runtime files are kept separate from the workspace revision; source edits remain subject to revision checks. See [Persistence and recovery](../README.md#persistence-and-recovery) for the runtime layout and recovery behavior.

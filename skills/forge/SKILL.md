@@ -21,6 +21,6 @@ When used without arguments in an interactive OMP session, `/anvil` opens a menu
 
 Use `/forge <objective>` as the bounded workflow surface. The objective text starts the Forge run; there is no `start` subcommand.
 
-Configure `.omp/anvil.yml`. Map the logical Architect, Smith, Sentinel, and Inquisitor roles to OMP agent names. Warden runs deterministic checks and has no model. Model selection stays in normal OMP model-role configuration. Runtime state is stored under `.omp/.anvil/`.
+Configure `.omp/anvil.yml`. Map the logical Architect, Smith, Sentinel, and Inquisitor roles to OMP agent names. Warden runs deterministic checks and has no model. Model selection stays in normal OMP model-role configuration. Runtime state is stored under `.anvil/`.
 
 Forge never forwards a full conversation transcript. Workers receive bounded structured handoffs and artifact references. Any implementation mutation invalidates earlier gates and must pass Warden, Sentinel, and Inquisitor again.

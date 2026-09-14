@@ -185,7 +185,7 @@ export function renderStatus(summary: RunSummary): string {
     statusRow("CACHE-WRITE", `${run.usedCacheWriteTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
     statusRow("REPORTING", "Components may be incomplete; zero can mean unreported. They need not sum to the aggregate."),
     statusRow("LIMIT CHECK", "Between stages; an in-flight child is not interrupted by token caps."),
-    statusRow("ARTIFACTS", `${run.workspaceRoot}/.omp/.anvil/runs/${run.id}`),
+    statusRow("ARTIFACTS", `${run.workspaceRoot}/.anvil/runs/${run.id}`),
   ].join("\n");
 }
 

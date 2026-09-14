@@ -28,7 +28,7 @@ Sentinel's optional `verificationIndependent` declaration defaults conservativel
 
 ## Per-agent execution summaries
 
-Every settled Architect, Smith, Sentinel and Inquisitor invocation writes a runner-result summary under `<runtime-root>/runs/<run-id>/artifacts/<role>/output-<attempt-sequence>.json` (artifact kind `agent-output`, linked to its attempt). The default runtime root is `.omp/.anvil`; roles are `planner`, `implementation`, `security` and `review`. Sequence numbers are run-wide, not per-role. These summaries are separate from domain reports: plans use `artifacts/planner/plan-<sequence>.json`, reviewers use their role's `attempt-<sequence>.json`, and revision-bound Smith manifests use `artifacts/implementation/<attempt-id>/result.json`.
+Every settled Architect, Smith, Sentinel and Inquisitor invocation writes a runner-result summary under `<runtime-root>/runs/<run-id>/artifacts/<role>/output-<attempt-sequence>.json` (artifact kind `agent-output`, linked to its attempt). The default runtime root is `.anvil`; roles are `planner`, `implementation`, `security` and `review`. Sequence numbers are run-wide, not per-role. These summaries are separate from domain reports: plans use `artifacts/planner/plan-<sequence>.json`, reviewers use their role's `attempt-<sequence>.json`, and revision-bound Smith manifests use `artifacts/implementation/<attempt-id>/result.json`.
 
 The summary contains the runner status, usage, structured output when available, error when present, and these execution fields:
 
@@ -58,4 +58,4 @@ Use the management command for setup and the Forge command for objectives:
 /forge "Describe the change to make"
 ```
 
-The canonical project overlay is `.omp/anvil.yml`. Runtime state is stored under `.omp/.anvil/`, separate from source revisions and command handling.
+The canonical project overlay is `.omp/anvil.yml`. Runtime state is stored under `.anvil/`, separate from source revisions and command handling.

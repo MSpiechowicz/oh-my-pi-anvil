@@ -7243,7 +7243,7 @@ var DEFAULT_CONFIG = {
     maxRetainedLessons: 3
   },
   persistence: {
-    root: ".omp/.anvil",
+    root: ".anvil",
     keepAgentRawArtifacts: true,
     keepCommandLogs: true,
     persistRenderedPrompts: false
@@ -8471,7 +8471,7 @@ var GitRevisionProvider = class {
   }
   ignorePrefixes() {
     return [
-      ".omp/.anvil/",
+      ".anvil/",
       ...this.options.ignore ?? []
     ].map((prefix) => prefix.endsWith("/**") ? prefix.slice(0, -3) : prefix);
   }
@@ -11623,7 +11623,7 @@ function renderStatus(summary) {
     statusRow("CACHE-WRITE", `${run.usedCacheWriteTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
     statusRow("REPORTING", "Components may be incomplete; zero can mean unreported. They need not sum to the aggregate."),
     statusRow("LIMIT CHECK", "Between stages; an in-flight child is not interrupted by token caps."),
-    statusRow("ARTIFACTS", `${run.workspaceRoot}/.omp/.anvil/runs/${run.id}`)
+    statusRow("ARTIFACTS", `${run.workspaceRoot}/.anvil/runs/${run.id}`)
   ].join("\n");
 }
 function renderFindings(summary) {
@@ -11838,7 +11838,7 @@ async function configurationLocations(cwd) {
   const projectConfig = existingProject ?? (projectRoot ? projectConfigPath(projectRoot) : projectConfigPath(cwd));
   const globalConfig = globalConfigPath();
   let globalConfigPresent = false;
-  let effectiveRuntimeRoot = path11.resolve(cwd, ".omp", ".anvil");
+  let effectiveRuntimeRoot = path11.resolve(cwd, ".anvil");
   let configError;
   try {
     await access3(globalConfig);

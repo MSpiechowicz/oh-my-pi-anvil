@@ -28,7 +28,7 @@ context:
 memory:
   enabled: true
 persistence:
-  root: .omp/.anvil
+  root: .anvil
 safety:
   oneMutatingRunPerWorkspace: true
   securityMustBeReadOnly: true

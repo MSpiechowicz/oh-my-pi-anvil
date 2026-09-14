@@ -34,9 +34,9 @@ describe("durable exact-workspace revision evidence", () => {
   test("diffs durable dirty baselines across HEAD movement without index writes or runtime noise", async () => {
     const root = await repository();
     try {
-      await mkdir(path.join(root, ".omp", ".anvil"), { recursive: true });
+      await mkdir(path.join(root, ".anvil"), { recursive: true });
       await mkdir(path.join(root, "custom-runtime"));
-      await writeFile(path.join(root, ".omp", ".anvil", "tracked.log"), "runtime initial\n");
+      await writeFile(path.join(root, ".anvil", "tracked.log"), "runtime initial\n");
       await writeFile(path.join(root, "custom-runtime", "tracked.log"), "custom initial\n");
       await writeFile(path.join(root, ".gitignore"), "*.ignored\n");
       await writeFile(path.join(root, "delete.txt"), "remove me\n");
@@ -54,8 +54,8 @@ describe("durable exact-workspace revision evidence", () => {
       assert.deepEqual(await readFile(path.join(root, ".git", "index")), index);
       assert.equal(await readFile(path.join(root, "source.txt"), "utf8"), "dirty baseline bytes\n");
 
-      await writeFile(path.join(root, ".omp", ".anvil", "tracked.log"), "runtime later\n");
-      await writeFile(path.join(root, ".omp", ".anvil", "new.log"), "runtime new\n");
+      await writeFile(path.join(root, ".anvil", "tracked.log"), "runtime later\n");
+      await writeFile(path.join(root, ".anvil", "new.log"), "runtime new\n");
       await writeFile(path.join(root, "custom-runtime", "tracked.log"), "custom later\n");
       await writeFile(path.join(root, "custom-runtime", "new.log"), "custom new\n");
       await writeFile(path.join(root, "build.ignored"), "ignored by Git\n");

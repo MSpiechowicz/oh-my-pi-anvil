@@ -79,7 +79,7 @@ Reviewer handoffs also carry persisted Smith results, revision-bound verificatio
 
 ## The runtime directory is hard to find
 
-The default runtime directory is `.omp/.anvil/`. It contains SQLite state and run artifacts. If the project sets `persistence.root`, inspect that configured location instead.
+The default runtime directory is `.anvil/`. It contains SQLite state and run artifacts. If the project sets `persistence.root`, inspect that configured location instead.
 
 ## Release publishing reports a dirty checkout
 

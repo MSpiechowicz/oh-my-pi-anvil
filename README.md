@@ -254,10 +254,10 @@ The Warden is deterministic and has no model mapping. The default agent definiti
 
 ## Persistence and recovery
 
-Runtime state lives under `.omp/.anvil/` by default.
+Runtime state lives under `.anvil/` by default.
 
 ```text
-.omp/.anvil/
+.anvil/
 ├── anvil.db
 ├── lock.json
 └── runs/<run-id>/

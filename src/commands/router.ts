@@ -46,7 +46,7 @@ async function configurationLocations(cwd: string): Promise<ConfigurationLocatio
   const projectConfig = existingProject ?? (projectRoot ? projectConfigPath(projectRoot) : projectConfigPath(cwd));
   const globalConfig = globalConfigPath();
   let globalConfigPresent = false;
-  let effectiveRuntimeRoot = path.resolve(cwd, ".omp", ".anvil");
+  let effectiveRuntimeRoot = path.resolve(cwd, ".anvil");
   let configError: string | undefined;
   try {
     await access(globalConfig);

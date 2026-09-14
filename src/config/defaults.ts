@@ -18,6 +18,6 @@ export const DEFAULT_CONFIG: WorkflowConfig = {
   budgets: { maxTotalRequests: 120, maxTransitions: 40, maxWallClockMs: 7200000, perRole: { planner: { maxAttempts: 2 }, implementation: { maxAttempts: 6 }, security: { maxAttempts: 3 }, review: { maxAttempts: 3 } } },
   context: { maxInlineChars: 12000, maxMemoryItems: 5, maxMemoryChars: 5000, maxFindingSummaryChars: 6000, maxChangedFiles: 200 },
   memory: { enabled: true, retainOnSuccess: true, maxRetainedLessons: 3 },
-  persistence: { root: ".omp/.anvil", keepAgentRawArtifacts: true, keepCommandLogs: true, persistRenderedPrompts: false },
+  persistence: { root: ".anvil", keepAgentRawArtifacts: true, keepCommandLogs: true, persistRenderedPrompts: false },
   safety: { oneMutatingRunPerWorkspace: true, securityMustBeReadOnly: true, reviewerMustBeReadOnly: true, refusePathEscapeFromWorkspace: true },
 };

@@ -257,7 +257,7 @@ export class GitRevisionProvider implements RevisionProvider {
   }
 
   private untracked(): string[] { return records(gitBytes(this.root, ["ls-files", "--others", "--exclude-standard", "-z"])).filter((file) => !this.isIgnored(file)).sort(); }
-  private ignorePrefixes(): string[] { return [".omp/.anvil/", ...(this.options.ignore ?? [])].map((prefix) => prefix.endsWith("/**") ? prefix.slice(0, -3) : prefix); }
+  private ignorePrefixes(): string[] { return [".anvil/", ...(this.options.ignore ?? [])].map((prefix) => prefix.endsWith("/**") ? prefix.slice(0, -3) : prefix); }
   private isIgnored(file: string): boolean { return this.ignorePrefixes().some((prefix) => file.startsWith(prefix)); }
   private diffPaths(): string[] {
     // Non-glob pathspec wildcards match slashes, retaining the existing prefix
