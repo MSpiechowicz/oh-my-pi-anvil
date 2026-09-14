@@ -25,6 +25,7 @@ Inspect the active paths and verify the installation:
 
 
 Initialization creates the missing global file and, at the repository root, creates a small editable `.omp/anvil.yml` overlay. It never overwrites existing global or project settings. Running initialization from a repository subdirectory still targets that repository root. If either file already exists, initialization reports it instead of replacing it.
+`/anvil config` reports the effective configuration as `STATUS VALID` even when the optional global file is absent, because built-in defaults remain usable. It also marks the global file and project overlay as `present` or `not present`; run `/anvil init` when this repository needs its `.omp/anvil.yml` overlay.
 
 
 The generated project overlay is intentionally sparse so shared global values continue to apply. Add only repository-specific overrides, for example:

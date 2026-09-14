@@ -125,6 +125,26 @@ describe("OMP command registration", () => {
     expect(response).toContain("OMP model maps");
     expect(response).toContain("Architect");
     expect(response).toContain("Warden");
+    expect(response).toContain("STATUS            VALID");
+    expect(response.includes("CONFIGURATION     VALID")).toBe(false);
+  });
+
+  test("reports a valid default status when the global config is absent", async () => {
+    const configHome = await mkdtemp("/tmp/anvil-command-status-");
+    const previousXdg = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = configHome;
+      const router = new CommandRouter(async () => {
+        throw new Error("config inspection should not initialize workflow state");
+      });
+      const response = await router.handleAdmin("config", { cwd: "/tmp" });
+      expect(response).toContain("STATUS            VALID");
+      expect(response).toContain(`Anvil config     ${path.join(configHome, "omp", "anvil.yml")} (not present)`);
+    } finally {
+      if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previousXdg;
+      await rm(configHome, { recursive: true, force: true });
+    }
   });
 
   test("creates the global setup on the first OMP session", async () => {
@@ -199,6 +219,7 @@ describe("OMP command registration", () => {
     const previousPath = process.env.PATH;
     const previousFetch = globalThis.fetch;
     const notices: Array<{ message: string; level?: string }> = [];
+    const statuses: Array<{ key: string; text: string | undefined }> = [];
     const scheduled: Array<() => void | Promise<void>> = [];
     let sessionStart: SessionStartHandler | undefined;
     let anvilHandler: ((args: string, context: ExtensionContext) => Promise<void>) | undefined;
@@ -252,15 +273,19 @@ printf '%s\n' '${
           notify(message, level) {
             notices.push({ message, level });
           },
+          setStatus(key, text) {
+            statuses.push({ key, text });
+          },
         },
       });
       expect(notices).toHaveLength(0);
       expect(scheduled).toHaveLength(1);
 
       await scheduled[0]();
-      expect(notices).toEqual([{
-        message: "Anvil update available. Run `/anvil update install` to update it.",
-        level: "warning",
+      expect(notices).toHaveLength(0);
+      expect(statuses).toEqual([{
+        key: "anvil-update",
+        text: "Anvil update available. Run `/anvil update install` to update it.",
       }]);
       await anvilHandler("/anvil update check", {
         cwd: packageRoot,
@@ -269,13 +294,16 @@ printf '%s\n' '${
           notify(message, level) {
             notices.push({ message, level });
           },
+          setStatus(key, text) {
+            statuses.push({ key, text });
+          },
         },
       });
-      expect(notices).toHaveLength(2);
-      expect(notices[1].message).toContain("ANVIL · UPDATE AVAILABLE");
-      expect(notices[1].message).toContain("LATEST     999.0.0");
-      expect(notices[1].level).toBe("info");
-
+      expect(statuses[1]).toEqual({ key: "anvil-update", text: undefined });
+      expect(notices).toHaveLength(1);
+      expect(notices[0].message).toContain("ANVIL · UPDATE AVAILABLE");
+      expect(notices[0].message).toContain("LATEST      999.0.0");
+      expect(notices[0].level).toBe("info");
       await anvilHandler("/anvil update install", {
         cwd: packageRoot,
         hasUI: true,
@@ -283,12 +311,14 @@ printf '%s\n' '${
           notify(message, level) {
             notices.push({ message, level });
           },
+          setStatus(key, text) {
+            statuses.push({ key, text });
+          },
         },
       });
-      expect(notices[2]).toEqual({
-        message: "Updating Anvil through OMP's native plugin manager…",
-        level: "info",
-      });
+      expect(statuses[2]).toEqual({ key: "anvil-update", text: undefined });
+      expect(notices).toHaveLength(2);
+      expect(notices[1].message).toContain("ANVIL · UPDATE FAILED");
     } finally {
       if (previousConfig === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousConfig;

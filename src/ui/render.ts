@@ -6,6 +6,7 @@ import type { UpdateReport } from "../update.ts";
 
 export interface ConfigurationLocations {
   globalConfig: string;
+  globalConfigPresent: boolean;
   globalModels: string;
   projectConfig: string;
   projectConfigPresent: boolean;
@@ -69,16 +70,17 @@ export function renderAnvilHelp(): string {
 export const renderHelp = renderForgeHelp;
 
 export function renderConfiguration(locations: ConfigurationLocations): string {
+  const globalState = locations.globalConfigPresent ? "present" : "not present";
   const projectState = locations.projectConfigPresent ? "present" : "not present";
   const configState = locations.configError ? `INVALID  ${locations.configError}` : "VALID";
   const roleLines = WORKFLOW_ROLE_ORDER.map((role) => `  ${ROLE_LABELS[role].padEnd(11)} @${MODEL_ROLE_ALIASES[role]}`);
   return [
     "ANVIL · CONFIGURATION",
     "",
-    `CONFIGURATION     ${configState}`,
+    `STATUS            ${configState}`,
     "",
     "GLOBAL LOCATIONS",
-    `  Anvil config     ${locations.globalConfig}`,
+    `  Anvil config     ${locations.globalConfig} (${globalState})`,
     `  OMP model maps   ${locations.globalModels}`,
     "",
     "PROJECT LOCATIONS",
@@ -133,12 +135,14 @@ export function renderInit(report: InitReport): string {
 
 export function renderUpdate(report: UpdateReport): string {
   const state = report.updated ? "UPDATED" : report.updateAvailable ? "AVAILABLE" : "CURRENT";
+  const heading = report.updated ? "ANVIL · UPDATED" : `ANVIL · UPDATE ${state}`;
   return [
-    `ANVIL · UPDATE ${state}`,
+    heading,
     "",
-    `INSTALLED   ${report.currentVersion}`,
-    `LATEST     ${report.latestVersion ?? "none"}`,
-    `MANAGED    ${report.managed ? "OMP marketplace" : "source checkout"}`,
+    `${"INSTALLED".padEnd(12)}${report.currentVersion}`,
+    `${"LATEST".padEnd(12)}${report.latestVersion ?? "none"}`,
+    `${"MANAGED".padEnd(12)}${report.managed ? "OMP marketplace" : "source checkout"}`,
+    "",
     report.message ?? (report.releaseUrl ? `RELEASE    ${report.releaseUrl}` : "No published stable release available."),
   ].join("\n");
 }

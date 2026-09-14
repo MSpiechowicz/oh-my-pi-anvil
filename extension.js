@@ -2441,6 +2441,7 @@ async function createRuntime(workspaceRoot, context, explicitConfigPath) {
 }
 
 // src/commands/router.ts
+import { access as access3 } from "node:fs/promises";
 import path11 from "node:path";
 
 // src/config/init.ts
@@ -2572,16 +2573,17 @@ function renderAnvilHelp() {
   ].join("\n");
 }
 function renderConfiguration(locations) {
+  const globalState = locations.globalConfigPresent ? "present" : "not present";
   const projectState = locations.projectConfigPresent ? "present" : "not present";
   const configState = locations.configError ? `INVALID  ${locations.configError}` : "VALID";
   const roleLines = WORKFLOW_ROLE_ORDER.map((role) => `  ${ROLE_LABELS[role].padEnd(11)} @${MODEL_ROLE_ALIASES[role]}`);
   return [
     "ANVIL \xB7 CONFIGURATION",
     "",
-    `CONFIGURATION     ${configState}`,
+    `STATUS            ${configState}`,
     "",
     "GLOBAL LOCATIONS",
-    `  Anvil config     ${locations.globalConfig}`,
+    `  Anvil config     ${locations.globalConfig} (${globalState})`,
     `  OMP model maps   ${locations.globalModels}`,
     "",
     "PROJECT LOCATIONS",
@@ -2637,12 +2639,14 @@ function renderInit(report) {
 }
 function renderUpdate(report) {
   const state = report.updated ? "UPDATED" : report.updateAvailable ? "AVAILABLE" : "CURRENT";
+  const heading = report.updated ? "ANVIL \xB7 UPDATED" : `ANVIL \xB7 UPDATE ${state}`;
   return [
-    `ANVIL \xB7 UPDATE ${state}`,
+    heading,
     "",
-    `INSTALLED   ${report.currentVersion}`,
-    `LATEST     ${report.latestVersion ?? "none"}`,
-    `MANAGED    ${report.managed ? "OMP marketplace" : "source checkout"}`,
+    `${"INSTALLED".padEnd(12)}${report.currentVersion}`,
+    `${"LATEST".padEnd(12)}${report.latestVersion ?? "none"}`,
+    `${"MANAGED".padEnd(12)}${report.managed ? "OMP marketplace" : "source checkout"}`,
+    "",
     report.message ?? (report.releaseUrl ? `RELEASE    ${report.releaseUrl}` : "No published stable release available.")
   ].join("\n");
 }
@@ -2875,8 +2879,18 @@ async function configurationLocations(cwd) {
   const projectRoot = await findRepositoryRoot(cwd);
   const existingProject = await nearestProjectConfigPath(cwd);
   const projectConfig = existingProject ?? (projectRoot ? projectConfigPath(projectRoot) : projectConfigPath(cwd));
+  const globalConfig = globalConfigPath();
+  let globalConfigPresent = false;
   let effectiveRuntimeRoot = path11.resolve(cwd, ".omp", ".anvil");
   let configError;
+  try {
+    await access3(globalConfig);
+    globalConfigPresent = true;
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      configError = error instanceof Error ? error.message : String(error);
+    }
+  }
   try {
     const config = await loadConfig(cwd);
     effectiveRuntimeRoot = runtimeRoot(cwd, config.persistence.root);
@@ -2884,7 +2898,8 @@ async function configurationLocations(cwd) {
     configError = error instanceof Error ? error.message : String(error);
   }
   return {
-    globalConfig: globalConfigPath(),
+    globalConfig,
+    globalConfigPresent,
     globalModels: globalModelsConfigPath(),
     projectConfig,
     projectConfigPresent: Boolean(existingProject),
@@ -2983,6 +2998,7 @@ ${typed.message}`;
 };
 
 // src/extension.ts
+var UPDATE_STATUS_KEY = "anvil-update";
 async function selectAnvilCommand(args, context) {
   let input = args.trim().replace(/^\/anvil\s*/, "");
   if (input === "help" || context.hasUI === false || typeof context.ui?.select !== "function") return input;
@@ -3044,7 +3060,9 @@ function anvilExtension(pi) {
   const anvilHandler = async (args, context) => {
     const input = await selectAnvilCommand(args, context);
     if (input === void 0) return;
-    if (input === "update install") await notifyOutput(context, "Updating Anvil through OMP's native plugin manager\u2026");
+    if (input === "update check" || input === "update install") {
+      await context.ui?.setStatus?.(UPDATE_STATUS_KEY, void 0);
+    }
     await notifyOutput(context, await router.handleAdmin(input, {
       cwd: context.cwd,
       runtimeContext: context
@@ -3068,8 +3086,11 @@ function anvilExtension(pi) {
   const checkForUpdate = async (context) => {
     try {
       const report = await checkUpdate(process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd);
-      if (report.updateAvailable && report.managed) {
-        await notify(context, "Anvil update available. Run `/anvil update install` to update it.", "warning");
+      const message = report.updateAvailable && report.managed ? "Anvil update available. Run `/anvil update install` to update it." : void 0;
+      if (typeof context.ui?.setStatus === "function") {
+        await context.ui.setStatus(UPDATE_STATUS_KEY, message);
+      } else if (message) {
+        await notify(context, message, "warning");
       }
     } catch {
     }

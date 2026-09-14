@@ -1,3 +1,4 @@
+import { access } from "node:fs/promises";
 import path from "node:path";
 import { initConfig } from "../config/init.ts";
 import { loadConfig } from "../config/load.ts";
@@ -32,8 +33,18 @@ async function configurationLocations(cwd: string): Promise<ConfigurationLocatio
   const projectRoot = await findRepositoryRoot(cwd);
   const existingProject = await nearestProjectConfigPath(cwd);
   const projectConfig = existingProject ?? (projectRoot ? projectConfigPath(projectRoot) : projectConfigPath(cwd));
+  const globalConfig = globalConfigPath();
+  let globalConfigPresent = false;
   let effectiveRuntimeRoot = path.resolve(cwd, ".omp", ".anvil");
   let configError: string | undefined;
+  try {
+    await access(globalConfig);
+    globalConfigPresent = true;
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      configError = error instanceof Error ? error.message : String(error);
+    }
+  }
   try {
     const config = await loadConfig(cwd);
     effectiveRuntimeRoot = runtimeRoot(cwd, config.persistence.root);
@@ -41,7 +52,8 @@ async function configurationLocations(cwd: string): Promise<ConfigurationLocatio
     configError = error instanceof Error ? error.message : String(error);
   }
   return {
-    globalConfig: globalConfigPath(),
+    globalConfig,
+    globalConfigPresent,
     globalModels: globalModelsConfigPath(),
     projectConfig,
     projectConfigPresent: Boolean(existingProject),
@@ -49,6 +61,7 @@ async function configurationLocations(cwd: string): Promise<ConfigurationLocatio
     configError,
   };
 }
+
 
 export class CommandRouter {
   constructor(private readonly engineFactory: (context: CommandContext) => Promise<RuntimeHandle>) {}
