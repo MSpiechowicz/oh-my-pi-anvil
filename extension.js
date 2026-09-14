@@ -3044,6 +3044,7 @@ function anvilExtension(pi) {
   const anvilHandler = async (args, context) => {
     const input = await selectAnvilCommand(args, context);
     if (input === void 0) return;
+    if (input === "update install") await notifyOutput(context, "Updating Anvil through OMP's native plugin manager\u2026");
     await notifyOutput(context, await router.handleAdmin(input, {
       cwd: context.cwd,
       runtimeContext: context

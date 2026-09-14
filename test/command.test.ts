@@ -275,6 +275,20 @@ printf '%s\n' '${
       expect(notices[1].message).toContain("ANVIL · UPDATE AVAILABLE");
       expect(notices[1].message).toContain("LATEST     999.0.0");
       expect(notices[1].level).toBe("info");
+
+      await anvilHandler("/anvil update install", {
+        cwd: packageRoot,
+        hasUI: true,
+        ui: {
+          notify(message, level) {
+            notices.push({ message, level });
+          },
+        },
+      });
+      expect(notices[2]).toEqual({
+        message: "Updating Anvil through OMP's native plugin manager…",
+        level: "info",
+      });
     } finally {
       if (previousConfig === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousConfig;

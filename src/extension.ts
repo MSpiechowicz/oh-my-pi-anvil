@@ -73,6 +73,7 @@ export default function anvilExtension(pi: ExtensionAPI): void {
   const anvilHandler = async (args: string, context: ExtensionContext): Promise<void> => {
     const input = await selectAnvilCommand(args, context);
     if (input === undefined) return;
+    if (input === "update install") await notifyOutput(context, "Updating Anvil through OMP's native plugin manager…");
     await notifyOutput(context, await router.handleAdmin(input, { cwd: context.cwd, runtimeContext: context }));
   };
   pi.registerCommand("anvil", { description: "Inspect Anvil configuration and manage updates", handler: anvilHandler });
