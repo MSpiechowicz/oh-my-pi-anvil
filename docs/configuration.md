@@ -12,13 +12,15 @@ Settings are merged in this order:
 
 If `XDG_CONFIG_HOME` is not set, the global path is `~/.config/omp/anvil.yml`. Both configuration files are editable YAML. The global file is optional; when it is absent, Forge continues with built-in defaults.
 
-On the first OMP session after installation, Anvil automatically creates the global file if it is missing and shows a notification with the path to edit. It does not modify the current repository during this automatic setup. Existing global settings are left unchanged, so the notification is not repeated on later sessions.
+On the first OMP session after installation, Anvil automatically creates the global file if it is missing and shows a notification with the exact path to edit. A new OMP session or restart of OMP is required after installation so Anvil can load and perform this setup. It does not modify the current repository during this automatic setup. Existing global settings are left unchanged, so the notification is not repeated on later sessions.
 
-Run `/forge init` when you also want to create a repository overlay safely:
+After editing the global file, verify the installation and create a repository overlay when needed:
 
 ```text
+/forge doctor
 /forge init
 ```
+
 
 Initialization creates the missing global file and, at the repository root, creates a small editable `.omp/orchestrator.yml` overlay only when neither the canonical project file nor an alternate repository settings file is present. It never overwrites existing global, canonical, or alternate settings. Running initialization from a repository subdirectory still targets that repository root. If existing settings are found, initialization reports them instead of replacing them. When an alternate is detected without a canonical project file, project initialization is skipped and the alternate path is reported for inspection or migration.
 

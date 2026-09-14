@@ -66,20 +66,22 @@ Every Smith mutation starts the gate sequence again. Read-only gates also verify
 
 ## Quick start
 
-Install Anvil through OMP. On the first OMP session, Anvil automatically creates the editable global settings template and shows its path in the OMP notification area; it does not modify the current repository during this first-run setup. Use `/forge init` when you also want a repository-specific overlay.
-
+Install Anvil through OMP. A new OMP session or restart of OMP is required after installation so it loads Anvil. In that first session, Anvil automatically creates the editable global settings template and shows its exact path in the OMP notification area; it does not modify the current repository during this first-run setup. Use `/forge init` when you also want a repository-specific overlay.
 ```bash
 # Register the Anvil marketplace and install the stable release
 omp plugin marketplace add MSpiechowicz/oh-my-pi-anvil
 omp plugin install oh-my-pi-anvil@omp-anvil --scope user
 
-# After opening a new OMP session, edit the global settings Anvil created:
+# After installing, open a new OMP session or restart OMP so Anvil loads.
+# Edit the global settings file Anvil created:
 $EDITOR "${XDG_CONFIG_HOME:-$HOME/.config}/omp/anvil.yml"
 
-# Optional: from the repository where you want a project overlay. Running
-# this from a subdirectory still targets the repository root.
-/forge init
+# Verify the installation:
 /forge doctor
+
+# From the repository where you want a project overlay. Running this from
+# a subdirectory still targets the repository root.
+/forge init
 /forge start "Add scoped API-key rotation with a backwards-compatible migration"
 /forge status
 ```

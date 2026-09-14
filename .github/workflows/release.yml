@@ -56,6 +56,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Build package
+        run: deno task build
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

@@ -11,6 +11,7 @@ import urllib.request
 
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 CATALOG = ".omp-plugin/marketplace.json"
+EXTENSION = "extension.js"
 PLUGIN = "oh-my-pi-anvil"
 
 
@@ -52,7 +53,10 @@ def plan_release(repo, source, bump="patch", push=False):
     repo = Path(repo).resolve()
     if not re.fullmatch(r"[0-9a-f]{40}", source):
         raise ValueError("Source must be a full commit SHA")
-    if git(repo, "status", "--porcelain", "--untracked-files=all"):
+    if not (repo / EXTENSION).is_file():
+        raise ValueError(f"Required root extension artifact {EXTENSION} is missing")
+    dirty_paths = [line[3:] for line in git(repo, "status", "--porcelain", "--untracked-files=all").splitlines()]
+    if any(path != EXTENSION for path in dirty_paths):
         raise ValueError("Release checkout must be clean")
     if git(repo, "rev-parse", "HEAD") != source:
         raise ValueError("Release checkout must be at the workflow source SHA")
@@ -68,12 +72,14 @@ def plan_release(repo, source, bump="patch", push=False):
         commit = git(repo, "rev-parse", f"refs/tags/{tag}^{{commit}}")
         parents = git(repo, "show", "-s", "--format=%P", commit)
         released = json.loads(git(repo, "show", f"{commit}:package.json"))
+        released_extension = git(repo, "show", f"{commit}:{EXTENSION}")
         matching = (
             parents == source
             and git(repo, "show", "-s", "--format=%B", commit) == message
-            and git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", commit).splitlines() == [CATALOG, "package.json"]
+            and git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", commit).splitlines() in ([CATALOG, "package.json"], [CATALOG, EXTENSION, "package.json"])
             and released == dict(metadata, version=version)
             and json.loads(git(repo, "show", f"{commit}:{CATALOG}")) == catalog
+            and released_extension == (repo / EXTENSION).read_text(encoding="utf-8").strip()
         )
         if not matching:
             raise ValueError(f"Tag {tag} already exists and is not this release")
@@ -96,7 +102,7 @@ def plan_release(repo, source, bump="patch", push=False):
         raise ValueError("package.json must contain exactly one version field")
     package.write_text(updated, encoding="utf-8")
     (repo / CATALOG).write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
-    git(repo, "add", "--", "package.json", CATALOG)
+    git(repo, "add", "--", "package.json", CATALOG, EXTENSION)
     git(repo, "-c", "user.name=github-actions[bot]", "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com", "-c", "commit.gpgsign=false", "commit", "-m", message)
     commit = git(repo, "rev-parse", "HEAD")
     git(repo, "-c", "tag.gpgsign=false", "tag", tag, commit)

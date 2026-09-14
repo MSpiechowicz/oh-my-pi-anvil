@@ -17,6 +17,33 @@ describe("OMP command registration", () => {
 
     expect(registrations).toEqual(["forge", "orchestrate"]);
   });
+  test("renders slash-command results through the OMP UI", async () => {
+    const workspace = await mkdtemp("/tmp/anvil-command-ui-");
+    const notices: string[] = [];
+    let forgeHandler: ((args: string, context: ExtensionContext) => Promise<void>) | undefined;
+    try {
+      anvilExtension({
+        registerCommand(name, definition) {
+          if (name === "forge") forgeHandler = definition.handler;
+        },
+      });
+      if (!forgeHandler) throw new Error("forge command was not registered");
+
+      await forgeHandler("/forge doctor", {
+        cwd: workspace,
+        ui: {
+          notify: (message) => {
+            notices.push(message);
+          },
+        },
+      });
+
+      expect(notices).toHaveLength(1);
+      expect(notices[0]).toContain("ANVIL · DOCTOR");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
 
   test("creates the global setup on the first OMP session", async () => {
     const configHome = await mkdtemp("/tmp/anvil-command-config-");
@@ -55,6 +82,9 @@ describe("OMP command registration", () => {
       expect(projectConfig).toBe(undefined);
 
       expect(notices[0]).toContain("Edit this file");
+      expect(notices[0]).toContain(globalPath);
+      expect(notices[0]).toContain("/forge doctor");
+      expect(notices[0]).toContain("/forge init");
 
       await sessionStart({}, {
         cwd: workspace,

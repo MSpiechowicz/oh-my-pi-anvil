@@ -5,6 +5,8 @@ description: Use Forge for bounded planning, implementation, deterministic check
 
 # Forge
 
+After installing Anvil through the OMP marketplace, a new OMP session or restart of OMP is required so the extension loads. On that first session, Anvil creates the global configuration when missing and notifies you of its exact path. Edit that file, run `/forge doctor`, then run `/forge init` from a repository to create its overlay.
+
 Use the explicit `/forge` command as the bounded workflow surface:
 
 - `/forge start <objective>` starts a Forge run.

@@ -2,15 +2,16 @@
 
 Use `/forge` for all diagnostics and run management. Configuration is assembled from built-in defaults, the global `$XDG_CONFIG_HOME/omp/anvil.yml` file (or `~/.config/omp/anvil.yml` when `XDG_CONFIG_HOME` is unset), and the nearest project `.omp/orchestrator.yml` overlay. Project values win. `/orchestrate` is retained as an equivalent compatibility alias, so existing scripts can continue to call it while new usage should prefer `/forge`.
 
-On the first OMP session after installation, Anvil creates the missing global settings template automatically and shows the path in an OMP notification. It does not modify the current repository during this automatic setup. If the global file already exists, it remains untouched and no setup notification is repeated.
+After installing Anvil, a new OMP session or restart of OMP is required so the extension loads. In that first session, Anvil creates the missing global settings template automatically and shows its exact path in an OMP notification. It does not modify the current repository during this automatic setup. If the global file already exists, it remains untouched and no setup notification is repeated.
 
-## Set up or inspect configuration
-
-Use `/forge init` when you also want a repository-specific overlay:
+Edit the global file, then verify the installation. From a repository, initialize the optional overlay:
 
 ```text
+/forge doctor
 /forge init
 ```
+
+## Set up or inspect configuration
 
 It creates the missing editable global file and creates `.omp/orchestrator.yml` at the repository root only when no canonical project file or alternate repository settings file is present; it never overwrites existing global, canonical, or alternate settings. Initialization from a repository subdirectory still updates the root's `.omp/orchestrator.yml` location. Initialization reports existing canonical settings and any alternate candidates it detects. When an alternate is detected without a canonical project file, project initialization is skipped and the alternate path is reported for migration or inspection:
 

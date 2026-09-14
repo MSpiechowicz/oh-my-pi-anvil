@@ -13,7 +13,7 @@
   "bin": {
     "anvil-update": "./dist/update-cli.js"
   },
-  "files": ["dist", "agents", "skills", "workflows", "docs", "assets", "README.md", "LICENSE"],
+  "files": ["dist", "extension.js", "agents", "skills", "workflows", "docs", "assets", "README.md", "LICENSE"],
   "scripts": {
     "test": "deno task test",
     "typecheck": "deno task typecheck",
@@ -21,7 +21,7 @@
     "update": "deno task update"
   },
   "omp": {
-    "extensions": ["./dist/extension.js"],
+    "extensions": ["./extension.js"],
     "agents": "./agents",
     "skills": "./skills"
   }

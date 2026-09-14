@@ -27,7 +27,8 @@ export default function anvilExtension(pi: ExtensionAPI): void {
   const handler = async (args: string, context: ExtensionContext): Promise<void> => {
     const input = args.trim().replace(/^\/(?:forge|orchestrate)\s*/, "");
     const output = await router.handle(input, { cwd: context.cwd, runtimeContext: context });
-    await context.respond?.(output);
+    if (context.ui?.notify) await context.ui.notify(output, "info");
+    else await context.respond?.(output);
   };
   pi.registerCommand("forge", { description: "Run and manage Anvil's stateful multi-agent Forge", handler });
   pi.registerCommand("orchestrate", { description: "Compatibility alias for /forge", handler });
@@ -46,7 +47,7 @@ export default function anvilExtension(pi: ExtensionAPI): void {
       if (report.status !== "created") return;
       await notify(
         context,
-        `Anvil global setup is ready. Created ${report.path}. Edit this file to customize Forge for every repository. Run /forge init inside a repository to add a project overlay.`,
+        `Anvil is installed. Created the global configuration at ${report.path}. Edit this file, then run /forge doctor. In a repository, run /forge init to create the project overlay.`,
         "info",
       );
     } catch (error) {
