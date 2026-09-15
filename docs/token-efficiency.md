@@ -12,6 +12,10 @@ Sentinel and Inquisitor receive references to persisted exact-baseline diff arti
 
 Diff generation validates both complete snapshots, then materializes only entries whose path, mode, or raw content changed in the disposable Git object store. Unchanged files do not require Git blob or subtree creation; identical snapshots return an empty diff after validation. Rename detection remains disabled, preserving explicit additions and deletions. Full snapshots, checksum validation, revision identity checks, and both review gates remain unchanged.
 
+Workspace observations read raw files with at most 16 concurrent workers, retaining the per-file symlink, no-follow, and mutation checks. Index and untracked-content hashes use those raw bytes directly, avoiding a base64 decode after encoding. Workers stop scheduling on failure and drain outstanding reads before returning the error. Snapshot capture uses the captured observation plus a fresh confirming observation, rather than three complete scans. Revision identities and serialized snapshot formats are unchanged; there is no timestamp-only content cache.
+
+Within one active execution, Sentinel and Inquisitor reuse the latest exact-baseline target snapshot, patch, and manifest when baseline identity, target revision and HEAD, mutation epoch, and configuration still match. Reuse revalidates the persisted manifest and all referenced artifact hashes. Each role still receives a fresh handoff with current gate evidence, followed by a fresh workspace revision check before dispatch. Changed bindings require new evidence; blocked, finished, or restarted execution does not retain the in-memory bundle.
+
 This reduces local evidence-preparation time, especially for small changes in large repositories. It does not reduce model inference time or skip agent stages. Per-role model and thinking settings remain available when model latency dominates.
 
 ## What the token budget measures

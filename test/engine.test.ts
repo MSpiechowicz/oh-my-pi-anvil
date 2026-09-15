@@ -56,6 +56,20 @@ async function initializeReviewWorkspace(root: string) {
   execFileSync("git", ["-C", root, "commit", "-qm", "baseline"]);
 }
 
+async function reviewHandoffs(root: string, runId: string): Promise<HandoffEnvelope[]> {
+  const state = await StateDatabase.open(path.join(root, ".omp"));
+  try {
+    const artifacts = new ArtifactStore(state, (id) => path.join(root, ".omp", "runs", id));
+    const rows = state.db.query<{ id: string; relative_path: string; sha256: string }>("SELECT id, relative_path, sha256 FROM artifacts WHERE run_id = ? AND kind = 'handoff' ORDER BY rowid").all(runId);
+    const handoffs: HandoffEnvelope[] = [];
+    for (const row of rows) {
+      const handoff = await artifacts.readJson<HandoffEnvelope>(runId, { id: row.id, path: row.relative_path, sha256: row.sha256 });
+      if (handoff.role === "security" || handoff.role === "review") handoffs.push(handoff);
+    }
+    return handoffs;
+  } finally { state.close(); }
+}
+
 describe("WorkflowEngine", () => {
   test("persists the final review handoff for completion and later status", async () => {
     const root = await mkdtemp("/tmp/anvil-handoff-");
@@ -279,6 +293,7 @@ describe("WorkflowEngine", () => {
         const artifacts = new ArtifactStore(state, (id) => path.join(root, ".omp", "runs", id));
         const rows = state.db.query<{ id: string; relative_path: string; sha256: string }>("SELECT id, relative_path, sha256 FROM artifacts WHERE run_id = ? AND kind = 'handoff'").all(summary.run.id);
         const reviewedRoles: string[] = [];
+        const bundles: Array<{ patch: ArtifactPointer; manifest: ArtifactPointer }> = [];
         for (const row of rows) {
           const handoff = await artifacts.readJson<HandoffEnvelope>(summary.run.id, { id: row.id, path: row.relative_path, sha256: row.sha256 });
           if (handoff.role !== "security" && handoff.role !== "review") continue;
@@ -290,6 +305,8 @@ describe("WorkflowEngine", () => {
           expect(bounded.evidence).toEqual(handoff.evidence);
           const patch = bounded.evidence!.find((item) => item.kind === "review-diff")!.artifact;
           const manifestPointer = bounded.evidence!.find((item) => item.kind === "review-diff-manifest")!.artifact;
+          bundles.push({ patch, manifest: manifestPointer });
+          expect(handoff.evidence!.some((item) => item.kind === "current-security-result")).toBe(handoff.role === "review");
           const manifestBytes = await readFile(manifestPointer.path);
           expect(sha256(manifestBytes)).toBe(manifestPointer.sha256);
           const manifest = JSON.parse(manifestBytes.toString()) as { baseline: { revisionId: string; head: string; artifact: ArtifactPointer }; target: { revisionId: string; head: string; artifact: ArtifactPointer }; patch: ArtifactPointer; changedFiles: string[] };
@@ -316,6 +333,7 @@ describe("WorkflowEngine", () => {
           expect(() => serializeHandoff({ ...handoff, acceptance: ["required behavior ".repeat(300)], openFindings: [{ id: "REV-1", source: "review", severity: "major", title: "Unresolved acceptance failure", artifact: patch }] }, 2000)).toThrow();
         }
         expect(reviewedRoles.sort()).toEqual(["review", "security"]);
+        expect(bundles[0]).toEqual(bundles[1]);
       } finally { state.close(); }
     } finally { await rm(root, { recursive: true, force: true }); }
   });
@@ -412,6 +430,103 @@ describe("WorkflowEngine", () => {
       expect(summary.attempts.filter((attempt) => attempt.state === "CHECKS").map((attempt) => attempt.resultRevisionId)).toEqual(["rev1", "rev2"]);
       expect(summary.attempts.filter((attempt) => attempt.state === "SECURITY" || attempt.state === "REVIEW").map((attempt) => attempt.baseRevisionId)).toEqual(["rev2", "rev2"]);
     } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  test("replaces review evidence after mutations even when a later epoch returns to the same revision", async () => {
+    const root = await mkdtemp("/tmp/anvil-evidence-epoch-");
+    try {
+      const provider = new StaticRevisionProvider(revision("rev0"));
+      const engine = await makeEngine(root, provider, [
+        { role: "planner", structured: plan },
+        { role: "implementation", structured: implementation, mutate: () => provider.set(revision("rev1")) },
+        { role: "security", structured: securityPass, mutate: () => provider.set(revision("rev2")) },
+        { role: "security", structured: securityPass, mutate: () => provider.set(revision("rev1")) },
+        { role: "security", structured: securityPass },
+        { role: "review", structured: reviewPass },
+      ]);
+      const summary = await engine.start({ objective: "Never reuse an earlier mutation epoch", workspaceRoot: root });
+      expect(summary.run.currentState).toBe("DONE");
+      const handoffs = await reviewHandoffs(root, summary.run.id);
+      expect(handoffs.map((handoff) => [handoff.role, handoff.revisionId, handoff.mutationEpoch])).toEqual([
+        ["security", "rev1", 1], ["security", "rev2", 2], ["security", "rev1", 3], ["review", "rev1", 3],
+      ]);
+      const bundles = handoffs.map((handoff) => handoff.evidence!.filter((item) => item.kind === "review-diff" || item.kind === "review-diff-manifest"));
+      expect(bundles[0]![0]!.artifact.id === bundles[1]![0]!.artifact.id).toBe(false);
+      expect(bundles[0]![0]!.artifact.id === bundles[2]![0]!.artifact.id).toBe(false);
+      expect(bundles[2]).toEqual(bundles[3]);
+      expect(summary.attempts.filter((attempt) => attempt.state === "CHECKS").map((attempt) => attempt.resultRevisionId)).toEqual(["rev1", "rev2", "rev1"]);
+      expect(summary.attempts.filter((attempt) => attempt.state === "REVIEW").map((attempt) => attempt.baseRevisionId)).toEqual(["rev1"]);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  for (const damaged of ["baseline", "target", "patch", "manifest"] as const) {
+    test(`blocks tampered cached ${damaged} evidence before charging another gate`, async () => {
+      const root = await mkdtemp("/tmp/anvil-cached-evidence-integrity-");
+      try {
+        const provider = new StaticRevisionProvider(revision("rev0"));
+        let reviewCalls = 0;
+        const engine = await makeEngine(root, provider, [
+          { role: "planner", structured: plan },
+          { role: "implementation", structured: implementation, mutate: () => provider.set(revision("rev1")) },
+          { role: "security", structured: securityPass, mutate: async () => {
+            const handoff = (await reviewHandoffs(root, engine.status().run.id))[0]!;
+            const manifestPointer = handoff.evidence!.find((item) => item.kind === "review-diff-manifest")!.artifact;
+            const manifest = JSON.parse(await readFile(manifestPointer.path, "utf8")) as { baseline: { artifact: ArtifactPointer }; target: { artifact: ArtifactPointer }; patch: ArtifactPointer };
+            const pointer = damaged === "manifest" ? manifestPointer : damaged === "patch" ? manifest.patch : manifest[damaged].artifact;
+            await writeFile(pointer.path, "tampered review evidence");
+          } },
+          { role: "review", structured: reviewPass, mutate: () => { reviewCalls++; } },
+        ]);
+        const summary = await engine.start({ objective: "Fail closed on modified review artifacts", workspaceRoot: root });
+        expect(summary.run.currentState).toBe("BLOCKED");
+        expect(summary.run.failureCode).toBe("AGENT_EXECUTION_FAILED");
+        expect(summary.attempts.filter((attempt) => attempt.role === "security")).toHaveLength(1);
+        expect(summary.attempts.filter((attempt) => attempt.role === "review")).toEqual([]);
+        expect(summary.run.usedRequests).toBe(3);
+        expect(reviewCalls).toBe(0);
+      } finally { await rm(root, { recursive: true, force: true }); }
+    });
+  }
+
+  test("rejects mutation during a reused review handoff's final asynchronous write without charging review", async () => {
+    const root = await mkdtemp("/tmp/anvil-reused-evidence-race-");
+    const state = await StateDatabase.open(path.join(root, ".omp"));
+    try {
+      const provider = new StaticRevisionProvider(revision("rev0"));
+      class RacingArtifactStore extends ArtifactStore {
+        private raced = false;
+        override async putJson(runId: string, kind: string, relativePath: string, value: unknown, attemptId?: string): Promise<ArtifactPointer> {
+          const pointer = await super.putJson(runId, kind, relativePath, value, attemptId);
+          if (!this.raced && kind === "handoff" && value && typeof value === "object" && "role" in value && value.role === "review") {
+            this.raced = true;
+            provider.set(revision("rev2"));
+          }
+          return pointer;
+        }
+      }
+      const config = structuredClone(DEFAULT_CONFIG);
+      config.scouting.enabled = false; config.memory.archivist = false; config.persistence.root = path.join(root, ".omp"); config.checks = structuredClone(testChecks);
+      const artifacts = new RacingArtifactStore(state, (id) => path.join(root, ".omp", "runs", id));
+      const agents = new MockAgentRunner([
+        { role: "planner", structured: plan },
+        { role: "implementation", structured: implementation, mutate: () => provider.set(revision("rev1")) },
+        { role: "security", structured: securityPass }, { role: "security", structured: securityPass },
+        { role: "review", structured: reviewPass },
+      ]);
+      const engine = new WorkflowEngine({ config, state, artifacts, revisions: provider, agents, checks });
+      const summary = await engine.start({ objective: "Revision-check even reused evidence after every await", workspaceRoot: root });
+      expect(summary.run.currentState).toBe("DONE");
+      const handoffs = await reviewHandoffs(root, summary.run.id);
+      expect(handoffs.map((handoff) => [handoff.role, handoff.revisionId])).toEqual([
+        ["security", "rev1"], ["review", "rev1"], ["security", "rev2"], ["review", "rev2"],
+      ]);
+      const bundles = handoffs.map((handoff) => handoff.evidence!.filter((item) => item.kind === "review-diff" || item.kind === "review-diff-manifest"));
+      expect(bundles[0]).toEqual(bundles[1]);
+      expect(bundles[2]).toEqual(bundles[3]);
+      expect(bundles[0]![0]!.artifact.id === bundles[2]![0]!.artifact.id).toBe(false);
+      expect(summary.attempts.filter((attempt) => attempt.state === "REVIEW").map((attempt) => attempt.baseRevisionId)).toEqual(["rev2"]);
+      expect(summary.run.usedRequests).toBe(5);
+    } finally { state.close(); await rm(root, { recursive: true, force: true }); }
   });
 
   test("seals a run only after all exact-revision gates pass", async () => {
@@ -916,6 +1031,15 @@ describe("WorkflowEngine", () => {
         expect(summary.events.some((event) => event.type === "SECURITY_REUSED")).toBe(scenario === "verification-only");
         expect(summary.run.usedRequests).toBe(scenario === "verification-only" ? 7 : 8);
         expect(summary.findings.filter((finding) => finding.status === "open")).toEqual([]);
+        const reviews = (await reviewHandoffs(root, summary.run.id)).filter((handoff) => handoff.role === "review");
+        const firstBundle = reviews[0]!.evidence!.filter((item) => item.kind === "review-diff" || item.kind === "review-diff-manifest");
+        const lastBundle = reviews[1]!.evidence!.filter((item) => item.kind === "review-diff" || item.kind === "review-diff-manifest");
+        if (scenario === "source-mutation") expect(firstBundle[0]!.artifact.id === lastBundle[0]!.artifact.id).toBe(false);
+        else expect(firstBundle).toEqual(lastBundle);
+        const claims = reviews.map((handoff) => handoff.evidence!.find((item) => item.kind === "smith-implementation-claims")!.artifact);
+        expect(claims[0]!.id === claims[1]!.id).toBe(false);
+        const latest = JSON.parse(await readFile(claims[1]!.path, "utf8")) as { output: { verification: unknown } };
+        expect(latest.output.verification).toEqual(secondOutput.verification);
       } finally { await rm(root, { recursive: true, force: true }); }
     });
   }

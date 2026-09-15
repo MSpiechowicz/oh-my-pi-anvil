@@ -9,6 +9,7 @@ import { sha256 } from "../util/hash.ts";
 import type { RevisionProvider, RevisionSnapshot, WorkspaceRevision } from "../workflow/types.ts";
 
 type SnapshotFile = RevisionSnapshot["files"][number];
+type UntrackedHash = { path: string; sha256: string; mode?: string };
 const DIFF_OPTIONS = ["--binary", "--no-ext-diff", "--no-textconv", "--no-color"];
 const EMPTY_HASH = sha256(new Uint8Array());
 
@@ -89,14 +90,7 @@ export class GitRevisionProvider implements RevisionProvider {
       const stagedSha256 = sha256(gitBytes(this.root, ["diff", "--cached", ...DIFF_OPTIONS, ...paths]));
       const unstagedSha256 = sha256(gitBytes(this.root, ["diff", ...DIFF_OPTIONS, ...paths]));
       const untracked = this.untracked();
-      const { files, matchesIndex } = await this.workspaceFiles(untracked);
-      const byPath = new Map(files.map((file) => [file.path, file]));
-      const hashes: Array<{ path: string; sha256: string; mode?: string }> = [];
-      for (const relative of untracked) {
-        const file = byPath.get(relative);
-        if (!file) throw failure(`Untracked path ${JSON.stringify(relative)} changed during revision capture. Retry when the workspace is stable.`);
-        hashes.push({ path: relative, sha256: sha256(Buffer.from(file.contentBase64, "base64")), ...(file.mode === "100644" ? {} : { mode: file.mode }) });
-      }
+      const { files, matchesIndex, hashes } = await this.workspaceFiles(untracked);
       if (head !== this.git(["rev-parse", "--verify", "HEAD"]).trim()) throw failure("HEAD moved while identifying the workspace revision. Retry when the workspace is stable.");
       // Only a byte-for-byte clean tree uses the original wr1 payload. Dirty
       // identities also bind raw contents, even when Git's stat cache or
@@ -116,11 +110,11 @@ export class GitRevisionProvider implements RevisionProvider {
 
   async captureSnapshot(expectedRevisionId: string): Promise<RevisionSnapshot> {
     return evidenceOperation("capture review evidence", async () => {
-      const before = await this.current();
-      if (before.id !== expectedRevisionId) throw failure(`Workspace revision changed before snapshot capture (expected ${expectedRevisionId}, found ${before.id}). Retry the gate against the current revision.`);
       const captured = await this.observe();
+      const before = captured.revision;
+      if (before.id !== expectedRevisionId) throw failure(`Workspace revision changed before snapshot capture (expected ${expectedRevisionId}, found ${before.id}). Retry the gate against the current revision.`);
       const after = await this.current();
-      if (captured.revision.id !== expectedRevisionId || after.id !== expectedRevisionId || after.head !== before.head) throw failure("Workspace changed during snapshot capture. Retry the gate when the workspace is stable; no snapshot was accepted.");
+      if (after.id !== expectedRevisionId || after.head !== before.head) throw failure("Workspace changed during snapshot capture. Retry the gate when the workspace is stable; no snapshot was accepted.");
       return makeSnapshot("git-tree-v1", before.id, before.head, captured.files);
     });
   }
@@ -220,7 +214,7 @@ export class GitRevisionProvider implements RevisionProvider {
     return write(root);
   }
 
-  private async workspaceFiles(untracked: string[]): Promise<{ files: SnapshotFile[]; matchesIndex: boolean }> {
+  private async workspaceFiles(untracked: string[]): Promise<{ files: SnapshotFile[]; matchesIndex: boolean; hashes: UntrackedHash[] }> {
     const index = new Map<string, { mode: SnapshotFile["mode"]; object: string }>();
     for (const record of records(gitBytes(this.root, ["ls-files", "--stage", "-z"]))) {
       const match = /^(\d{6}) ([a-f0-9]+) ([0-3])\t([\s\S]+)$/.exec(record);
@@ -236,24 +230,51 @@ export class GitRevisionProvider implements RevisionProvider {
     }
     const filemode = this.git(["config", "--type=bool", "--default=true", "--get", "core.filemode"]).trim() !== "false";
     const files: SnapshotFile[] = [];
+    const untrackedHashes = new Map<string, UntrackedHash | undefined>(untracked.map((relative) => [relative, undefined]));
+    const paths = new Set([...index.keys(), ...untracked]);
+    const pending = paths.values();
     let matchesIndex = true;
-    for (const relative of new Set([...index.keys(), ...untracked])) {
-      const file = await this.workspaceFile(relative);
-      if (!file) { matchesIndex = false; continue; }
-      const entry = index.get(relative);
-      if (!filemode && entry && entry.mode !== "120000" && file.mode !== "120000") file.mode = entry.mode;
-      if (entry) {
-        const content = Buffer.from(file.contentBase64, "base64");
-        const object = createHash(entry.object.length === 64 ? "sha256" : "sha1").update(`blob ${content.length}\0`).update(content).digest("hex");
-        if (object !== entry.object || file.mode !== entry.mode) matchesIndex = false;
-      } else { matchesIndex = false; }
-      files.push(file);
-    }
+    let failed = false;
+    let firstError: unknown;
+    const worker = async (): Promise<void> => {
+      try {
+        while (!failed) {
+          const next = pending.next();
+          if (next.done) return;
+          const relative = next.value;
+          const file = await this.workspaceFile(relative);
+          if (!file) {
+            matchesIndex = false;
+            if (untrackedHashes.has(relative)) throw failure(`Untracked path ${JSON.stringify(relative)} changed during revision capture. Retry when the workspace is stable.`);
+            continue;
+          }
+          const entry = index.get(relative);
+          if (!filemode && entry && entry.mode !== "120000" && file.mode !== "120000") file.mode = entry.mode;
+          if (entry) {
+            const object = createHash(entry.object.length === 64 ? "sha256" : "sha1").update(`blob ${file.content.length}\0`).update(file.content).digest("hex");
+            if (object !== entry.object || file.mode !== entry.mode) matchesIndex = false;
+          } else { matchesIndex = false; }
+          if (untrackedHashes.has(relative)) untrackedHashes.set(relative, { path: relative, sha256: sha256(file.content), ...(file.mode === "100644" ? {} : { mode: file.mode }) });
+          files.push({ path: relative, mode: file.mode, contentBase64: file.content.toString("base64") });
+        }
+      } catch (error) {
+        if (!failed) { failed = true; firstError = error; }
+      }
+    };
+    // Bound raw buffers and open handles; drain every worker before surfacing
+    // failure so callers never race leftover reads from a rejected observation.
+    await Promise.all(Array.from({ length: Math.min(16, paths.size) }, () => worker()));
+    if (failed) throw firstError;
     files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
-    return { files, matchesIndex };
+    const hashes = untracked.map((relative) => {
+      const hash = untrackedHashes.get(relative);
+      if (!hash) throw failure(`Untracked path ${JSON.stringify(relative)} changed during revision capture. Retry when the workspace is stable.`);
+      return hash;
+    });
+    return { files, matchesIndex, hashes };
   }
 
-  private async workspaceFile(relative: string): Promise<SnapshotFile | undefined> {
+  private async workspaceFile(relative: string): Promise<{ mode: SnapshotFile["mode"]; content: Buffer } | undefined> {
     if (!validPath(relative)) throw failure(`Cannot safely read workspace path ${JSON.stringify(relative)}.`);
     try {
       // A tracked directory can have been replaced with an untracked symlink.
@@ -265,7 +286,7 @@ export class GitRevisionProvider implements RevisionProvider {
       }
       const absolute = path.join(this.root, relative);
       const stat = await lstat(absolute);
-      if (stat.isSymbolicLink()) return { path: relative, mode: "120000", contentBase64: Buffer.from(await readlink(absolute, { encoding: "buffer" })).toString("base64") };
+      if (stat.isSymbolicLink()) return { mode: "120000", content: Buffer.from(await readlink(absolute, { encoding: "buffer" })) };
       if (stat.isDirectory()) return undefined;
       if (!stat.isFile()) throw failure(`Unsupported workspace entry ${JSON.stringify(relative)}. Only ordinary files and symlinks can be captured.`);
       const handle = await open(absolute, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -275,7 +296,7 @@ export class GitRevisionProvider implements RevisionProvider {
         const contents = await handle.readFile();
         const finished = await handle.stat();
         if (opened.size !== finished.size || opened.mtimeMs !== finished.mtimeMs || opened.ctimeMs !== finished.ctimeMs) throw failure(`Workspace path ${JSON.stringify(relative)} changed while its bytes were read. Retry when stable.`);
-        return { path: relative, mode: opened.mode & 0o100 ? "100755" : "100644", contentBase64: contents.toString("base64") };
+        return { mode: opened.mode & 0o100 ? "100755" : "100644", content: contents };
       } finally { await handle.close(); }
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && (error.code === "ENOENT" || error.code === "ENOTDIR")) return undefined;

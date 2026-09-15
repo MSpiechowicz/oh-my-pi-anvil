@@ -172,13 +172,15 @@ describe("durable exact-workspace revision evidence", () => {
       await assert.rejects(provider.captureSnapshot(before.id), evidenceError);
       const expected = (await provider.current()).id;
       class RacingProvider extends GitRevisionProvider {
-        calls = 0;
         override async current(): Promise<WorkspaceRevision> {
-          if (++this.calls === 2) await writeFile(path.join(root, "source.txt"), "changed during capture\n");
+          // Mutate real bytes at the fresh-observation boundary, independent
+          // of how many preliminary observations snapshot capture performs.
+          await writeFile(path.join(root, "source.txt"), "changed during capture\n");
           return super.current();
         }
       }
       await assert.rejects(new RacingProvider(root).captureSnapshot(expected), evidenceError);
+      assert.equal(await readFile(path.join(root, "source.txt"), "utf8"), "changed during capture\n");
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
