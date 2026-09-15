@@ -35,6 +35,7 @@ const plan = {
   requiredChecks: [],
   risks: [],
   replanTriggers: [],
+  smithTasks: [task("implementation", [])],
 };
 const implementation = {
   version: 1,
@@ -108,6 +109,18 @@ function barrier() {
   const { promise, resolve: release } = Promise.withResolvers<void>();
   return { promise, release };
 }
+
+test("a plan without an explicit dispatch cannot start a fallback Smith", async () => {
+  const { smithTasks: _smithTasks, ...omitted } = plan;
+  const f = await fixture(async () => omitted);
+  try {
+    const result = await f.engine.start({ objective: "Require an explicit work decomposition", workspaceRoot: f.root });
+    expect(result.run.failureCode).toBe("SCHEMA_INVALID");
+    expect(result.attempts.filter((attempt) => attempt.role === "implementation")).toHaveLength(0);
+  } finally {
+    await f.close();
+  }
+});
 
 test("independent Smiths overlap, dependencies wait, and gates see the complete batch", async () => {
   const joined = barrier();

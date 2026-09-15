@@ -60,7 +60,7 @@ export const PLAN_OUTPUT_SCHEMA = {
   title: "PlanOutput",
   type: "object",
   additionalProperties: false,
-  required: ["version", "summary", "assumptions", "steps", "globalAcceptanceCriteria", "requiredChecks", "risks", "replanTriggers"],
+  required: ["version", "summary", "assumptions", "steps", "globalAcceptanceCriteria", "requiredChecks", "risks", "replanTriggers", "smithTasks"],
   properties: {
     version: { type: "number", const: 1 },
     summary: NONEMPTY_STRING,

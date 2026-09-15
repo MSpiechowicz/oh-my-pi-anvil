@@ -27,6 +27,7 @@ const plan = {
   requiredChecks: [],
   risks: [],
   replanTriggers: [],
+  smithTasks: [{ id: "implementation", objective: "Implement the change", dependsOn: [], ownedFiles: [], acceptanceCriteria: ["Works"], findingIds: [] }],
 };
 const lesson = { content: "Repository migrations must preserve existing rows.", importance: 0.8 };
 const outputs: Record<string, unknown> = {
