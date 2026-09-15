@@ -59,8 +59,13 @@ function makeSnapshot(format: RevisionSnapshot["format"], revisionId: string, he
 function verifySnapshot(snapshot: RevisionSnapshot, format: RevisionSnapshot["format"]): void {
   if (!snapshot || snapshot.format !== format || typeof snapshot.revisionId !== "string" || typeof snapshot.head !== "string" || !Array.isArray(snapshot.files)) throw failure("Review snapshot is missing or has an unsupported format. Restore the original evidence artifacts or start a new run.");
   let previous: string | undefined;
+  const paths = new Set<string>();
   for (const file of snapshot.files) {
     if (!file || typeof file.path !== "string" || !validPath(file.path) || (previous !== undefined && previous >= file.path) || !["100644", "100755", "120000"].includes(file.mode) || typeof file.contentBase64 !== "string" || Buffer.from(file.contentBase64, "base64").toString("base64") !== file.contentBase64) throw failure("Review snapshot contains invalid paths, modes, or contents. Restore the original evidence artifacts or start a new run.");
+    for (let slash = file.path.lastIndexOf("/"); slash !== -1; slash = file.path.lastIndexOf("/", slash - 1)) {
+      if (paths.has(file.path.slice(0, slash))) throw failure("Snapshot contains a file/directory path collision.");
+    }
+    paths.add(file.path);
     previous = file.path;
   }
   const { revisionId, head, files } = snapshot;
@@ -147,14 +152,36 @@ export class GitRevisionProvider implements RevisionProvider {
     return evidenceOperation("render the exact-workspace review diff", async () => {
       verifySnapshot(base, "git-tree-v1");
       verifySnapshot(target, "git-tree-v1");
+      // Snapshots are validated and sorted. With rename detection disabled,
+      // identical path/mode/content entries cannot contribute to either diff.
+      // Keep full snapshots as evidence, but materialize only changed entries.
+      const baseFiles: SnapshotFile[] = [];
+      const targetFiles: SnapshotFile[] = [];
+      let left = 0;
+      let right = 0;
+      while (left < base.files.length || right < target.files.length) {
+        const before = base.files[left];
+        const after = target.files[right];
+        if (!after || (before && before.path < after.path)) {
+          baseFiles.push(before); left++;
+        } else if (!before || after.path < before.path) {
+          targetFiles.push(after); right++;
+        } else {
+          if (before.mode !== after.mode || before.contentBase64 !== after.contentBase64) {
+            baseFiles.push(before); targetFiles.push(after);
+          }
+          left++; right++;
+        }
+      }
+      if (!baseFiles.length && !targetFiles.length) return { patch: "", changedFiles: [] };
       const directory = await mkdtemp(path.join(os.tmpdir(), "anvil-review-diff-"));
       try {
         // Only this disposable bare object store is written; no real index/worktree,
         // repository attributes, filters, templates, or hooks participate in review.
         gitBytes(directory, ["init", "--bare", "--template=", "--object-format=sha1", "."]);
         const objects = new Map<string, string>();
-        const before = this.writeTree(directory, base.files, objects);
-        const after = this.writeTree(directory, target.files, objects);
+        const before = this.writeTree(directory, baseFiles, objects);
+        const after = this.writeTree(directory, targetFiles, objects);
         const bytes = gitBytes(directory, ["diff", ...DIFF_OPTIONS, "--no-renames", "--src-prefix=a/", "--dst-prefix=b/", before, after]);
         const patch = bytes.toString("utf8");
         if (!Buffer.from(patch).equals(bytes)) throw failure("Review diff contains non-UTF-8 text that cannot be rendered losslessly. Convert the affected text files to UTF-8 before retrying; binary file contents remain preserved in the snapshots.");
