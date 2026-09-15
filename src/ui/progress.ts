@@ -36,6 +36,18 @@ const ACTIVITIES: Record<WorkflowState, string> = {
   CANCELLED: "workflow cancelled",
 };
 
+type AdvisoryRole = keyof NonNullable<WorkflowProgressUpdate["advisory"]>;
+type ProgressStage = WorkflowState | AdvisoryRole;
+const ADVISORY_ROLES: AdvisoryRole[] = ["scout", "archivist"];
+const ADVISORY_LABELS: Record<AdvisoryRole, string> = { scout: "Scout", archivist: "Archivist" };
+const ADVISORY_ACTIVITIES: Record<AdvisoryRole, string> = {
+  scout: "reconnoitring the repository",
+  archivist: "curating durable lessons",
+};
+const ADVISORY_MARKERS: Record<NonNullable<WorkflowProgressUpdate["advisory"]>[AdvisoryRole] & string, string> = {
+  pending: "·", running: "›", completed: "✓", failed: "!", skipped: "–",
+};
+
 function ignoreUiFailure(action: () => unknown): void {
   try {
     const result = action();
@@ -56,10 +68,10 @@ function stageMarker(state: WorkflowState, current: WorkflowState): string {
   return "·";
 }
 
-function statusText(update: WorkflowProgressUpdate, frame: string, activeStage?: WorkflowState): string {
+function statusText(update: WorkflowProgressUpdate, frame: string, activeStage?: ProgressStage): string {
   const failedDuring = update.kind === "finished" && update.run.status !== "done" && activeStage && activeStage !== update.run.currentState;
   const activity = failedDuring
-    ? `${ACTIVITIES[update.run.currentState]} (during ${displayState(activeStage)})`
+    ? `${ACTIVITIES[update.run.currentState]} (during ${activeStage === "scout" || activeStage === "archivist" ? ADVISORY_LABELS[activeStage] : displayState(activeStage)})`
     : ACTIVITIES[update.run.currentState];
   if (update.kind === "finished") {
     const budgetDetails = update.run.failureCode === "BUDGET_EXHAUSTED"
@@ -67,26 +79,42 @@ function statusText(update: WorkflowProgressUpdate, frame: string, activeStage?:
       : "";
     return `${update.run.status === "done" ? "✓" : "!"} ${displayState(update.run.currentState)} · ${activity}${budgetDetails}`;
   }
+  const advisory = ADVISORY_ROLES.find((role) => update.advisory?.[role] === "running");
+  if (advisory) return `${frame} ${ADVISORY_LABELS[advisory]} · ${ADVISORY_ACTIVITIES[advisory]}`;
   return `${frame} ${displayState(update.run.currentState)} · ${activity}`;
 }
 
-function widgetLines(update: WorkflowProgressUpdate, frame: string, activeStage?: WorkflowState, theme?: ForgeProgressUI["theme"]): string[] {
+function widgetLines(update: WorkflowProgressUpdate, frame: string, activeStage?: ProgressStage, theme?: ForgeProgressUI["theme"]): string[] {
   const interrupted = update.kind === "finished" && update.run.status !== "done";
   const stage = interrupted ? activeStage ?? update.run.currentState : update.run.currentState;
+  const coreStage = stage === "scout" ? "INIT" : stage === "archivist" ? "DONE" : stage;
   const paint = (color: Parameters<NonNullable<ForgeProgressUI["theme"]>["fg"]>[0], text: string): string =>
     theme ? theme.fg(color, text) : text;
-  const stages = STAGES.flatMap((state, index) => {
-    const marker = interrupted && state === stage ? "!" : stageMarker(state, stage);
+  const rows: Array<{ marker: string; label: string; activity: string }> = [];
+  const addAdvisory = (role: AdvisoryRole): void => {
+    const status = update.advisory?.[role];
+    if (status) rows.push({ marker: ADVISORY_MARKERS[status], label: ADVISORY_LABELS[role], activity: `${ADVISORY_ACTIVITIES[role]} (${status})` });
+  };
+  addAdvisory("scout");
+  for (const state of STAGES) {
+    let marker = interrupted && state === stage ? "!" : stageMarker(state, coreStage);
+    if (state === "PLAN" && update.advisory?.scout === "running") marker = "·";
+    if (state === "REVIEW" && update.run.currentState === "REVIEW" &&
+      (update.advisory?.archivist === "running" || update.advisory?.archivist === "completed" || update.advisory?.archivist === "failed")) marker = "✓";
+    rows.push({ marker, label: displayState(state), activity: ACTIVITIES[state] });
+  }
+  addAdvisory("archivist");
+  const stages = rows.flatMap(({ marker, label, activity }, index) => {
     const color = marker === "!" ? "error" : marker === "›" ? "accent" : marker === "✓" ? "success" : "dim";
-    const text = `${marker === "›" ? frame : marker} ${displayState(state).padEnd(10)}  ${ACTIVITIES[state]}`;
+    const text = `${marker === "›" ? frame : marker} ${label.padEnd(10)}  ${activity}`;
     const row = `  ${paint(color, text)}`;
-    return index < STAGES.length - 1 ? [row, `  ${paint("dim", "│")}`] : [row];
+    return index < rows.length - 1 ? [row, `  ${paint("dim", "│")}`] : [row];
   });
   const title = theme ? theme.bold("FORGE") : "FORGE";
   const runId = update.run.id.replace(/^run_/, "").slice(0, 8);
   return [
     `  ${paint("accent", title)} ${paint("dim", `· ${runId}`)}`,
-    ...(interrupted || update.kind === "finished" || !STAGES.includes(stage)
+    ...(interrupted || update.kind === "finished" || !STAGES.includes(coreStage)
       ? [`  ${paint(interrupted ? "error" : update.kind === "finished" ? "success" : "accent", statusText(update, frame, activeStage))}`]
       : []),
     "",
@@ -101,7 +129,7 @@ export function createForgeProgressReporter(ui: ForgeProgressUI | undefined): Fo
   let frameIndex = 0;
   let timer: NodeJS.Timeout | undefined;
   let current: WorkflowProgressUpdate | undefined;
-  let activeStage: WorkflowState | undefined;
+  let activeStage: ProgressStage | undefined;
 
   // Prefer one surface; footer and working-message APIs are fallbacks, not mirrors.
   const present = (text: string, lines: string[]): void => {
@@ -151,7 +179,11 @@ export function createForgeProgressReporter(ui: ForgeProgressUI | undefined): Fo
     },
     onProgress: (update): void => {
       if (closed) return;
-      if (STAGES.includes(update.run.currentState)) activeStage = update.run.currentState;
+      if (STAGES.includes(update.run.currentState)) {
+        activeStage = ADVISORY_ROLES.find((role) => update.advisory?.[role] === "running") ??
+          (update.run.currentState === "REVIEW" && (update.advisory?.archivist === "completed" || update.advisory?.archivist === "failed")
+            ? "archivist" : update.run.currentState);
+      }
       current = update;
       render();
       if (!persistent && ui?.notify && (update.kind === "stage" || update.kind === "finished")) {

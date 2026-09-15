@@ -8,7 +8,7 @@ import { AnvilError, asAnvilError } from "../util/errors.ts";
 import { assertCanComplete } from "./invariants.ts";
 import { assertLegalTransition, nextAfterReview, nextAfterSecurity } from "./transitions.ts";
 import { ACTIVE_STATES, isTerminal, statusForState } from "./state.ts";
-import type { AgentRunner, AgentRunRequest, AgentRunResult, ArtifactPointer, AttemptRecord, CheckDefinition, CheckResult, CheckRunner, Clock, FindingRecord, GateName, GateResult, HandoffEnvelope, ImplementationOutput, MemoryAdapter, PlanOutput, ReviewOutput, RunRecord, SecurityOutput, SmithTask, WorkflowConfig, WorkflowProgressHandler, WorkflowProgressKind, WorkflowState, RevisionProvider, RevisionSnapshot } from "./types.ts";
+import type { AgentRunner, AgentRunRequest, AgentRunResult, ArtifactPointer, AttemptRecord, CheckDefinition, CheckResult, CheckRunner, Clock, FindingRecord, GateName, GateResult, HandoffEnvelope, ImplementationOutput, MemoryAdapter, PlanOutput, ReviewOutput, RunRecord, SecurityOutput, SmithTask, WorkflowConfig, WorkflowProgressHandler, WorkflowProgressKind, WorkflowProgressUpdate, WorkflowState, RevisionProvider, RevisionSnapshot } from "./types.ts";
 import { StateDatabase } from "../state/database.ts";
 import { ArtifactStore } from "../state/artifact-store.ts";
 import { EventStore } from "../state/event-store.ts";
@@ -267,6 +267,7 @@ export class WorkflowEngine {
       }
       const handoff = this.context.build(role, { run, ...input });
       attempt = this.runs.beginAttempt(run, run.currentState, role, this.deps.config.agents[role].agent);
+      await this.report(this.runs.require(run.id), "stage");
       await this.deps.artifacts.putJson(run.id, "handoff", `artifacts/${role}/handoff-${attempt.sequence}.json`, handoff.envelope, attempt.id);
       result = await this.runAgent(attempt, {
         runId: run.id, attemptId: attempt.id, role, agentName: this.deps.config.agents[role].agent,
@@ -292,6 +293,8 @@ export class WorkflowEngine {
       if (role === "scout" && (await this.deps.revisions.current()).id !== run.currentRevisionId) throw new AnvilError("READ_ONLY_GATE_MUTATED_WORKSPACE", "Scout mutated the workspace");
       this.advisoryFailure(run, role, error);
       return;
+    } finally {
+      if (attempt) await this.report(this.runs.require(run.id), "stage");
     }
   }
   private async executePlan(run: RunRecord, signal: AbortSignal): Promise<RunRecord> {
@@ -659,7 +662,24 @@ export class WorkflowEngine {
   private async report(run: RunRecord, kind: WorkflowProgressKind): Promise<void> {
     await this.writeMetadata(run);
     const handler = this.progress.get(run.id); if (!handler) return;
-    try { await handler({ kind, run }); } catch { /* UI progress must never change workflow outcome. */ }
+    const advisory: WorkflowProgressUpdate["advisory"] = {};
+    const attempts = this.runs.attempts(run.id);
+    const finished = kind === "finished" || isTerminal(run.currentState) || run.currentState === "BLOCKED";
+    for (const role of ["scout", "archivist"] as const) {
+      const enabled = role === "scout" ? this.deps.config.scouting.enabled
+        : this.deps.config.memory.enabled && this.deps.config.memory.retainOnSuccess && this.deps.config.memory.archivist;
+      if (!enabled) continue;
+      const attempt = attempts.find((item) => item.role === role);
+      if (attempt) {
+        advisory[role] = attempt.status === "running" ? "running"
+          : attempt.status === "completed" && attempt.verdict === "advisory" ? "completed" : "failed";
+      } else {
+        const phasePassed = role === "scout" && (run.currentState !== "INIT" && run.currentState !== "PLAN"
+          || attempts.some((item) => item.role === "planner"));
+        advisory[role] = finished || phasePassed ? "skipped" : "pending";
+      }
+    }
+    try { await handler({ kind, run, advisory }); } catch { /* UI progress must never change workflow outcome. */ }
   }
   private async executeReview(run: RunRecord, signal: AbortSignal): Promise<RunRecord> {
     const reviewAttempts = this.runs.attemptsFor(run.id, "REVIEW").filter((attempt) => attempt.role === "review"); this.budget.assertRoleMayRun(run, "review", reviewAttempts.length, reviewAttempts.reduce((total, attempt) => total + attempt.tokens, 0), reviewAttempts.reduce((total, attempt) => total + attempt.requests, 0)); const before = await this.deps.revisions.current(); if (before.id !== run.currentRevisionId) return this.mutation(run, before.id, "REVIEW_EXTERNAL_MUTATION", "CHECKS"); if (!await this.validGate(run, "checks") || !await this.validGate(run, "security")) return this.transition(run, "CHECKS", "STALE_GATE_PASS_REJECTED");

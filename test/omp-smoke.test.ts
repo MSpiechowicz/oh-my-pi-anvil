@@ -33,7 +33,16 @@ function hasIsolatedHandoff(params: unknown): boolean {
 
 describe("OMP adapter", () => {
   test("records each child request by its serving model without counting result totals twice", async () => {
-    for (const isolated of [false, true]) {
+    for (const { role, agentName, isolated } of [
+      { role: "planner", agentName: "architect", isolated: false },
+      { role: "planner", agentName: "architect", isolated: true },
+      { role: "implementation", agentName: "smith", isolated: false },
+      { role: "implementation", agentName: "smith", isolated: true },
+      { role: "security", agentName: "sentinel", isolated: false },
+      { role: "review", agentName: "inquisitor", isolated: false },
+      { role: "scout", agentName: "scout", isolated: false },
+      { role: "archivist", agentName: "archivist", isolated: false },
+    ] as const) {
       const entries: Array<Record<string, unknown>> = [];
       let sessionId = "origin";
       const manager = {
@@ -50,40 +59,47 @@ describe("OMP adapter", () => {
         cost: { input: 0.1, output: 0.2, cacheRead: 0.3, cacheWrite: 0.4, total: 1 },
       };
       const finish = () => {
-        for (const [provider, model, stopReason] of [["first", "original", "error"], ["second", "fallback", "stop"]]) {
+        const progress = (provider: string, model: string, resolvedThinkingLevel: string) => bus.emit("task:subagent:progress", {
+          progress: { id: "native-child", resolvedModelIdentity: `${provider}/${model}`, resolvedThinkingLevel },
+        });
+        progress("first", "original", "auto");
+        for (const [provider, model, stopReason] of [["first", "original", "error"], ["second", "fallback", "stop"]] as const) {
           const message = { role: "assistant", provider, model, stopReason, usage };
-          bus.emit("task:subagent:event", { event: { type: "message_update", message } });
-          bus.emit("task:subagent:event", { event: { type: "message_end", message } });
-          bus.emit("task:subagent:event", { event: { type: "agent_end", messages: [message] } });
+          bus.emit("task:subagent:event", { id: "native-child", event: { type: "message_update", message } });
+          bus.emit("task:subagent:event", { id: "native-child", event: { type: "message_end", message } });
+          // Native executor publishes the serving model after the raw event.
+          progress(provider, model, provider === "first" ? "xhigh" : "high");
+          bus.emit("task:subagent:event", { id: "native-child", event: { type: "agent_end", messages: [message] } });
         }
         bus.emit("task:subagent:event", { event: { type: "message_end", message: { role: "toolResult", usage } } });
         return { exitCode: 1, aborted: true, usage: { ...usage, totalTokens: 34 } };
       };
-      const compat = createOmpCompat({ sessionManager: manager }, {
+      const compat = createOmpCompat({ sessionManager: manager, model: { provider: "parent", id: "model:low" } }, {
         Settings: { loadReadOnly: () => ({ get: () => ({}), override: () => {} }) },
-        discoverAgents: () => ({ agents: [{ name: "architect", tools: ["read"] }] }),
+        discoverAgents: () => ({ agents: [{ name: agentName, tools: ["read"] }] }),
         runSubprocess: (options: { eventBus: Bus }) => { bus = options.eventBus; return finish(); },
         TaskTool: { create: (session: { eventBus: Bus }) => {
           bus = session.eventBus;
           return { execute: () => ({ details: { results: [finish()] } }) };
         } },
       });
-      const result = await compat.execute!({ ...request, ...(isolated ? { isolation: { requested: true, apply: true, merge: "patch" as const } } : {}) });
+      const result = await compat.execute!({ ...request, role, agentName, thinkingLevel: "low", ...(isolated ? { isolation: { requested: true, apply: true, merge: "patch" as const } } : {}) });
       expect(result.status).toBe("aborted");
       expect(entries).toEqual([
-        { purpose: "forge", provider: "first", model: "original", usage },
-        { purpose: "forge", provider: "second", model: "fallback", usage },
+        { purpose: "forge", role, provider: "first", model: "original", usage, thinkingLevel: "xhigh" },
+        { purpose: "forge", role, provider: "second", model: "fallback", usage, thinkingLevel: "high" },
       ]);
       sessionId = "another-session";
       bus!.emit("task:subagent:event", { event: {
         type: "message_end", message: { role: "assistant", provider: "late", model: "response", usage },
       } });
+      await Promise.resolve();
       expect(entries.length).toBe(2);
     }
   });
 
   test("concurrent Smiths retain interleaved usage across models and sibling cancellation", async () => {
-    const entries: Array<{ model: string; usage: { totalTokens: number } }> = [];
+    const entries: Array<{ role: string; model: string; thinkingLevel: string | null; usage: { totalTokens: number } }> = [];
     const joined = Promise.withResolvers<void>();
     const firstFinished = Promise.withResolvers<void>();
     let started = 0;
@@ -91,31 +107,34 @@ describe("OMP adapter", () => {
       sessionManager: {
         getSessionId: () => "smith-batch",
         getLeafId: () => "origin",
-        appendModelUsage(entry: { model: string; usage: { totalTokens: number } }) { entries.push(entry); },
+        appendModelUsage(entry: typeof entries[number]) { entries.push(entry); },
       },
     }, {
       Settings: { loadReadOnly: () => ({ get: () => ({}), override: () => {} }) },
       discoverAgents: () => ({ agents: [{ name: "smith", tools: ["read", "edit"] }] }),
       async runSubprocess(options: { id: string; eventBus: { emit: (name: string, payload: unknown) => void } }) {
-        const emit = (model: string, totalTokens: number) => {
+        const emit = (model: string, totalTokens: number, resolvedThinkingLevel: string | undefined) => {
           options.eventBus.emit("task:subagent:event", { id: options.id, event: {
             type: "message_end",
             message: { role: "assistant", provider: "provider", model,
               usage: { input: totalTokens, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens,
                 cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } },
           } });
+          options.eventBus.emit("task:subagent:progress", {
+            progress: { id: options.id, resolvedModelIdentity: `provider/${model}`, resolvedThinkingLevel },
+          });
         };
-        emit("shared-model", options.id === "smith-a" ? 10 : 20);
+        emit("shared-model", options.id === "smith-a" ? 10 : 20, options.id === "smith-a" ? "high" : "xhigh");
         if (++started === 2) joined.resolve();
         await joined.promise;
         if (options.id === "smith-a") {
-          emit("fallback-model", 30);
+          emit("fallback-model", 30, "medium");
           firstFinished.resolve();
           return { exitCode: 0, structuredOutput: { status: "valid", data: { completed: true } },
             usage: { totalTokens: 40 } };
         }
         await firstFinished.promise;
-        emit("shared-model", 40);
+        emit("shared-model", 40, undefined);
         return { exitCode: 1, aborted: true, usage: { totalTokens: 60 } };
       },
     });
@@ -128,6 +147,128 @@ describe("OMP adapter", () => {
     for (const entry of entries) totals[entry.model] = (totals[entry.model] ?? 0) + entry.usage.totalTokens;
     expect(totals).toEqual({ "shared-model": 70, "fallback-model": 30 });
     expect(entries.length).toBe(4);
+    expect(entries.map(({ role, thinkingLevel, usage }) => [role, usage.totalTokens, thinkingLevel])).toEqual([
+      ["implementation", 10, "high"],
+      ["implementation", 20, "xhigh"],
+      ["implementation", 30, "medium"],
+      ["implementation", 40, null],
+    ]);
+  });
+
+  test("streams request thinking without leaking metadata across IDs, models, or unknown progress", async () => {
+    const entries: Array<Record<string, unknown>> = [];
+    let liveThinking: unknown[] = [];
+    const usage = { input: 1, output: 2, cacheRead: 3, cacheWrite: 4, totalTokens: 10,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
+    const compat = createOmpCompat({
+      model: { provider: "parent", id: "model:low" },
+      sessionManager: {
+        getSessionId: () => "origin",
+        getLeafId: () => "branch",
+        appendModelUsage(entry: Record<string, unknown>) { entries.push(entry); },
+      },
+    }, {
+      Settings: { loadReadOnly: () => ({ get: () => "low", override: () => {} }) },
+      discoverAgents: () => ({ agents: [{ name: "architect", tools: ["read"] }] }),
+      async runSubprocess({ eventBus }: { eventBus: { emit: (name: string, payload: unknown) => void } }) {
+        const progress = (id: string, resolvedModelIdentity: string | undefined, resolvedThinkingLevel: unknown) => {
+          eventBus.emit("task:subagent:progress", { progress: { id, resolvedModelIdentity, resolvedThinkingLevel } });
+        };
+        const end = (id: string | undefined, model = "original", provider = "serving") => {
+          eventBus.emit("task:subagent:event", { id, event: {
+            type: "message_end", message: { role: "assistant", provider, model, usage, stopReason: "error" },
+          } });
+        };
+        progress("a", "serving/original", "auto");
+        end("a");
+        progress("a", "serving/original", "xhigh");
+        end("a");
+        progress("a", "serving/original", "high");
+        await Promise.resolve();
+        // Two same-tick requests retain their own levels and are already live.
+        liveThinking = entries.map((entry) => entry.thinkingLevel);
+        end("b");
+        progress("a", "serving/original", "max");
+        end("a", "fallback");
+        progress("a", "serving/fallback", "off");
+        end("a", "original");
+        progress("a", "serving/fallback", "high");
+        end("a", "fallback", "other-provider");
+        end("a", "fallback");
+        progress("a", "serving/fallback", undefined);
+        end("a", "fallback");
+        progress("a", "serving/fallback", "auto");
+        end("a", "fallback");
+        progress("a", "serving/fallback", "invalid");
+        end("a", "fallback");
+        progress("a", undefined, "xhigh");
+        end(undefined);
+        progress("a", "serving/original", "xhigh");
+        eventBus.emit("task:subagent:lifecycle", { id: "a", status: "completed" });
+        eventBus.emit("task:subagent:lifecycle", { id: "a", status: "started" });
+        end("a");
+        await Promise.resolve();
+        // Stable serving metadata still works when the host coalesces progress.
+        progress("a", "serving/original", "minimal");
+        end("a");
+        await Promise.resolve();
+        end("a", "unreported-fallback");
+        end("a");
+        await Promise.resolve();
+        throw new Error("cancelled after emitted usage");
+      },
+    });
+    const result = await compat.execute!({ ...request, model: "configured/model:xhigh", thinkingLevel: "low" });
+    expect(result.status).toBe("failed");
+    expect(liveThinking).toEqual(["xhigh", "high"]);
+    expect(entries.map((entry) => entry.thinkingLevel)).toEqual([
+      "xhigh", "high", null, "off", null, null, null, null, null, null, null, null, "minimal", null, null,
+    ]);
+    expect(entries[12]).toEqual({ purpose: "forge", role: "planner", provider: "serving", model: "original", usage, thinkingLevel: "minimal" });
+  });
+
+  test("reports deferred usage writer failures through both native executor boundaries", async () => {
+    for (const isolated of [false, true]) {
+      for (const asynchronous of [false, true]) {
+        const failure = new Error("usage storage unavailable");
+        const compat = createOmpCompat({
+          sessionManager: {
+            getSessionId: () => "origin",
+            getLeafId: () => "branch",
+            appendModelUsage() {
+              if (asynchronous) {
+                const { promise, reject } = Promise.withResolvers<never>();
+                queueMicrotask(() => reject(failure));
+                return promise;
+              }
+              throw failure;
+            },
+          },
+        }, {
+          Settings: { loadReadOnly: () => ({ get: () => ({}), override: () => {} }) },
+          discoverAgents: () => ({ agents: [{ name: "architect", tools: ["read"] }] }),
+          runSubprocess: finish,
+          TaskTool: { create: (session: { eventBus: { emit: (name: string, payload: unknown) => void } }) => ({
+            execute: async () => ({ details: { results: [await finish(session)] } }),
+          }) },
+        });
+        async function finish({ eventBus }: { eventBus: { emit: (name: string, payload: unknown) => void } }) {
+          eventBus.emit("task:subagent:event", { id: "child", event: {
+            type: "message_end", message: {
+              role: "assistant", provider: "provider", model: "model", usage: { totalTokens: 1 },
+            },
+          } });
+          // Let the scheduled write run, rather than flushing via a later event.
+          await Promise.resolve();
+          return { exitCode: 0, structuredOutput: { status: "valid", data: { completed: true } } };
+        }
+        const result = await compat.execute!({
+          ...request, ...(isolated ? { isolation: { requested: true, apply: true, merge: "patch" as const } } : {}),
+        });
+        expect(result.status).toBe("failed");
+        expect(result.error).toEqual({ code: "OMP_TASK_EXECUTION_FAILED", message: failure.message });
+      }
+    }
   });
 
   test("retains unresolved inheritance as null in the effective snapshot", async () => {

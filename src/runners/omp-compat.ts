@@ -9,6 +9,7 @@ export interface OmpCompat {
 type AnyRecord = Record<string, unknown>;
 type NativeSettings = AnyRecord & { get: (path: string) => unknown; override?: (path: string, value: unknown) => void };
 type NativeTaskTool = { execute: (toolCallId: string, params: unknown, signal?: AbortSignal) => Promise<unknown> };
+type NativeUsageBus = { emit: (name: string, payload: unknown) => void; settle: () => Promise<void> };
 
 const READ_ONLY_TOOL_NAMES: Record<string, true> = {
   read: true,
@@ -38,6 +39,16 @@ const ADVISORY_TOOL_NAMES: Record<string, true> = {
 // These are inspection capabilities, not a sandbox: the gate still rejects
 // repository mutations and the assignment forbids unauthorized remote writes.
 const VALIDATION_TOOL_NAMES: Record<string, true> = { bash: true, eval: true, github: true };
+
+const CONCRETE_THINKING_LEVELS: Record<string, true> = {
+  off: true,
+  minimal: true,
+  low: true,
+  medium: true,
+  high: true,
+  xhigh: true,
+  max: true,
+};
 
 function asRecord(value: unknown): AnyRecord | undefined {
   if (value === null || (typeof value !== "object" && typeof value !== "function") || Array.isArray(value)) return undefined;
@@ -164,7 +175,7 @@ function effectiveAgent(agent: AnyRecord, request: AgentRunRequest): AnyRecord {
   return { ...agent, tools };
 }
 
-function nativeUsageBus(context: unknown): AnyRecord | undefined {
+function nativeUsageBus(context: unknown, request: AgentRunRequest): NativeUsageBus | undefined {
   const manager = asRecord(asRecord(context)?.sessionManager);
   if (!manager || typeof manager.appendModelUsage !== "function" ||
     typeof manager.getSessionId !== "function" || typeof manager.getLeafId !== "function") return undefined;
@@ -174,22 +185,87 @@ function nativeUsageBus(context: unknown): AnyRecord | undefined {
     sessionId: invoke(manager, "getSessionId", []),
     parentId: invoke(manager, "getLeafId", []),
   };
+  const metadata = new Map<string, { modelIdentity: string | undefined; thinkingLevel: string | null }>();
+  let pending: { id: string | undefined; entry: AnyRecord } | undefined;
+  const writes = new Set<Promise<void>>();
+  let failure: { error: unknown } | undefined;
+  const flush = () => {
+    if (!pending) return;
+    const { entry } = pending;
+    pending = undefined;
+    try {
+      const result = invoke(manager, "appendModelUsage", [entry, target]);
+      if (typeof asRecord(result)?.then === "function") {
+        const write = Promise.resolve(result).then(
+          () => { writes.delete(write); },
+          (error: unknown) => { failure ??= { error }; writes.delete(write); },
+        );
+        writes.add(write);
+      }
+    } catch (error) {
+      failure ??= { error };
+    }
+  };
+  const thinkingFor = (id: string | undefined, provider: string, model: string): string | null => {
+    const resolved = id ? metadata.get(id) : undefined;
+    return resolved?.modelIdentity === `${provider}/${model}` ? resolved.thinkingLevel : null;
+  };
   return {
+    async settle() {
+      flush();
+      while (writes.size > 0) await Promise.all(writes);
+      if (failure) throw failure.error;
+    },
     emit(name: string, payload: unknown) {
+      const record = asRecord(payload);
+      if (name === "task:subagent:progress") {
+        const progress = asRecord(record?.progress);
+        const id = stringValue(progress?.id);
+        if (!id) return;
+        const level = progress?.resolvedThinkingLevel;
+        metadata.set(id, {
+          modelIdentity: stringValue(progress?.resolvedModelIdentity),
+          thinkingLevel: typeof level === "string" && CONCRETE_THINKING_LEVELS[level] === true ? level : null,
+        });
+        if (pending?.id === id) {
+          pending.entry.thinkingLevel = thinkingFor(id, pending.entry.provider as string, pending.entry.model as string);
+        }
+        return;
+      }
+      if (name === "task:subagent:lifecycle") {
+        flush();
+        const id = stringValue(record?.id);
+        if (id) metadata.delete(id);
+        return;
+      }
       if (name !== "task:subagent:event") return;
-      const event = asRecord(asRecord(payload)?.event);
+      // The host emits the raw event before publishing its serving metadata.
+      // Seal the previous event before another event can change its attribution.
+      flush();
+      const id = stringValue(record?.id);
+      const event = asRecord(record?.event);
       const message = asRecord(event?.message);
       if (event?.type !== "message_end" || message?.role !== "assistant") return;
       const usage = asRecord(message.usage);
       const provider = stringValue(message.provider);
       const model = stringValue(message.model);
       if (!usage || !provider || !model) return;
-      invoke(manager, "appendModelUsage", [{ purpose: "forge", provider, model, usage }, target]);
+      // An observed model transition invalidates earlier evidence even when an
+      // older host omits the corresponding progress update.
+      if (id && metadata.get(id)?.modelIdentity !== `${provider}/${model}`) metadata.delete(id);
+      const current = {
+        id,
+        entry: { purpose: "forge", role: request.role, provider, model, usage, thinkingLevel: thinkingFor(id, provider, model) },
+      };
+      pending = current;
+      // Observe synchronous serving-model/auto-effort updates, without waiting
+      // for task settlement or retaining a run's usage in memory.
+      queueMicrotask(() => { if (pending === current) flush(); });
     },
   };
 }
 
-function nativeExecutorOptions(context: unknown, request: AgentRunRequest, agent: AnyRecord, settings: NativeSettings): AnyRecord {
+function nativeExecutorOptions(context: unknown, request: AgentRunRequest, agent: AnyRecord, settings: NativeSettings, eventBus: NativeUsageBus | undefined): AnyRecord {
   const contextRecord = asRecord(context);
   const options: AnyRecord = {
     cwd: request.cwd,
@@ -211,7 +287,7 @@ function nativeExecutorOptions(context: unknown, request: AgentRunRequest, agent
     keepAlive: false,
     parentAgentId: "Main",
     sessionFile: null,
-    eventBus: nativeUsageBus(context),
+    eventBus,
     signal: request.signal,
     settings,
     modelOverride: requestModel(request),
@@ -227,14 +303,14 @@ function nativeExecutorOptions(context: unknown, request: AgentRunRequest, agent
   return options;
 }
 
-function nativeTaskSession(context: unknown, request: AgentRunRequest, settings: NativeSettings): AnyRecord {
+function nativeTaskSession(context: unknown, request: AgentRunRequest, settings: NativeSettings, eventBus: NativeUsageBus | undefined): AnyRecord {
   const contextRecord = asRecord(context);
   const session: AnyRecord = {
     cwd: request.cwd,
     hasUI: false,
     canPromptUser: false,
     settings,
-    eventBus: nativeUsageBus(context),
+    eventBus,
     getSessionFile: () => null,
     getSessionSpawns: () => "*",
     enableLsp: true,
@@ -354,8 +430,13 @@ async function executeNativeSubprocess<T>(context: unknown, host: AnyRecord, req
   }
   const settings = await loadSettings(host, request.cwd);
   configureSettings(settings, request);
-  const raw = await invoke<unknown>(host, "runSubprocess", [nativeExecutorOptions(context, request, agent, settings)]);
-  return mapNativeResult<T>(request, raw);
+  const eventBus = nativeUsageBus(context, request);
+  try {
+    const raw = await invoke<unknown>(host, "runSubprocess", [nativeExecutorOptions(context, request, agent, settings, eventBus)]);
+    return mapNativeResult<T>(request, raw);
+  } finally {
+    await eventBus?.settle();
+  }
 }
 
 async function createNativeTaskTool(host: AnyRecord, session: AnyRecord): Promise<NativeTaskTool> {
@@ -373,19 +454,24 @@ async function createNativeTaskTool(host: AnyRecord, session: AnyRecord): Promis
 async function executeNativeTask<T>(context: unknown, host: AnyRecord, request: AgentRunRequest): Promise<AgentRunResult<T>> {
   const settings = await loadSettings(host, request.cwd);
   configureSettings(settings, request);
-  const task = await createNativeTaskTool(host, nativeTaskSession(context, request, settings));
-  const handoff = request.context?.trim();
-  const assignment = handoff ? `${request.assignment.trim()}\n\nForge handoff:\n${handoff}` : request.assignment.trim();
-  const params: AnyRecord = {
-    agent: request.agentName,
-    task: assignment,
-    outputSchema: request.outputSchema,
-    schemaMode: request.schemaMode,
-  };
-  if (request.model != null) params.model = requestModel(request);
-  if (request.effort != null) params.effort = request.effort;
-  if (request.isolation?.requested) params.isolated = true;
-  return mapNativeResult<T>(request, await task.execute(`anvil-${request.attemptId}`, params, request.signal));
+  const eventBus = nativeUsageBus(context, request);
+  try {
+    const task = await createNativeTaskTool(host, nativeTaskSession(context, request, settings, eventBus));
+    const handoff = request.context?.trim();
+    const assignment = handoff ? `${request.assignment.trim()}\n\nForge handoff:\n${handoff}` : request.assignment.trim();
+    const params: AnyRecord = {
+      agent: request.agentName,
+      task: assignment,
+      outputSchema: request.outputSchema,
+      schemaMode: request.schemaMode,
+    };
+    if (request.model != null) params.model = requestModel(request);
+    if (request.effort != null) params.effort = request.effort;
+    if (request.isolation?.requested) params.isolated = true;
+    return mapNativeResult<T>(request, await task.execute(`anvil-${request.attemptId}`, params, request.signal));
+  } finally {
+    await eventBus?.settle();
+  }
 }
 
 export function createOmpCompat(context: unknown, host?: unknown): OmpCompat {

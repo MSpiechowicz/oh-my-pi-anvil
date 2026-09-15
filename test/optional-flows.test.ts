@@ -6,7 +6,7 @@ import { WorkflowEngine } from "../src/workflow/engine.ts";
 import { StateDatabase } from "../src/state/database.ts";
 import { ArtifactStore } from "../src/state/artifact-store.ts";
 import { StaticRevisionProvider } from "../src/git/revision.ts";
-import type { AgentRunner, AgentRunRequest, MemoryAdapter, WorkflowConfig } from "../src/workflow/types.ts";
+import type { AgentRunner, AgentRunRequest, MemoryAdapter, WorkflowConfig, WorkflowProgressUpdate } from "../src/workflow/types.ts";
 
 const plan = {
   version: 1,
@@ -109,10 +109,13 @@ async function fixture(
 
 test("optional specialists provide persisted reconnaissance and curate only after verification", async () => {
   const retained: unknown[] = [];
+  const progress: WorkflowProgressUpdate[] = [];
+  const executionProgress: Array<{ role: string; advisory: WorkflowProgressUpdate["advisory"] }> = [];
   const f = await fixture((config) => {
     config.budgets.perRole.planner = { maxAttempts: 1 };
     config.budgets.perRole.review = { maxAttempts: 1 };
   }, async (request) => {
+    executionProgress.push({ role: request.role, advisory: progress.at(-1)?.advisory });
     const context = JSON.parse(request.context!);
     if (request.role === "planner") {
       const pointer = context.evidence.find((item: { kind: string }) => item.kind === "scout-reconnaissance").artifact;
@@ -134,17 +137,39 @@ test("optional specialists provide persisted reconnaissance and curate only afte
     },
   });
   try {
-    const result = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root });
+    const result = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root, progress: (update) => { progress.push(update); } });
     expect(result.run.currentState).toBe("DONE");
     expect(f.requests.map((request) => request.role)).toEqual(["scout", "planner", "implementation", "security", "review", "archivist"]);
     expect(result.run.usedRequests).toBe(6);
     expect(retained).toEqual([lesson]);
+    expect(progress.filter((update) => update.kind !== "stage").map((update) => ({ kind: update.kind, advisory: update.advisory }))).toEqual([
+      { kind: "started", advisory: { scout: "pending", archivist: "pending" } },
+      { kind: "finished", advisory: { scout: "completed", archivist: "completed" } },
+    ]);
+    expect(executionProgress).toEqual([
+      { role: "scout", advisory: { scout: "running", archivist: "pending" } },
+      { role: "planner", advisory: { scout: "completed", archivist: "pending" } },
+      { role: "implementation", advisory: { scout: "completed", archivist: "pending" } },
+      { role: "security", advisory: { scout: "completed", archivist: "pending" } },
+      { role: "review", advisory: { scout: "completed", archivist: "pending" } },
+      { role: "archivist", advisory: { scout: "completed", archivist: "running" } },
+    ]);
+    expect(progress.filter((update) => update.kind === "stage" && (
+      update.run.currentState === "PLAN" && update.advisory?.scout !== "pending"
+      || update.run.currentState === "REVIEW" && update.advisory?.archivist !== "pending"
+    )).map((update) => ({ state: update.run.currentState, advisory: update.advisory }))).toEqual([
+      { state: "PLAN", advisory: { scout: "running", archivist: "pending" } },
+      { state: "PLAN", advisory: { scout: "completed", archivist: "pending" } },
+      { state: "REVIEW", advisory: { scout: "completed", archivist: "running" } },
+      { state: "REVIEW", advisory: { scout: "completed", archivist: "completed" } },
+    ]);
   } finally {
     await f.close();
   }
 });
 
 test("optional failures and unavailable memory cannot fail verified work", async () => {
+  const progress: WorkflowProgressUpdate[] = [];
   const f = await fixture(undefined, async (request) => {
     if (request.role === "scout" || request.role === "archivist") throw new Error("Provider unavailable");
     return outputs[request.role];
@@ -157,10 +182,16 @@ test("optional failures and unavailable memory cannot fail verified work", async
     },
   });
   try {
-    const result = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root });
+    const result = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root, progress: (update) => { progress.push(update); } });
     expect(result.run.currentState).toBe("DONE");
     expect(result.attempts.filter((attempt) => attempt.role === "scout" || attempt.role === "archivist").map((attempt) => attempt.status))
       .toEqual(["failed", "failed"]);
+    expect(progress.at(-1)?.advisory).toEqual({ scout: "failed", archivist: "failed" });
+    for (const role of ["scout", "archivist"] as const) {
+      expect(progress.some((update) => update.kind === "stage" && update.advisory?.[role] === "running")).toBe(true);
+      expect(progress.some((update) => update.kind === "stage" && update.advisory?.[role] === "failed")).toBe(true);
+      expect(progress.some((update) => update.advisory?.[role] === "completed")).toBe(false);
+    }
   } finally {
     await f.close();
   }
@@ -255,17 +286,23 @@ test("persisted Smith lessons survive engine replacement and retention errors re
 });
 
 test("Scout usage blocks planning at the budget boundary and is reused after resume", async () => {
+  const progress: WorkflowProgressUpdate[] = [];
   const f = await fixture((config) => {
     config.budgets.maxTotalRequests = 1;
   });
   try {
-    const blocked = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root });
+    const blocked = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root, progress: (update) => { progress.push(update); } });
     expect(blocked.run.currentState).toBe("BLOCKED");
     expect(f.requests.map((request) => request.role)).toEqual(["scout"]);
+    expect(progress.at(-1)?.advisory).toEqual({ scout: "completed", archivist: "skipped" });
+    progress.length = 0;
     f.config.budgets.maxTotalRequests = 20;
-    const completed = await f.engine.resume(blocked.run.id);
+    const completed = await f.engine.resume(blocked.run.id, (update) => { progress.push(update); });
     expect(completed.run.currentState).toBe("DONE");
     expect(f.requests.filter((request) => request.role === "scout").length).toBe(1);
+    expect(progress[0].advisory).toEqual({ scout: "completed", archivist: "pending" });
+    expect(progress.some((update) => update.advisory?.scout === "running")).toBe(false);
+    expect(progress.at(-1)?.advisory).toEqual({ scout: "completed", archivist: "completed" });
   } finally {
     await f.close();
   }
@@ -273,18 +310,84 @@ test("Scout usage blocks planning at the budget boundary and is reused after res
 
 test("Scout and Archivist can be disabled independently without skipping verification", async () => {
   for (const disabled of ["scout", "archivist"] as const) {
+    const progress: WorkflowProgressUpdate[] = [];
     const f = await fixture((config) => {
       if (disabled === "scout") config.scouting.enabled = false;
       else config.memory.archivist = false;
     });
     try {
-      const result = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root });
+      const result = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root, progress: (update) => { progress.push(update); } });
       expect(result.run.currentState).toBe("DONE");
       expect(f.requests.map((request) => request.role)).toEqual(
         ["scout", "planner", "implementation", "security", "review", "archivist"].filter((role) => role !== disabled),
       );
+      expect(progress.every((update) => !Object.hasOwn(update.advisory ?? {}, disabled))).toBe(true);
+      const enabled = disabled === "scout" ? "archivist" : "scout";
+      expect(progress[0].advisory).toEqual({ [enabled]: "pending" });
+      expect(progress.at(-1)?.advisory).toEqual({ [enabled]: "completed" });
     } finally {
       await f.close();
     }
+  }
+});
+
+test("enabled specialists without attempts become skipped rather than completed", async () => {
+  const progress: WorkflowProgressUpdate[] = [];
+  const f = await fixture((config) => {
+    config.budgets.perRole.scout = { maxAttempts: 0 };
+    config.budgets.perRole.archivist = { maxAttempts: 0 };
+  });
+  try {
+    const result = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root, progress: (update) => { progress.push(update); } });
+    expect(result.run.currentState).toBe("DONE");
+    expect(f.requests.map((request) => request.role)).toEqual(["planner", "implementation", "security", "review"]);
+    expect(progress[0].advisory).toEqual({ scout: "pending", archivist: "pending" });
+    expect(progress.find((update) => update.run.currentState === "IMPLEMENT")?.advisory).toEqual({ scout: "skipped", archivist: "pending" });
+    expect(progress.at(-1)?.advisory).toEqual({ scout: "skipped", archivist: "skipped" });
+  } finally {
+    await f.close();
+  }
+});
+
+test("resumed progress does not mistake executor completion for accepted advisory output", async () => {
+  const progress: WorkflowProgressUpdate[] = [];
+  const f = await fixture((config) => {
+    config.budgets.maxTotalRequests = 1;
+  });
+  try {
+    const blocked = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root });
+    expect(blocked.run.currentState).toBe("BLOCKED");
+    const scout = blocked.attempts.find((attempt) => attempt.role === "scout")!;
+    f.state.db.run("UPDATE attempts SET verdict = NULL WHERE id = ?", [scout.id]);
+    f.config.budgets.maxTotalRequests = 20;
+    const result = await f.engine.resume(blocked.run.id, (update) => { progress.push(update); });
+    expect(result.run.currentState).toBe("DONE");
+    expect(progress[0].advisory).toEqual({ scout: "failed", archivist: "pending" });
+    expect(progress.at(-1)?.advisory).toEqual({ scout: "failed", archivist: "completed" });
+    expect(f.requests.filter((request) => request.role === "scout").length).toBe(1);
+  } finally {
+    await f.close();
+  }
+});
+
+test("recovery reports an interrupted Scout as failed without retrying it", async () => {
+  const progress: WorkflowProgressUpdate[] = [];
+  const f = await fixture((config) => {
+    config.budgets.maxTotalRequests = 1;
+  });
+  try {
+    const blocked = await f.engine.start({ objective: "Change safely", workspaceRoot: f.root });
+    expect(blocked.run.currentState).toBe("BLOCKED");
+    const scout = blocked.attempts.find((attempt) => attempt.role === "scout")!;
+    f.state.db.run("UPDATE attempts SET status = 'running', verdict = NULL, ended_at = NULL WHERE id = ?", [scout.id]);
+    f.config.budgets.maxTotalRequests = 20;
+    const result = await f.engine.resume(blocked.run.id, (update) => { progress.push(update); });
+    expect(result.run.currentState).toBe("DONE");
+    expect(result.attempts.find((attempt) => attempt.id === scout.id)?.status).toBe("interrupted");
+    expect(progress[0].advisory).toEqual({ scout: "failed", archivist: "pending" });
+    expect(progress.at(-1)?.advisory).toEqual({ scout: "failed", archivist: "completed" });
+    expect(f.requests.filter((request) => request.role === "scout").length).toBe(1);
+  } finally {
+    await f.close();
   }
 });

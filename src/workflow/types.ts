@@ -31,6 +31,7 @@ export type WorkflowProgressKind = "started" | "stage" | "finished";
 export interface WorkflowProgressUpdate {
   kind: WorkflowProgressKind;
   run: RunRecord;
+  advisory?: Partial<Record<"scout" | "archivist", "pending" | "running" | "completed" | "failed" | "skipped">>;
 }
 export type WorkflowProgressHandler = (update: WorkflowProgressUpdate) => void | Promise<void>;
 

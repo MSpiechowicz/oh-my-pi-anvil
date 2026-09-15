@@ -18,6 +18,10 @@ These are instruction-restricted inspection roles, not execution sandboxes. Shel
 
 On native hosts exposing `sessionManager.appendModelUsage` (verified with OMP 18.2.0), Forge records each child assistant `message_end` usage event as a parent-session `model_usage` entry. Both subprocess and isolated TaskTool execution use this bridge. Entries preserve the request's actual provider, model, token/cache counters, and cost, including reported usage from failed or cancelled requests and requests before a model fallback. Aggregate task results are not recorded again.
 
+Each entry also carries the logical Forge `role` and a top-level `thinkingLevel`. Thinking comes only from native per-agent progress whose `resolvedModelIdentity` matches the request's actual provider/model; concrete levels include `off`, while absent, invalid, or unresolved `auto` metadata is recorded as `null`. The bridge waits at most until the next raw event or a microtask so the host's synchronous serving-model update after a raw event can attribute that request correctly, including auto effort and fallback changes. It never changes the parent's thinking selector or model, and does not infer child thinking from configuration, model suffixes, or final task totals.
+
+Native execution waits for any outstanding usage writes before settling. A synchronous writer exception or asynchronous rejection is reported through the adapter's normal execution-failure result, rather than escaping the deferred flush as an unhandled error or reporting success with failed persistence.
+
 The usage dashboard consumes these standard session entries without a dashboard-specific API or database write from Forge. Entries are bound to the originating session and branch; late events cannot be charged to a different active session. Hosts without the native session writer retain Forge's run-local usage accounting only. This does not backfill historical runs or recover usage that the host never emitted.
 
 ## Agent output contracts
