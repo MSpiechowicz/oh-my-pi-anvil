@@ -445,6 +445,7 @@ test("run reports attribute shared-stage attempts to their actual roles", () => 
       { state: "REVIEW", role: "archivist" },
     ],
     findings: [],
+    events: [],
   } as unknown as RunSummary;
   const counts = (report: string): Record<string, number> => Object.fromEntries(
     [...report.matchAll(/^\s+(\w+)\s+[━·]+\s+(\d+) attempts?$/gm)].map((match) => [match[1], Number(match[2])]),
