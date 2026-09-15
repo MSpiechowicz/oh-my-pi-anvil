@@ -14,7 +14,7 @@
   <img src="assets/anvil-team.webp" alt="The Anvil team in the Forge" width="100%" />
 </p>
 
-Anvil is an OMP extension for taking a software objective from a written plan to a verified workspace revision. The user-facing workflow command is **`/forge`**; **`/anvil`** handles configuration, diagnostics, run management, and updates. Behind those commands, Anvil runs a deterministic, persistent workflow engine that coordinates the **Architect**, **Smith**, **Warden**, **Sentinel**, and **Inquisitor**.
+Anvil is an OMP extension for taking a software objective from a written plan to a verified workspace revision. The user-facing workflow command is **`/forge`**; **`/anvil`** handles configuration, diagnostics, run management, and updates. Behind those commands, Anvil runs a deterministic, persistent workflow engine that coordinates the **Architect**, **Smith**, **Warden**, **Sentinel**, and **Inquisitor**, with optional **Scout** reconnaissance and **Archivist** knowledge retention enabled by default.
 
 Unlike prompt-only agent chains, the Forge records state and evidence as it works. Findings return to the Smith for correction, every code mutation invalidates earlier verification, and a run is only **Sealed** when checks, security, and review pass against the same workspace revision.
 
@@ -33,14 +33,16 @@ Unlike prompt-only agent chains, the Forge records state and evidence as it work
 
 Gates remain ordered, but implementation can fan out. Architect can propose one or more Smith tasks with explicit ownership, dependencies, and acceptance criteria. Independent tasks run concurrently; overlapping or dependent work stays sequential. Warden failures and Sentinel/Inquisitor findings use the same dispatch path: reviewers may propose repair tasks, otherwise Architect decomposes the open findings. Every gate evaluates the combined current revision, never a partially finished Smith batch.
 
+Scout runs before Architect inside `PLAN`; Archivist runs after a passing review, before sealing inside `REVIEW`. Both are advisory, not additional correctness gates. Disabled roles are skipped; Archivist also requires memory and successful-run retention to be enabled.
+
 <p align="center">
-  <img src="assets/diagrams/forge-lifecycle.svg" alt="Forge lifecycle: Architect plans, Smith mutates, Warden checks, Sentinel audits security, Inquisitor reviews, and Sealed is reached only when exact-revision gates pass." width="100%" />
+  <img src="assets/diagrams/forge-lifecycle.svg" alt="Forge lifecycle: optional Scout reconnaissance, Architect planning, Smith implementation, Warden checks, Sentinel security, Inquisitor review, optional Archivist retention, then Sealed. Advisory roles do not replace exact-revision gates." width="100%" />
 </p>
 
 The correction path is never a shortcut around verification:
 
 <p align="center">
-  <img src="assets/diagrams/forge-correction-loop.svg" alt="Forge correction loop: a failure or finding returns to Smith, then passes through Warden, Sentinel, and Inquisitor again." width="100%" />
+  <img src="assets/diagrams/forge-correction-loop.svg" alt="Forge correction loop: failures or findings dispatch Smith repairs using reviewer tasks or Architect decomposition, followed by exact-revision verification. Scout is not repeated; optional Archivist retention happens before sealing." width="100%" />
 </p>
 
 Every Smith source mutation starts the gate sequence again. Verification-only work can reuse valid Warden/Sentinel passes when revision, policy, mutation epoch, and evidence dependencies remain valid; the gate that raised a finding runs again. Reviewers verify before-and-after workspace fingerprints, so a source mutation during security or review cannot be mistaken for a pass.
@@ -284,11 +286,13 @@ Memory is bounded, best-effort context for Architect and Smith, not a source of 
 
 ## Persistence and recovery
 
-Runtime state lives under `.anvil/` by default.
+**Anvil stores its workflow state and run evidence locally, on the machine running OMP.** The default location is `.anvil/` under the workspace root. Set `persistence.root` to change it: relative paths resolve against the workspace; absolute paths are used directly.
 
-[![Anvil artifact directory tree, including Scout reconnaissance and Archivist lessons](assets/diagrams/forge-artifacts.svg)](assets/diagrams/forge-artifacts.svg?raw=1)
+Local persistence does **not** mean an entirely offline workflow. Agent requests go through OMP to your configured model providers, and durable memory uses OMP's configured backend. See [Data storage and privacy](#data-storage-and-privacy) below for those boundaries.
 
-[Open the full-size SVG](assets/diagrams/forge-artifacts.svg?raw=1), then use browser zoom (`Ctrl`/`Cmd` + `+`) to enlarge it without losing detail.
+[![Anvil artifact directory tree, including Scout reconnaissance and Archivist lessons](assets/diagrams/forge-artifacts.svg)](assets/diagrams/forge-artifacts.svg)
+
+[Open the full-size diagram](assets/diagrams/forge-artifacts.svg). On GitHub, this opens the SVG file page; use its Raw/download control to view or save the original SVG and zoom without losing detail.
 
 <details>
 <summary>Text version of the artifact tree</summary>
@@ -324,6 +328,26 @@ Directories and reports are created as needed. Scout and Archivist reports are p
 SQLite is authoritative for workflow state. Artifacts are hashed and written atomically. Runtime files are excluded from the workspace revision; source edits are not.
 
 Each agent invocation retains `artifacts/<role>/output-<attempt-sequence>.json`, including model, thinking level, duration, result, and usage. Smith additionally writes a revision/epoch-bound `artifacts/implementation/<attempt-id>/result.json` and captured supporting files. Warden results use `artifacts/checks/attempt-<attempt-sequence>.json`; gate dependency manifests preserve the evidence used for reuse decisions. Planner outputs are attempt-scoped so replanning does not overwrite earlier gate inputs.
+
+### Data storage and privacy
+
+| Data | Storage and purpose |
+| --- | --- |
+| Workflow state | Local `.anvil/anvil.db` SQLite database: runs, attempts, events, findings, gate results, usage, and artifact metadata. SQLite uses WAL mode, so companion `anvil.db-wal` / `anvil.db-shm` files may also exist. |
+| Run inputs and evidence | Local `.anvil/runs/<run-id>/`: objective, effective configuration, agent handoffs and outputs, plans, Scout/Archivist reports, Smith evidence, check stdout/stderr, review reports, diffs, and full baseline/target workspace snapshots. |
+| Workspace coordination | Local `.anvil/lock.json` prevents competing mutating runs in the workspace. |
+| Anvil settings | Global `$XDG_CONFIG_HOME/omp/anvil.yml` (otherwise `~/.config/omp/anvil.yml`) and optional project `.omp/anvil.yml`. Each run saves its effective settings for recovery. |
+| Durable lessons | Sent through OMP's native memory API to the host-configured backend, **not necessarily stored under `.anvil/` or on this machine**. Backend storage, synchronization, and retention policies apply. |
+
+**What can leave the machine:** OMP sends agent prompts, supplied context, and tool results to the selected model provider. These can contain objective text, source code, diffs, findings, and recalled lessons. Memory searches send a query to the configured memory backend; successful-run retention sends filtered lessons with run context. Agent tools and configured verification commands can also access network services. Choose local model and memory backends, and control tool/command network access, if you require an offline workflow; Anvil's local database alone does not provide that guarantee.
+
+**Sensitive data:** the database and artifacts are ordinary local files; Anvil does not encrypt them at rest. Artifact hashes verify integrity, not confidentiality. Treat the runtime directory as potentially containing private source code, credentials emitted by commands, and sensitive model output. Keep `.anvil/` (or your custom `persistence.root`) out of version control and public uploads; exclusion from Anvil's revision fingerprint is not a Git ignore rule. Use filesystem permissions and disk encryption appropriate to your project, and review artifacts before sharing them.
+
+**Retention and removal:** run evidence remains on disk after a run ends; Anvil has no automatic run-history expiry. To back up or remove local history, first stop active runs and close OMP instances using that workspace, then back up or remove the whole configured runtime directory, including the SQLite database and any WAL files. Removing it loses local run history and resume capability, not source changes. It does not delete OMP sessions, model-provider records, or lessons in the configured memory backend; manage those separately through their respective retention controls.
+
+Set `memory.enabled: false` to disable Anvil memory recall and retention (and Archivist). Set only `memory.retainOnSuccess: false` to stop saving new lessons while allowing recall. Neither option disables local workflow evidence or model-provider requests.
+
+### Recovery behavior
 
 Recovery is state-aware:
 

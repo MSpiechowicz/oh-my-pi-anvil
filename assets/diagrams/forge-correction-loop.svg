@@ -1,49 +1,100 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 250" role="img" aria-labelledby="title desc">
-  <title id="title">Anvil Forge correction loop</title>
-  <desc id="desc">A failure or finding goes to Smith for a fix, then passes through Warden, Sentinel, and Inquisitor again.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 1220" role="img" aria-labelledby="title desc">
+  <title id="title">Anvil Forge correction dispatch and re-verification</title>
+  <desc id="desc">Scout is an optional, default-on, read-only advisory role attempted once before Architect in PLAN; correction dispatch does not repeat Scout. Warden failures or blocking Sentinel or Inquisitor findings return to IMPLEMENT. Dispatch uses current validated reviewer repair tasks when available; otherwise Architect decomposes all persisted open findings against the active plan. Smith applies the repairs, with independent tasks eligible for fan-out and a completion barrier before gates inspect the combined revision. Warden, Sentinel, and Inquisitor verify the corrected revision. Further failures or blocking findings return to dispatch. After successful review, within REVIEW and before sealing, optional default-on Archivist attempts read-only curation once if memory.enabled, memory.retainOnSuccess, and memory.archivist are true. Advisory roles add no correctness gate; any workspace mutation invalidates prior gate evidence.</desc>
   <style>
     .surface { fill: #171b22; }
+    .phase { fill: none; stroke: #394555; stroke-width: 1.5; }
     .node { fill: #202732; stroke: #627186; stroke-width: 2; }
+    .gate { fill: #293342; }
     .finding { stroke: #e88c8c; }
-    .title { fill: #edf2f7; font: 700 19px system-ui, -apple-system, sans-serif; }
-    .subtitle { fill: #a8b4c3; font: 13px system-ui, -apple-system, sans-serif; }
-    .label { fill: #a8b4c3; font: 600 13px system-ui, -apple-system, sans-serif; letter-spacing: .08em; }
-    .flow { fill: none; stroke: #627186; stroke-width: 3; marker-end: url(#arrow); }
-    .arrow { fill: #627186; }
+    .advisory { stroke-dasharray: 6 5; }
+    .terminal { fill: #e0b36a; stroke: #e0b36a; }
+    .terminal-text { fill: #171b22; font: 700 17px system-ui, -apple-system, sans-serif; }
+    .title { fill: #edf2f7; font: 700 22px system-ui, -apple-system, sans-serif; }
+    .small-title { fill: #edf2f7; font: 700 19px system-ui, -apple-system, sans-serif; }
+    .subtitle { fill: #a8b4c3; font: 15px system-ui, -apple-system, sans-serif; }
+    .label { fill: #a8b4c3; font: 600 14px system-ui, -apple-system, sans-serif; }
+    .warn { fill: #e88c8c; }
+    .flow { fill: none; stroke: #627186; stroke-width: 2.5; marker-end: url(#arrow); }
+    .join { fill: none; stroke: #627186; stroke-width: 2.5; }
   </style>
   <defs>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-      <path class="arrow" d="M0,0 L10,5 L0,10 Z" />
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto">
+      <path fill="#627186" d="M0,0 L8,4 L0,8 Z" />
     </marker>
   </defs>
 
-  <rect class="surface" width="1200" height="250" rx="18" />
-  <text class="label" x="40" y="38">CORRECTION LOOP · NO SHORTCUTS AROUND VERIFICATION</text>
+  <rect class="surface" width="840" height="1220" rx="18" />
+  <text class="label" x="32" y="40">CORRECTION LOOP · NO SHORTCUTS AROUND VERIFICATION</text>
+  <rect class="node advisory" x="32" y="64" width="776" height="62" rx="12" />
+  <text class="subtitle" x="420" y="89" text-anchor="middle">Scout: once before Architect in PLAN · optional, default on · read-only advisory</text>
+  <text class="label" x="420" y="112" text-anchor="middle">NOT REPEATED DURING CORRECTIONS · NOT A CORRECTNESS GATE</text>
 
-  <path class="flow" d="M210 134 H250" />
-  <path class="flow" d="M470 134 H510" />
-  <path class="flow" d="M730 134 H770" />
-  <path class="flow" d="M990 134 H1030" />
+  <path class="flow" d="M420 236 V272" />
+  <path class="join" d="M254 416 V450 H586 V416" />
+  <path class="flow" d="M420 450 V508" />
+  <path class="flow" d="M420 608 V644 H172 V684" />
+  <path class="flow" d="M272 738 H320" />
+  <path class="flow" d="M520 738 H568" />
+  <path class="flow" d="M668 792 V824 H420 V892" />
+  <path class="flow" d="M420 1044 V1090" />
 
-  <rect class="node finding" x="40" y="90" width="170" height="88" rx="12" />
-  <text class="title" x="125" y="126" text-anchor="middle">Failure / finding</text>
-  <text class="subtitle" x="125" y="151" text-anchor="middle">new evidence</text>
+  <rect class="node finding" x="220" y="148" width="400" height="88" rx="12" />
+  <text class="title" x="420" y="180" text-anchor="middle">Failure / blocking finding</text>
+  <text class="subtitle" x="420" y="204" text-anchor="middle">Warden, Sentinel or Inquisitor</text>
+  <text class="subtitle" x="420" y="225" text-anchor="middle">persisted evidence → IMPLEMENT</text>
 
-  <rect class="node" x="250" y="90" width="220" height="88" rx="12" />
-  <text class="title" x="360" y="126" text-anchor="middle">Smith</text>
-  <text class="subtitle" x="360" y="151" text-anchor="middle">apply the corrective change</text>
+  <rect class="phase" x="96" y="272" width="648" height="204" rx="16" />
+  <text class="label" x="116" y="301">CORRECTION DISPATCH · COVER ALL OPEN FINDINGS</text>
+  <rect class="node" x="116" y="322" width="276" height="94" rx="12" />
+  <text class="small-title" x="254" y="353" text-anchor="middle">Reviewer repair tasks</text>
+  <text class="subtitle" x="254" y="378" text-anchor="middle">use supplied, valid tasks</text>
+  <text class="subtitle" x="254" y="400" text-anchor="middle">bound to current evidence</text>
+  <text class="label" x="420" y="375" text-anchor="middle">OR</text>
+  <rect class="node" x="448" y="322" width="276" height="94" rx="12" />
+  <text class="small-title" x="586" y="353" text-anchor="middle">Architect decomposition</text>
+  <text class="subtitle" x="586" y="378" text-anchor="middle">otherwise, decompose findings</text>
+  <text class="subtitle" x="586" y="400" text-anchor="middle">read-only · active plan retained</text>
 
-  <rect class="node" x="510" y="90" width="220" height="88" rx="12" />
-  <text class="title" x="620" y="126" text-anchor="middle">Warden</text>
-  <text class="subtitle" x="620" y="151" text-anchor="middle">deterministic checks</text>
+  <rect class="node" x="220" y="508" width="400" height="100" rx="12" />
+  <text class="title" x="420" y="540" text-anchor="middle">Smith repairs</text>
+  <text class="subtitle" x="420" y="565" text-anchor="middle">independent tasks may fan out</text>
+  <text class="subtitle" x="420" y="589" text-anchor="middle">all workers finish → one combined revision</text>
+  <text class="label" x="420" y="672" text-anchor="middle">CORRECTED REVISION · ALL THREE GATES REQUIRED</text>
 
-  <rect class="node" x="770" y="90" width="220" height="88" rx="12" />
-  <text class="title" x="880" y="126" text-anchor="middle">Sentinel</text>
-  <text class="subtitle" x="880" y="151" text-anchor="middle">security gate</text>
+  <rect class="node gate" x="72" y="684" width="200" height="108" rx="12" />
+  <text class="label" x="172" y="708" text-anchor="middle">CHECKS</text>
+  <text class="title" x="172" y="736" text-anchor="middle">Warden</text>
+  <text class="subtitle" x="172" y="760" text-anchor="middle">deterministic checks</text>
+  <text class="subtitle" x="172" y="780" text-anchor="middle">exact revision</text>
 
-  <rect class="node" x="1030" y="90" width="130" height="88" rx="12" />
-  <text class="title" x="1095" y="126" text-anchor="middle">Inquisitor</text>
-  <text class="subtitle" x="1095" y="151" text-anchor="middle">final review</text>
+  <rect class="node gate" x="320" y="684" width="200" height="108" rx="12" />
+  <text class="label" x="420" y="708" text-anchor="middle">SECURITY</text>
+  <text class="title" x="420" y="736" text-anchor="middle">Sentinel</text>
+  <text class="subtitle" x="420" y="760" text-anchor="middle">read-only security</text>
+  <text class="subtitle" x="420" y="780" text-anchor="middle">exact revision</text>
 
-  <text class="subtitle" x="600" y="218" text-anchor="middle">The next gate only sees the corrected workspace revision.</text>
+  <rect class="node gate" x="568" y="684" width="200" height="108" rx="12" />
+  <text class="label" x="668" y="708" text-anchor="middle">REVIEW</text>
+  <text class="title" x="668" y="736" text-anchor="middle">Inquisitor</text>
+  <text class="subtitle" x="668" y="760" text-anchor="middle">read-only final review</text>
+  <text class="subtitle" x="668" y="780" text-anchor="middle">exact revision</text>
+  <text class="label" x="694" y="817">PASS</text>
+
+  <text class="label warn" x="72" y="836">Further failures / blocking findings</text>
+  <text class="label warn" x="72" y="858">return to correction dispatch.</text>
+
+  <rect class="node advisory" x="220" y="892" width="400" height="152" rx="12" />
+  <text class="label" x="420" y="917" text-anchor="middle">REVIEW · ADVISORY, NOT A GATE</text>
+  <text class="title" x="420" y="946" text-anchor="middle">Archivist</text>
+  <text class="subtitle" x="420" y="971" text-anchor="middle">optional · default on · once · read-only curation</text>
+  <text class="subtitle" x="420" y="995" text-anchor="middle">Only with memory.enabled,</text>
+  <text class="subtitle" x="420" y="1016" text-anchor="middle">memory.retainOnSuccess and memory.archivist</text>
+  <text class="subtitle" x="420" y="1036" text-anchor="middle">after successful review, before sealing</text>
+
+  <rect class="terminal" x="300" y="1090" width="240" height="64" rx="32" />
+  <text class="terminal-text" x="420" y="1117" text-anchor="middle">SEALED</text>
+  <text x="420" y="1140" text-anchor="middle" fill="#171b22" font-family="system-ui, sans-serif" font-size="14">current gate evidence agrees</text>
+  <text class="subtitle" x="420" y="1185" text-anchor="middle">Optional advisory failures do not add correctness gates.</text>
+  <text class="subtitle" x="420" y="1207" text-anchor="middle">Workspace mutations invalidate earlier gates; stale evidence cannot seal a run.</text>
 </svg>
