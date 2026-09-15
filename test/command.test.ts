@@ -7,6 +7,8 @@ import anvilExtension, { type ExtensionContext } from "../src/extension.ts";
 import { CommandRouter } from "../src/commands/router.ts";
 import { WorkspaceLock } from "../src/state/lock.ts";
 import type { WorkflowState } from "../src/workflow/types.ts";
+import { renderStatus } from "../src/ui/render.ts";
+import type { RunSummary } from "../src/workflow/engine.ts";
 
 type SessionStartHandler = (event: unknown, context: ExtensionContext) => void | Promise<void>;
 describe("OMP command registration", () => {
@@ -378,5 +380,35 @@ printf '%s\n' '${
     expect(forgeHelp).toContain("/anvil config");
     expect(anvilHelp).toContain("/anvil update check");
     expect(anvilHelp).toContain("/anvil status [run-id]");
+  });
+});
+
+test("run reports attribute shared-stage attempts to their actual roles", () => {
+  const summary = {
+    run: {
+      id: "run_roles", status: "done", currentState: "DONE", currentRevisionId: "revision",
+      mutationEpoch: 1, transitionCount: 7, usedTokens: 100, usedRequests: 7, workspaceRoot: "/tmp",
+    },
+    attempts: [
+      { state: "PLAN", role: "scout" },
+      { state: "PLAN", role: "planner" },
+      { state: "IMPLEMENT", role: "planner" },
+      { state: "IMPLEMENT", role: "implementation" },
+      { state: "CHECKS" },
+      { state: "SECURITY", role: "security" },
+      { state: "REVIEW", role: "review" },
+      { state: "REVIEW", role: "archivist" },
+    ],
+    findings: [],
+  } as unknown as RunSummary;
+  const counts = (report: string): Record<string, number> => Object.fromEntries(
+    [...report.matchAll(/^\s+(\w+)\s+[━·]+\s+(\d+) attempts?$/gm)].map((match) => [match[1], Number(match[2])]),
+  );
+  expect(counts(renderStatus(summary))).toEqual({
+    Scout: 1, Architect: 2, Smith: 1, Warden: 1, Sentinel: 1, Inquisitor: 1, Archivist: 1,
+  });
+  const withoutAdvisors = { ...summary, attempts: summary.attempts.filter((attempt) => attempt.role !== "scout" && attempt.role !== "archivist") };
+  expect(counts(renderStatus(withoutAdvisors))).toEqual({
+    Scout: 0, Architect: 2, Smith: 1, Warden: 1, Sentinel: 1, Inquisitor: 1, Archivist: 0,
   });
 });

@@ -149,6 +149,8 @@ const FORGE_INK = {
   ember: "255;151;92",
   green: "128;211;163",
   violet: "195;156;239",
+  cyan: "108;215;225",
+  ivory: "239;229;207",
   red: "245;123;123",
 } as const;
 
@@ -160,7 +162,8 @@ export function renderStatus(summary: RunSummary, color = false): string {
   const row = (label: string, value: string): string => `  ${ink("muted", label.padEnd(14))}${ink("text", value)}`;
   const number = (value: number | undefined): string => value?.toLocaleString() ?? "unknown";
   const attempts = summary.attempts.reduce<Record<string, number>>((counts, attempt) => {
-    counts[attempt.state] = (counts[attempt.state] ?? 0) + 1;
+    const label = attempt.role ? ROLE_LABELS[attempt.role] : STAGE_LABELS[attempt.state] ?? attempt.state;
+    counts[label] = (counts[label] ?? 0) + 1;
     return counts;
   }, {});
   const open = summary.findings.filter((finding) => finding.status === "open");
@@ -168,13 +171,15 @@ export function renderStatus(summary: RunSummary, color = false): string {
   const tone = sealed ? "green" : run.status === "running" ? "gold" : "red";
   const verdict = sealed ? "FORGE SEALED" : `FORGE ${run.status.toUpperCase()}`;
   const roles = [
-    ["PLAN", "blue"], ["IMPLEMENT", "ember"], ["CHECKS", "gold"],
-    ["SECURITY", "green"], ["REVIEW", "violet"],
+    [ROLE_LABELS.scout, "cyan"], [ROLE_LABELS.planner, "blue"],
+    [ROLE_LABELS.implementation, "ember"], ["Warden", "gold"],
+    [ROLE_LABELS.security, "green"], [ROLE_LABELS.review, "violet"],
+    [ROLE_LABELS.archivist, "ivory"],
   ] as const;
   const peak = Math.max(1, ...Object.values(attempts));
-  const roleRow = (state: string, count: number, roleTone: keyof typeof FORGE_INK): string => {
+  const roleRow = (label: string, count: number, roleTone: keyof typeof FORGE_INK): string => {
     const bars = count ? Math.max(1, Math.round(count / peak * 12)) : 0;
-    return `  ${ink(roleTone, (STAGE_LABELS[state] ?? state).padEnd(14))}${
+    return `  ${ink(roleTone, label.padEnd(14))}${
       ink(roleTone, "━".repeat(bars))
     }${ink("muted", "·".repeat(12 - bars))}  ${ink("text", String(count).padStart(3), true)} ${ink("muted", count === 1 ? "attempt" : "attempts")}`;
   };
@@ -198,9 +203,9 @@ export function renderStatus(summary: RunSummary, color = false): string {
     ...(open.length > 8 ? [`  ${ink("muted", `+ ${open.length - 8} more · /anvil findings ${run.id}`)}`] : []),
     "",
     heading("THE FORGE CREW"),
-    ...roles.map(([state, roleTone]) => roleRow(state, attempts[state] ?? 0, roleTone)),
-    ...Object.entries(attempts).filter(([state]) => !roles.some(([role]) => role === state))
-      .map(([state, count]) => roleRow(state, count, "muted")),
+    ...roles.map(([label, roleTone]) => roleRow(label, attempts[label] ?? 0, roleTone)),
+    ...Object.entries(attempts).filter(([label]) => !roles.some(([role]) => role === label))
+      .map(([label, count]) => roleRow(label, count, "muted")),
     "",
     heading("TOKEN LEDGER"),
     `  ${ink("gold", `${number(run.usedTokens)} tokens`, true)}  ${ink("muted", "/")}  ${
