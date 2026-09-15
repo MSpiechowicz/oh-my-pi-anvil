@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { findRepositoryRoot, globalConfigPath, projectConfigPath } from "../state/paths.ts";
+import { DEFAULT_CONFIG } from "./defaults.ts";
 
 /** A non-destructive result for one configuration file. */
 export interface InitFileReport {
@@ -17,36 +18,11 @@ export interface InitReport {
   existing: string[];
 }
 
-/** Editable user-wide settings. Omitted values inherit built-in defaults. */
-export const GLOBAL_CONFIG_TEMPLATE = `# Shared Forge settings for all repositories.
-# Omitted values inherit Anvil's built-in defaults.
-# Model mappings live in OMP's global agent config; run /anvil config to see its path.
-version: 1
-workflow:
-  name: secure-code-change
-agents:
-  planner: # Architect
-    agent: architect
-  implementation: # Smith
-    agent: smith
-  security: # Sentinel
-    agent: sentinel
-  review: # Inquisitor
-    agent: inquisitor
-  scout: # Optional reconnaissance before Architect
-    agent: scout
-  archivist: # Optional knowledge curation after Inquisitor
-    agent: archivist
-scouting:
-  enabled: true # Set false to skip Scout.
-memory:
-  archivist: true # Set false to skip Archivist; also requires enabled and retainOnSuccess.
-
-# Nonempty Warden checks here or in .omp/anvil.yml override automatic discovery.
-# Empty checks discover supported finite verification scripts from root manifests.
-# Discovery never edits settings; see docs/configuration.md for rules and overrides.
-# Optional budget overrides may also be added below.
-`;
+/** Complete editable defaults, serialized as JSON (also accepted in anvil.yml).
+ * Null limits are unlimited; null agent options inherit OMP settings.
+ * Empty checks enable discovery without persisting repository-specific commands.
+ */
+export const GLOBAL_CONFIG_TEMPLATE = `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`;
 
 /** Deliberately sparse repository overlay; values here override global settings. */
 export const PROJECT_CONFIG_TEMPLATE = `# Repository-specific Forge overrides.

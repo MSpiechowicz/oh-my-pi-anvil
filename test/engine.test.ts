@@ -307,6 +307,33 @@ describe("WorkflowEngine", () => {
     const summary = await engine.start({ objective: "Secure a change", workspaceRoot: root }); expect(summary.run.currentState).toBe("DONE"); expect(summary.run.mutationEpoch).toBe(2); expect(summary.attempts.filter((attempt) => attempt.state === "SECURITY")).toHaveLength(2); expect(summary.attempts.filter((attempt) => attempt.state === "CHECKS")).toHaveLength(2); expect(summary.findings.some((item) => item.status === "resolved")).toBeTruthy(); await rm(root, { recursive: true, force: true });
   });
 
+  test("enforces Sentinel request limits and resumes when the role cap is cleared", async () => {
+    const root = await mkdtemp("/tmp/anvil-role-request-");
+    try {
+      const provider = new StaticRevisionProvider(revision("rev0"));
+      const finding = { severity: "high", category: "authorization", title: "Missing tenant authorization", description: "The endpoint does not enforce tenant scope", evidence: "Observed route", exploitOrImpact: "Cross-tenant access", fixRequirement: "Enforce tenant scope", confidence: "high" };
+      const engine = await makeEngine(root, provider, [
+        { role: "planner", structured: plan },
+        { role: "implementation", structured: implementation, mutate: () => provider.set(revision("rev1")) },
+        { role: "security", structured: { ...securityPass, verdict: "findings", findings: [finding] } },
+        { role: "implementation", structured: implementation, mutate: () => provider.set(revision("rev2")) },
+      ], (config) => { config.budgets.perRole.security!.maxRequests = 1; });
+      const blocked = await engine.start({ objective: "Enforce explicit role request caps", workspaceRoot: root });
+      expect(blocked.run.currentState).toBe("BLOCKED");
+      expect(blocked.run.failureCode).toBe("BUDGET_EXHAUSTED");
+      expect(blocked.attempts.filter((attempt) => attempt.role === "security")).toHaveLength(1);
+      const resumed = await (await makeEngine(root, provider, [
+        { role: "security", structured: securityPass },
+        { role: "review", structured: reviewPass },
+      ])).resume(blocked.run.id);
+      expect(resumed.run.currentState).toBe("DONE");
+      expect(resumed.attempts.filter((attempt) => attempt.role === "security")).toHaveLength(2);
+      expect(resumed.attempts.filter((attempt) => attempt.role === "implementation")).toEqual(blocked.attempts.filter((attempt) => attempt.role === "implementation"));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("blocks a repeated blocking finding instead of looping forever", async () => {
     const root = await mkdtemp("/tmp/anvil-no-progress-"); const provider = new StaticRevisionProvider(revision("rev0")); const finding = { severity: "high" as const, category: "authorization", title: "Missing tenant authorization", description: "The endpoint does not enforce tenant scope", evidence: "Observed route", exploitOrImpact: "Cross-tenant access", fixRequirement: "Enforce tenant scope", confidence: "high" as const }; const engine = await makeEngine(root, provider, [
       { role: "planner", structured: plan },

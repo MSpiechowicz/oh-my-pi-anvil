@@ -447,3 +447,61 @@ test("resuming a partial dispatch replans unfinished work rather than skipping t
     await f.close();
   }
 });
+
+test("unlimited Smith attempts still run in bounded waves of four", async () => {
+  const joined = barrier();
+  let started = 0;
+  let active = 0;
+  let peak = 0;
+  const completed: number[] = [];
+  const f = await fixture(async (request) => {
+    if (request.role === "planner") return { ...plan, smithTasks: Array.from({ length: 9 }, (_, index) => task(`module-${index}`)) };
+    if (request.role === "implementation") {
+      const ordinal = started++;
+      active++;
+      peak = Math.max(peak, active);
+      if (ordinal < 4) {
+        if (ordinal === 3) joined.release();
+        await joined.promise;
+      }
+      active--;
+      completed.push(ordinal);
+      return implementation;
+    }
+    expect(completed.sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    return request.role === "security" ? security : review;
+  });
+  try {
+    const result = await f.engine.start({ objective: "Finish nine independent modules without unlimited concurrency", workspaceRoot: f.root });
+    expect(result.run.currentState).toBe("DONE");
+    expect(peak).toBe(4);
+    expect(result.attempts.filter((attempt) => attempt.role === "implementation")).toHaveLength(9);
+  } finally {
+    await f.close();
+  }
+});
+
+test("nullable plan generations allow replanning beyond old caps while explicit generations stop", async () => {
+  for (const maxGenerations of [null, 2]) {
+    let implementations = 0;
+    const f = await fixture(async (request) => {
+      if (request.role === "planner") return { ...plan, smithTasks: [task(`generation-${implementations}`)] };
+      if (request.role === "implementation") {
+        implementations++;
+        return implementations < 9
+          ? { ...implementation, status: "needs_replan", replanReason: `Newly discovered dependency ${implementations}` }
+          : implementation;
+      }
+      return request.role === "security" ? security : review;
+    }, (config) => { config.planning.maxGenerations = maxGenerations; });
+    try {
+      const result = await f.engine.start({ objective: "Replan until dependencies are understood", workspaceRoot: f.root });
+      expect(result.run.currentState).toBe(maxGenerations === null ? "DONE" : "BLOCKED");
+      expect(result.attempts.filter((attempt) => attempt.role === "planner")).toHaveLength(maxGenerations ?? 9);
+      expect(implementations).toBe(maxGenerations ?? 9);
+      if (maxGenerations !== null) expect(result.run.failureCode).toBe("MAX_ATTEMPTS_EXCEEDED");
+    } finally {
+      await f.close();
+    }
+  }
+});

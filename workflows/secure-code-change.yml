@@ -19,17 +19,40 @@ scouting:
 checks: []
 security:
   failOn: [critical, high, medium]
-  maxAttempts: 3
-review:
-  maxAttempts: 3
 implementation:
-  maxAttempts: 6
   maxParallel: 4
 planning:
-  maxGenerations: 2
+  maxGenerations: null
 budgets:
-  maxTotalRequests: 120
-  maxTransitions: 40
+  maxTotalTokens: null
+  maxTotalRequests: null
+  maxTransitions: null
+  maxWallClockMs: null
+  perRole:
+    planner:
+      maxTokens: null
+      maxAttempts: null
+      maxRequests: null
+    implementation:
+      maxTokens: null
+      maxAttempts: null
+      maxRequests: null
+    security:
+      maxTokens: null
+      maxAttempts: null
+      maxRequests: null
+    review:
+      maxTokens: null
+      maxAttempts: null
+      maxRequests: null
+    scout:
+      maxTokens: null
+      maxAttempts: null
+      maxRequests: null
+    archivist:
+      maxTokens: null
+      maxAttempts: null
+      maxRequests: null
 context:
   maxInlineChars: 12000
 memory:

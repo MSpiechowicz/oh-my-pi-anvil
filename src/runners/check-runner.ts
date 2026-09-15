@@ -6,7 +6,7 @@ import { boundedText } from "../util/json.ts";
 export class DeterministicCheckRunner implements CheckRunnerContract {
   constructor(private readonly artifacts?: ArtifactStore) {}
   async run(check: CheckDefinition, input: { cwd: string; signal?: AbortSignal; runId?: string; epoch?: number }): Promise<CheckResult> {
-    const result = await runProcess(check.command, { cwd: check.cwd ?? input.cwd, env: check.env, timeoutMs: check.timeoutMs, signal: input.signal });
+    const result = await runProcess(check.command, { cwd: check.cwd ?? input.cwd, env: check.env ?? undefined, timeoutMs: check.timeoutMs, signal: input.signal });
     // A retry can run at the same mutation epoch; its logs must not replace prior evidence.
     const logPath = input.runId && this.artifacts ? `logs/check-${check.id}-${input.epoch ?? 0}-${crypto.randomUUID()}` : undefined;
     const stdout = logPath ? await this.artifacts!.putText(input.runId!, "check-stdout", `${logPath}.stdout`, result.stdout) : undefined;

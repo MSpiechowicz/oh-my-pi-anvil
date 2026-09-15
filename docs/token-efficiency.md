@@ -20,4 +20,4 @@ Limits are checked between stages, before further work starts; they do not hard-
 
 Token-exhaustion details record the consumed amount and ceiling, explain cache-inclusive accounting, and identify the relevant configuration key: `budgets.maxTotalTokens` or `budgets.perRole.<role>.maxTokens`. Review the recorded usage and configured cap. If continued work is appropriate, raise or remove that cap and use `/anvil resume <run-id>` to retain completed work. Changing the cap does not reset usage.
 
-This clarification changes no accounting, limits, defaults, or gate policy. No limits were increased.
+Resource caps are opt-in and default to `null`; concurrency remains limited by `implementation.maxParallel` (default `4`). Explicitly configured caps use the accounting above. Safety and verification gates are unchanged.

@@ -2,6 +2,7 @@ import { describe, expect, test } from "./test-helpers.ts";
 import { createOmpCompat, resolveAgentSettings } from "../src/runners/omp-compat.ts";
 import { OmpSubprocessRunner } from "../src/runners/omp-subprocess-runner.ts";
 import { DEFAULT_CONFIG } from "../src/config/defaults.ts";
+import { runProcess } from "../src/runners/process.ts";
 
 const request = {
   runId: "run",
@@ -31,6 +32,13 @@ function hasIsolatedHandoff(params: unknown): boolean {
 
 
 describe("OMP adapter", () => {
+  test("retains unresolved inheritance as null in the effective snapshot", async () => {
+    const config = structuredClone(DEFAULT_CONFIG);
+    await resolveAgentSettings(config, "/tmp", {});
+    const saved = JSON.parse(JSON.stringify(config));
+    expect(saved.agents.planner).toEqual({ agent: "architect", model: null, thinkingLevel: null, effort: null });
+  });
+
   test("snapshots global role models and thinking without overriding manual settings", async () => {
     const config = structuredClone(DEFAULT_CONFIG);
     config.agents.implementation.model = "manual/model:low";
@@ -44,10 +52,10 @@ describe("OMP adapter", () => {
       Settings: { loadReadOnly: () => ({ get: (key: string) => values[key] }) },
       discoverAgents: () => ({ agents: [{ name: "architect", model: "@architect" }] }),
     });
-    expect(config.agents.planner).toEqual({ agent: "architect", model: "global/planner", thinkingLevel: "high" });
-    expect(config.agents.implementation).toEqual({ agent: "smith", model: "manual/model", thinkingLevel: "off" });
-    expect(config.agents.security).toEqual({ agent: "sentinel", model: "global/security", thinkingLevel: "medium" });
-    expect(config.agents.review).toEqual({ agent: "inquisitor", model: "global/default", thinkingLevel: "xhigh" });
+    expect(config.agents.planner).toEqual({ agent: "architect", model: "global/planner", thinkingLevel: "high", effort: null });
+    expect(config.agents.implementation).toEqual({ agent: "smith", model: "manual/model", thinkingLevel: "off", effort: null });
+    expect(config.agents.security).toEqual({ agent: "sentinel", model: "global/security", thinkingLevel: "medium", effort: null });
+    expect(config.agents.review).toEqual({ agent: "inquisitor", model: "global/default", thinkingLevel: "xhigh", effort: null });
     values.defaultThinkingLevel = "low";
     await resolveAgentSettings(config, "/tmp", { settings: { get: (key: string) => values[key] } });
     expect(config.agents.review.thinkingLevel).toBe("xhigh");
@@ -232,4 +240,18 @@ describe("OMP adapter", () => {
     expect(reported.resolvedThinkingLevel).toBe("off");
   });
 
+});
+
+describe("check processes", () => {
+  test("null timeout allows a delayed process to finish", async () => {
+    const result = await runProcess(["sh", "-c", "sleep 0.05; printf completed"], { cwd: "/tmp", timeoutMs: null });
+    expect(result.status).toBe("passed");
+    expect(result.stdout).toBe("completed");
+    expect(result.exitCode).toBe(0);
+  });
+
+  test("an explicit timeout still kills a running process", async () => {
+    const result = await runProcess(["sh", "-c", "exec sleep 10"], { cwd: "/tmp", timeoutMs: 10 });
+    expect(result.status).toBe("timed_out");
+  });
 });

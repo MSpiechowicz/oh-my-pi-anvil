@@ -108,13 +108,13 @@ export async function resolveAgentSettings(config: WorkflowConfig, cwd: string, 
       if (!resolved) break;
       model = resolved;
     }
-    agent.model = model;
-    agent.thinkingLevel ??= thinking ?? stringValue(definition?.thinkingLevel) ?? globalThinking;
+    agent.model = model ?? null;
+    agent.thinkingLevel ??= thinking ?? stringValue(definition?.thinkingLevel) ?? globalThinking ?? null;
   }
 }
 
 function requestModel(request: AgentRunRequest): string | undefined {
-  if (!request.model || !request.thinkingLevel) return request.model;
+  if (!request.model || !request.thinkingLevel) return request.model ?? undefined;
   return `${request.model.replace(/:(off|minimal|low|medium|high|xhigh|max|auto)$/, "")}:${request.thinkingLevel}`;
 }
 
@@ -126,10 +126,10 @@ function configureSettings(settings: NativeSettings, request: AgentRunRequest): 
   // Forge owns completion accounting, so a child must settle before the
   // workflow advances even when the host normally enables background tasks.
   applySetting(settings, "async.enabled", false);
-  if (request.model !== undefined) {
+  if (request.model != null) {
     applySetting(settings, "task.agentModelOverrides", { ...asRecord(settings.get("task.agentModelOverrides")), [request.agentName]: requestModel(request) });
   }
-  if (request.thinkingLevel !== undefined) applySetting(settings, "defaultThinkingLevel", request.thinkingLevel);
+  if (request.thinkingLevel != null) applySetting(settings, "defaultThinkingLevel", request.thinkingLevel);
   if (request.role === "security" || request.role === "review") {
     applySetting(settings, "github.enabled", true);
     applySetting(settings, "browser.enabled", true);
@@ -189,7 +189,7 @@ function nativeExecutorOptions(context: unknown, request: AgentRunRequest, agent
     signal: request.signal,
     settings,
     modelOverride: requestModel(request),
-    thinkingLevel: request.thinkingLevel,
+    thinkingLevel: request.thinkingLevel ?? undefined,
     ...(request.effort != null ? { effort: request.effort } : {}),
   };
   const modelRegistry = contextRecord?.modelRegistry;
@@ -355,7 +355,7 @@ async function executeNativeTask<T>(context: unknown, host: AnyRecord, request: 
     outputSchema: request.outputSchema,
     schemaMode: request.schemaMode,
   };
-  if (request.model !== undefined) params.model = requestModel(request);
+  if (request.model != null) params.model = requestModel(request);
   if (request.effort != null) params.effort = request.effort;
   if (request.isolation?.requested) params.isolated = true;
   return mapNativeResult<T>(request, await task.execute(`anvil-${request.attemptId}`, params, request.signal));

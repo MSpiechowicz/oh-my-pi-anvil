@@ -26,7 +26,7 @@ export async function discoverChecks(root: string): Promise<CheckDefinition[]> {
     const args = finiteArguments(tasks[name], scripts, tasks, new Set([name]));
     if (!args) continue;
     nativeNames.add(name);
-    checks.push({ id: name, command: ["deno", "task", name, ...args], required: true, timeoutMs: 180_000 });
+    checks.push({ id: name, command: ["deno", "task", name, ...args], cwd: null, env: null, required: true, timeoutMs: null });
   }
   if (!pkg) return checks;
   const manager = await packageManager(root, pkg.packageManager);
@@ -37,7 +37,7 @@ export async function discoverChecks(root: string): Promise<CheckDefinition[]> {
     const args = finiteArguments(scripts[name], scripts, tasks, new Set([name]));
     if (!args || !safeLifecycle(name, scripts, tasks, new Set([name]))) continue;
     const forwarded = args.length && manager === "npm" ? ["--", ...args] : args;
-    checks.push({ id: name, command: [manager, "run", name, ...forwarded], required: true, timeoutMs: 180_000 });
+    checks.push({ id: name, command: [manager, "run", name, ...forwarded], cwd: null, env: null, required: true, timeoutMs: null });
   }
   return checks;
 }

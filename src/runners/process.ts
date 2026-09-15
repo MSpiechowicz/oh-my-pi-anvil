@@ -2,15 +2,20 @@ import { spawn } from "node:child_process";
 
 export interface ProcessResult { status: "passed" | "failed" | "timed_out" | "error"; exitCode?: number; stdout: string; stderr: string; durationMs: number; }
 
-export async function runProcess(command: string[], input: { cwd: string; env?: Record<string, string>; timeoutMs: number; signal?: AbortSignal }): Promise<ProcessResult> {
+export async function runProcess(command: string[], input: { cwd: string; env?: Record<string, string>; timeoutMs: number | null; signal?: AbortSignal }): Promise<ProcessResult> {
   const started = Date.now(); const stdoutChunks: Uint8Array[] = []; const stderrChunks: Uint8Array[] = []; let timedOut = false;
   try {
     const child = spawn(command[0], command.slice(1), { cwd: input.cwd, env: input.env ? { ...process.env, ...input.env } : process.env, stdio: ["ignore", "pipe", "pipe"] });
     child.stdout.on("data", (chunk: Uint8Array) => stdoutChunks.push(new Uint8Array(chunk))); child.stderr.on("data", (chunk: Uint8Array) => stderrChunks.push(new Uint8Array(chunk)));
     const abort = () => child.kill("SIGKILL"); input.signal?.addEventListener("abort", abort, { once: true });
-    const timeout = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, input.timeoutMs);
-    const exitCode = await new Promise<number>((resolve, reject) => { child.once("error", reject); child.once("close", (code) => resolve(code ?? 1)); });
-    clearTimeout(timeout); input.signal?.removeEventListener("abort", abort);
+    const timeout = input.timeoutMs == null ? undefined : setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, input.timeoutMs);
+    let exitCode: number;
+    try {
+      exitCode = await new Promise<number>((resolve, reject) => { child.once("error", reject); child.once("close", (code) => resolve(code ?? 1)); });
+    } finally {
+      clearTimeout(timeout);
+      input.signal?.removeEventListener("abort", abort);
+    }
     const stdout = new TextDecoder().decode(concat(stdoutChunks)); const stderr = new TextDecoder().decode(concat(stderrChunks));
     if (input.signal?.aborted) return { status: "error", exitCode, stdout, stderr, durationMs: Date.now() - started };
     if (timedOut) return { status: "timed_out", exitCode, stdout, stderr, durationMs: Date.now() - started };

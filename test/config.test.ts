@@ -7,6 +7,7 @@ import { initConfig } from "../src/config/init.ts";
 import { loadConfig } from "../src/config/load.ts";
 import { DEFAULT_CONFIG } from "../src/config/defaults.ts";
 import { validateConfig } from "../src/config/schema.ts";
+import { WORKFLOW_ROLE_ORDER as ROLES } from "../src/agents/roles.ts";
 import { BudgetManager } from "../src/budget/ledger.ts";
 import type { RunRecord } from "../src/workflow/types.ts";
 
@@ -73,18 +74,19 @@ describe("workflow configuration", () => {
       expect(report.project?.status).toBe("created");
       expect(report.repositoryRoot).toBe(repository);
       const config = await loadConfig(path.join(repository, "workspace"));
+      assert.deepEqual(JSON.parse(await readFile(report.global.path, "utf8")), config);
+      assert.deepEqual(JSON.parse(JSON.stringify(config)), config);
       const budget = new BudgetManager(config);
-      const run = budgetRun();
-      expect(config.budgets.maxTotalTokens).toBe(undefined);
+      const run = { ...budgetRun(), usedRequests: 1_000_000, transitionCount: 1_000_000, createdAt: "2000-01-01T00:00:00.000Z" };
+      for (const key of ["maxTotalTokens", "maxTotalRequests", "maxTransitions", "maxWallClockMs"] as const) expect(config.budgets[key]).toBe(null);
       assert.doesNotThrow(() => budget.assertMayContinue(run));
-      for (const role of ["planner", "implementation", "security", "review"] as const) {
-        expect(config.budgets.perRole[role]?.maxTokens).toBe(undefined);
-        assert.doesNotThrow(() => budget.assertRoleMayRun(run, role, 0, run.usedTokens));
-        assert.throws(() => budget.assertRoleMayRun(run, role, config.budgets.perRole[role]!.maxAttempts!, run.usedTokens), { code: "MAX_ATTEMPTS_EXCEEDED" });
+      for (const role of ROLES) {
+        assert.deepEqual(config.budgets.perRole[role], { maxTokens: null, maxAttempts: null, maxRequests: null });
+        assert.deepEqual(config.agents[role], { agent: DEFAULT_CONFIG.agents[role].agent, model: null, thinkingLevel: null, effort: null });
+        assert.doesNotThrow(() => budget.assertRoleMayRun(run, role, 1_000_000, run.usedTokens, run.usedRequests));
       }
-      assert.throws(() => budget.assertMayContinue({ ...run, usedRequests: config.budgets.maxTotalRequests! }), { code: "BUDGET_EXHAUSTED" });
-      assert.throws(() => budget.assertMayContinue({ ...run, transitionCount: config.budgets.maxTransitions! }), { code: "BUDGET_EXHAUSTED" });
-      assert.throws(() => budget.assertMayContinue({ ...run, createdAt: "2000-01-01T00:00:00.000Z" }), { code: "BUDGET_EXHAUSTED" });
+      for (const section of ["security", "review", "implementation", "planning"] as const) assert.equal("maxAttempts" in config[section], false);
+      expect(config.planning.maxGenerations).toBe(null);
     } finally {
       if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
       else process.env.XDG_CONFIG_HOME = previousXdg;
@@ -167,6 +169,7 @@ describe("workflow configuration", () => {
         check: ["yarn", "run", "check"], test: ["yarn", "run", "test", "run"],
         build: ["yarn", "run", "build"], lint: ["yarn", "run", "lint"],
       });
+      for (const check of config.checks) assert.deepEqual({ cwd: check.cwd, env: check.env, timeoutMs: check.timeoutMs }, { cwd: null, env: null, timeoutMs: null });
       await assert.rejects(readFile(path.join(root, ".omp", "anvil.yml")), { code: "ENOENT" });
     } finally {
       if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
@@ -249,7 +252,7 @@ describe("workflow configuration", () => {
       const projectPath = path.join(repository, ".omp", "anvil.yml");
       await mkdir(path.dirname(globalPath), { recursive: true });
       await mkdir(path.dirname(projectPath), { recursive: true });
-      const roles = ["planner", "implementation", "security", "review"] as const;
+      const roles = ROLES;
       await writeFile(globalPath, "budgets:\n  maxTotalTokens: 100\n  maxTotalRequests: 17\n  maxTransitions: 21\n  maxWallClockMs: 60000\n  perRole:\n" + roles.map((role) => `    ${role}:\n      maxTokens: 10.5\n      maxAttempts: 2\n      maxRequests: 7\n`).join(""));
       await writeFile(projectPath, "workflow:\n  name: inherited-token-caps\n");
       const inherited = await loadConfig(repository);
@@ -277,10 +280,10 @@ describe("workflow configuration", () => {
         await writeFile(projectPath, overlay);
         const config = await loadConfig(repository);
         const unlimited = new BudgetManager(config);
-        expect(config.budgets.maxTotalTokens).toBe(undefined);
+        expect(config.budgets.maxTotalTokens).toBe(null);
         assert.doesNotThrow(() => unlimited.assertMayContinue(run));
         for (const role of roles) {
-          expect(config.budgets.perRole[role]?.maxTokens).toBe(undefined);
+          expect(config.budgets.perRole[role]?.maxTokens).toBe(null);
           expect(config.budgets.perRole[role]?.maxRequests).toBe(7);
           assert.doesNotThrow(() => unlimited.assertRoleMayRun(run, role, 1, run.usedTokens));
           assert.throws(() => unlimited.assertRoleMayRun(run, role, 2, run.usedTokens), { code: "MAX_ATTEMPTS_EXCEEDED" });
@@ -297,16 +300,132 @@ describe("workflow configuration", () => {
     }
   });
 
-  test("rejects non-positive, non-finite and non-number token limits", () => {
-    for (const value of [0, -1, NaN, Infinity, -Infinity, "100", true, {}, []]) {
-      const totalConfig = structuredClone(DEFAULT_CONFIG);
-      Object.assign(totalConfig.budgets, { maxTotalTokens: value });
-      assert.throws(() => validateConfig(totalConfig), { code: "CONFIG_INVALID" });
-      for (const role of ["planner", "implementation", "security", "review"] as const) {
-        const roleConfig = structuredClone(DEFAULT_CONFIG);
-        Object.assign(roleConfig.budgets.perRole[role]!, { maxTokens: value });
-        assert.throws(() => validateConfig(roleConfig), { code: "CONFIG_INVALID" });
+  test("null overlays clear inherited limits and agent options in complete effective JSON", async () => {
+    const root = await mkdtemp("/tmp/anvil-config-null-overrides-");
+    const configHome = await mkdtemp("/tmp/anvil-config-home-");
+    const previousXdg = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = configHome;
+      const globalPath = path.join(configHome, "omp", "anvil.yml");
+      const projectPath = path.join(root, ".omp", "anvil.yml");
+      await mkdir(path.dirname(globalPath), { recursive: true });
+      await mkdir(path.dirname(projectPath), { recursive: true });
+      const global = structuredClone(DEFAULT_CONFIG);
+      Object.assign(global.budgets, { maxTotalTokens: 100, maxTotalRequests: 5, maxTransitions: 6, maxWallClockMs: 1000 });
+      global.planning.maxGenerations = 2;
+      for (const role of ROLES) {
+        global.budgets.perRole[role] = { maxTokens: 50, maxAttempts: 2, maxRequests: 3 };
+        Object.assign(global.agents[role], { model: "provider/model", thinkingLevel: "high", effort: "high" });
       }
+      await writeFile(globalPath, JSON.stringify(global));
+      const inherited = await loadConfig(root);
+      assert.deepEqual(inherited, global);
+      for (const overlay of [
+        JSON.stringify({
+          budgets: DEFAULT_CONFIG.budgets, planning: { maxGenerations: null },
+          agents: Object.fromEntries(ROLES.map((role) => [role, { model: null, thinkingLevel: null, effort: null }])),
+        }),
+        "budgets:\n  maxTotalTokens: null\n  maxTotalRequests: null\n  maxTransitions: null\n  maxWallClockMs: null\n  perRole:\n" +
+          ROLES.map((role) => `    ${role}:\n      maxTokens: null\n      maxAttempts: null\n      maxRequests: null\n`).join("") +
+          "planning:\n  maxGenerations: null\nagents:\n" +
+          ROLES.map((role) => `  ${role}:\n    model: null\n    thinkingLevel: null\n    effort: null\n`).join(""),
+      ]) {
+        await writeFile(projectPath, overlay);
+        const effective = await loadConfig(root);
+        assert.deepEqual(JSON.parse(JSON.stringify(effective)), DEFAULT_CONFIG);
+        assert.deepEqual(effective.security, global.security);
+        assert.deepEqual(effective.safety, global.safety);
+        assert.deepEqual(effective.context, global.context);
+      }
+    } finally {
+      if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previousXdg;
+      await rm(root, { recursive: true, force: true });
+      await rm(configHome, { recursive: true, force: true });
+    }
+  });
+
+  test("fills omitted optional configuration fields without losing them in JSON", () => {
+    const config = structuredClone(DEFAULT_CONFIG);
+    for (const role of ROLES) {
+      config.agents[role] = { agent: DEFAULT_CONFIG.agents[role].agent };
+      delete config.budgets.perRole[role];
+    }
+    delete config.budgets.maxTotalTokens;
+    delete config.budgets.maxTotalRequests;
+    delete config.budgets.maxTransitions;
+    delete config.budgets.maxWallClockMs;
+    config.checks = [{ id: "check", command: ["validator"], required: true, timeoutMs: null }];
+    Reflect.deleteProperty(config.checks[0], "timeoutMs");
+    const effective = validateConfig(config);
+    assert.deepEqual(JSON.parse(JSON.stringify(effective)), {
+      ...DEFAULT_CONFIG,
+      checks: [{ id: "check", command: ["validator"], cwd: null, env: null, required: true, timeoutMs: null }],
+    });
+  });
+
+  test("rejects invalid nullable agent options rather than silently inheriting them", () => {
+    for (const key of ["model", "thinkingLevel", "effort"] as const) {
+      for (const value of ["", " ", 1, false, {}, []]) {
+        const config = structuredClone(DEFAULT_CONFIG);
+        Object.assign(config.agents.planner, { [key]: value });
+        assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
+      }
+    }
+  });
+
+  test("rejects invalid resource limits without coercion", () => {
+    for (const value of [0, -1, NaN, Infinity, -Infinity, "100", true, {}, []]) {
+      for (const key of ["maxTotalTokens", "maxTotalRequests", "maxTransitions", "maxWallClockMs"] as const) {
+        const config = structuredClone(DEFAULT_CONFIG);
+        Object.assign(config.budgets, { [key]: value });
+        assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
+      }
+      for (const role of ROLES) {
+        for (const key of ["maxTokens", "maxAttempts", "maxRequests"] as const) {
+          const config = structuredClone(DEFAULT_CONFIG);
+          Object.assign(config.budgets.perRole[role]!, { [key]: value });
+          assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
+        }
+      }
+      const planning = structuredClone(DEFAULT_CONFIG);
+      Object.assign(planning.planning, { maxGenerations: value });
+      assert.throws(() => validateConfig(planning), { code: "CONFIG_INVALID" });
+      const checks = structuredClone(DEFAULT_CONFIG);
+      checks.checks = [{ id: "check", command: ["validator"], required: true, timeoutMs: null }];
+      Object.assign(checks.checks[0], { timeoutMs: value });
+      assert.throws(() => validateConfig(checks), { code: "CONFIG_INVALID" });
+    }
+  });
+
+  test("requires integer counts while retaining fractional token and duration limits", () => {
+    for (const key of ["maxTotalRequests", "maxTransitions"] as const) {
+      const config = structuredClone(DEFAULT_CONFIG);
+      config.budgets[key] = 1.5;
+      assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
+    }
+    for (const key of ["maxAttempts", "maxRequests"] as const) {
+      const config = structuredClone(DEFAULT_CONFIG);
+      config.budgets.perRole.planner![key] = 1.5;
+      assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
+    }
+    const config = structuredClone(DEFAULT_CONFIG);
+    config.planning.maxGenerations = 1.5;
+    assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
+    config.planning.maxGenerations = 1;
+    config.budgets.maxTotalTokens = 0.5;
+    config.budgets.maxWallClockMs = 0.5;
+    config.checks = [{ id: "check", command: ["validator"], required: true, timeoutMs: 0.5 }];
+    expect(validateConfig(config).budgets.maxTotalTokens).toBe(0.5);
+    expect(config.budgets.maxWallClockMs).toBe(0.5);
+    expect(config.checks[0].timeoutMs).toBe(0.5);
+  });
+
+  test("rejects obsolete attempt settings with their canonical migration destination", () => {
+    for (const section of ["planning", "implementation", "security", "review"] as const) {
+      const config = structuredClone(DEFAULT_CONFIG);
+      Object.assign(config[section], { maxAttempts: 2 });
+      assert.throws(() => validateConfig(config), (error: unknown) => error instanceof Error && "code" in error && error.code === "CONFIG_INVALID" && error.message.includes(`budgets.perRole.${section === "planning" ? "planner" : section}.maxAttempts`));
     }
   });
 

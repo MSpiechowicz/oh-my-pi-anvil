@@ -195,7 +195,7 @@ checks:
 
 An overlay can contain only the fields it needs. In this example, the project `checks` list replaces the inherited list, while the other global and default values remain in effect.
 
-The complete configuration shape is:
+A configuration example (new global files expose the complete supported shape):
 
 ```yaml
 version: 1
@@ -223,24 +223,30 @@ checks:
   - id: typecheck
     command: [deno, task, typecheck]
     required: true
-    timeoutMs: 180000
+    timeoutMs: null # No timeout unless explicitly configured.
 
 security:
   failOn: [critical, high, medium]
-  maxAttempts: 3
 
 review:
-  maxAttempts: 3
+  blockOn: [blocking, major]
 
 implementation:
-  maxAttempts: 6
   maxParallel: 4 # Set 1 to serialize Smith tasks.
 
+planning:
+  maxGenerations: null
+
 budgets:
-  # Token caps are optional and disabled by default.
-  # maxTotalTokens: 250000
-  maxTotalRequests: 120
-  maxTransitions: 40
+  maxTotalTokens: null
+  maxTotalRequests: null
+  maxTransitions: null
+  maxWallClockMs: null
+  perRole:
+    implementation:
+      maxTokens: null
+      maxAttempts: null
+      maxRequests: null
 
 context:
   maxInlineChars: 12000
@@ -253,6 +259,8 @@ memory:
   archivist: true # Set false to skip Archivist.
   maxRetainedLessons: 3
 ```
+
+Resource limits are opt-in; `null` disables a cap while omitted values inherit global settings. Every role has `maxTokens`, `maxAttempts`, and `maxRequests` under `budgets.perRole`; section-level attempt limits are no longer supported. Agent concurrency stays bounded at four Smiths by default. Safety and verification gates remain enabled. See [configuration](docs/configuration.md#optional-resource-limits) for all roles, inheritance, and migration details.
 
 Model selection stays in OMP's global model-role configuration:
 

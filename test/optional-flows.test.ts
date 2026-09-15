@@ -110,9 +110,8 @@ async function fixture(
 test("optional specialists provide persisted reconnaissance and curate only after verification", async () => {
   const retained: unknown[] = [];
   const f = await fixture((config) => {
-    config.planning.maxAttempts = 1;
     config.budgets.perRole.planner = { maxAttempts: 1 };
-    config.review.maxAttempts = 1;
+    config.budgets.perRole.review = { maxAttempts: 1 };
   }, async (request) => {
     const context = JSON.parse(request.context!);
     if (request.role === "planner") {

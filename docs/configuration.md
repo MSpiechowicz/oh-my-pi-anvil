@@ -70,7 +70,7 @@ Discovery supports these root manifests, not a recursive workspace scan:
 - **Package-manager choice:** a recognized `packageManager` declaration (`npm`, `pnpm`, `yarn`, or `bun`) wins. When that declaration is absent, Forge checks lockfiles in this order: `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`/`bun.lockb`, then `package-lock.json`/`npm-shrinkwrap.json`; without a match it uses `npm`. An invalid or unsupported declaration causes `CONFIG_INVALID` instead of silently choosing another manager. Deno tasks use `deno task`.
 - **Finite command filtering:** simple commands and `&&` chains are supported. Opaque shell constructs such as command substitution, background execution, pipelines, and redirection, as well as known watch/process orchestrators and unsafe flags, are excluded. Referenced scripts and package lifecycle hooks are inspected too.
 - **One-shot tests:** a direct bare Vitest command receives `run`; Vitest with options receives `--run`; a direct Jest command receives `--ci`. npm forwards these arguments through `--`. Wrappers that would need runner arguments injected into a nested command are skipped in favor of discovering the eligible leaf script. Explicit watch or mutation modes are excluded rather than silently run. Discovery is a conservative filter, not a sandbox or a proof that arbitrary script bodies and their dependencies are safe.
-- **Check definitions:** IDs are the original script/task names, such as `check`, `test`, or `test:unit`, with `required: true` and `timeoutMs: 180000`. Deno tasks appear in name order, followed by unmatched package scripts in name order.
+- **Check definitions:** IDs are the original script/task names, such as `check`, `test`, or `test:unit`, with `required: true` and `timeoutMs: null` (no timeout). Set a positive timeout in milliseconds to opt in. Deno tasks appear in name order, followed by unmatched package scripts in name order.
 - **Manifest errors:** missing optional manifests are ignored, but malformed manifests or invalid script/task entries cause `CONFIG_INVALID`. An explicit nonempty checks list bypasses discovery, including these manifest checks.
 
 At least one effective check must be required, either through `required: true` or Architect's `requiredChecks`. Architect receives the effective IDs, including discovered checks; an unknown plan-required ID or a plan with no effective required check is rejected before Smith starts. A plan-required check is authoritative even if its configured `required` flag is false: its failure stops the gate and participates in fail-fast behavior. Browser/manual verification belongs in acceptance criteria and Smith's verification evidence, not an invented Warden command ID.
@@ -134,9 +134,9 @@ The V1 configuration controls:
 - `version` and the named workflow;
 - agent mappings for Architect, Smith, Sentinel, Inquisitor, and the optional Scout and Archivist;
 - deterministic Warden checks, requiredness, and per-check timeouts;
-- Sentinel and Inquisitor policies and retry limits;
-- Smith attempt and concurrency limits;
-- optional total and per-role token caps, plus request, transition, and wall-clock budgets;
+- Sentinel and Inquisitor policies;
+- Smith concurrency and optional per-role attempt limits;
+- optional total and per-role token/request caps, transition and wall-clock budgets;
 - handoff and durable-memory limits;
 - default-enabled pre-plan reconnaissance and pre-seal lesson curation, independently disableable;
 - persistence options and safety flags.
@@ -219,25 +219,52 @@ Optional agents use the same strict shared-schema boundary as the core roles. `S
 
 Anvil uses the real OMP extension `context.memory.search(query, { limit, signal })` and `context.memory.save({ content, context, source, importance })` APIs, available in OMP 18.1.22. OMP supplies the configured backend; Anvil neither creates a substitute memory database nor selects a provider. Search/save availability depends on that backend and the active host session. Older hosts without this API, OMP's `off` backend, and backends without structured search/save simply provide no corresponding memory service. Anvil continues without recall or retention; provider errors are nonfatal. Enabling Anvil's memory flags does not enable an OMP backend or guarantee that a save was stored.
 
-## Optional token limits
+## Optional resource limits
 
-Total and per-role token caps are disabled by default. Token usage is still recorded, including cache reads reported by OMP; it is separate from your provider's remaining subscription allowance. Request, transition, wall-clock, and attempt guardrails remain enabled.
+Token, request, attempt, transition, wall-clock, plan-generation, and discovered-check timeout limits are disabled by default. Usage is still recorded, including cache reads reported by OMP; it is separate from your provider's remaining subscription allowance. **Concurrency remains bounded:** `implementation.maxParallel` defaults to `4` (range `1..32`). Safety, revision checks, required verification, and bounded handoff/memory sizing remain enabled.
 
-Set a positive numeric cap only when you want one. Omitted values inherit a configured global cap; use `null` in the project overlay to disable it:
+Set a positive numeric cap only when you want one. Counts must be integers. Omitted values inherit a configured global cap; use `null` in the project overlay to disable it. Attempt limits exist only at `budgets.perRole.<role>.maxAttempts`; the former `planning`, `implementation`, `security`, and `review` section-level `maxAttempts` keys are rejected with their migration destination. `planning.maxGenerations` separately limits plan generations; it defaults to `null`.
 
 ```yaml
+implementation:
+  maxParallel: 4
+planning:
+  maxGenerations: null
 budgets:
   maxTotalTokens: null
+  maxTotalRequests: null
+  maxTransitions: null
+  maxWallClockMs: null
   perRole:
     planner:
       maxTokens: null
+      maxAttempts: null
+      maxRequests: null
     implementation:
       maxTokens: null
+      maxAttempts: null
+      maxRequests: null
     security:
       maxTokens: null
+      maxAttempts: null
+      maxRequests: null
     review:
       maxTokens: null
+      maxAttempts: null
+      maxRequests: null
+    scout:
+      maxTokens: null
+      maxAttempts: null
+      maxRequests: null
+    archivist:
+      maxTokens: null
+      maxAttempts: null
+      maxRequests: null
 ```
+
+New global configuration files contain the complete supported shape as JSON (also accepted in `anvil.yml`). Effective snapshots retain nullable fields instead of silently omitting them: all six role budgets, agent `model`/`thinkingLevel`/`effort`, and each check's `cwd`/`env`/`timeoutMs`. Agent null values inherit host settings; check `cwd` and `env` null values inherit the process environment and workspace. `maxTokens` is an aggregate per-role usage budget, not a per-response model output limit.
+
+Edit global settings or `.omp/anvil.yml` to configure execution. `effective-config.json` is a hash-checked run artifact, not an automatically loaded overlay; directly editing it does not configure resume and can invalidate artifact integrity.
 
 Budgets are checked between stages and before another role attempt, not during individual model calls. An attempt can therefore exceed an explicitly configured cap before the run pauses.
 
@@ -255,7 +282,7 @@ Smith is the mutating stage. Every source mutation invalidates prior gates and s
 
 The same mechanism handles corrections from all three gates. Sentinel and Inquisitor may supply optional `smithTasks`; their `findingIds` reference new findings by zero-based array position encoded as decimal strings, or existing findings by persisted ID. Forge translates these references and requires coverage of all open findings. Otherwise Architect returns `SmithDispatchOutput` (`{ version: 1, tasks: [...] }`) against the persisted open findings, including Warden failures. Repair dispatch planning consumes Architect attempts and usage, but does not replace the active plan or consume its generation limit.
 
-Each Smith consumes its own implementation attempt and usage budget. The default Architect role budget is eight attempts, allowing planning plus repair decomposition; explicitly configured caps still apply. Concurrency does not multiply configured attempt or request allowances. Workers skip shared validation, and Forge waits for the complete dispatch before running Warden, Sentinel, and Inquisitor on the combined revision. Each worker's report remains a claim, not gate proof.
+Each Smith consumes its own implementation attempt and usage budget when configured. Architect planning and repair decomposition share `budgets.perRole.planner`; there is no default attempt cap. Concurrency does not multiply configured attempt or request allowances. Workers skip shared validation, and Forge waits for the complete dispatch before running Warden, Sentinel, and Inquisitor on the combined revision. Each worker's report remains a claim, not gate proof.
 
 Verification-only Smith work may reuse Warden and Sentinel passes only when the exact revision, mutation epoch, configuration, policy, and recorded evidence dependencies remain valid, without relevant open findings or a later failed/blocked gate. The gate that raised a finding runs again. Sentinel defaults to depending on Smith verification; only an explicit `verificationIndependent: true` permits reuse after successful verification additions. Reuse also requires an explicit `liveValidation: false`: live or unknown external-state dependence is never inferred away from source identity. Missing or changed dependencies reject reuse rather than weakening verification.
 
