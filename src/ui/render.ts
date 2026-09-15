@@ -162,11 +162,11 @@ function forgeBanner(title: string, color: boolean, tone: keyof typeof FORGE_INK
     color ? `\x1b[${bold ? "1;" : ""}38;2;${FORGE_INK[shade]}m${text}\x1b[0m` : text;
   return [
     "",
-    ink("gold", `  ${"━".repeat(52)}`),
-    `  ${ink("gold", "A N V I L", true)}`,
-    `  ${ink(tone, title, true)}`,
-    ...(stage ? [`  ${ink("muted", `STAGE / ${stage}`)}`] : []),
-    ink("gold", `  ${"━".repeat(52)}`),
+    ink("gold", "━".repeat(52)),
+    ink("gold", "A N V I L", true),
+    ink(tone, title, true),
+    ...(stage ? [ink("muted", `STAGE / ${stage}`)] : []),
+    ink("gold", "━".repeat(52)),
     "",
   ];
 }
@@ -179,8 +179,8 @@ export function renderStatus(summary: RunSummary, color = false): string {
   const { run } = summary;
   const ink = (tone: keyof typeof FORGE_INK, text: string, bold = false): string =>
     color ? `\x1b[${bold ? "1;" : ""}38;2;${FORGE_INK[tone]}m${text}\x1b[0m` : text;
-  const heading = (text: string): string => ink("gold", `  ━━ ${text} ${"━".repeat(Math.max(0, 48 - text.length))}`);
-  const row = (label: string, value: string): string => `  ${ink("muted", label.padEnd(14))}${ink("text", value)}`;
+  const heading = (text: string): string => ink("gold", `━━ ${text} ${"━".repeat(Math.max(0, 48 - text.length))}`);
+  const row = (label: string, value: string): string => `${ink("muted", label.padEnd(14))}${ink("text", value)}`;
   const number = (value: number | undefined): string => value?.toLocaleString() ?? "unknown";
   const attempts = summary.attempts.reduce<Record<string, number>>((counts, attempt) => {
     const label = attempt.role ? ROLE_LABELS[attempt.role] : STAGE_LABELS[attempt.state] ?? attempt.state;
@@ -210,28 +210,28 @@ export function renderStatus(summary: RunSummary, color = false): string {
   const peak = Math.max(1, ...Object.values(attempts));
   const roleRow = (label: string, count: number, roleTone: keyof typeof FORGE_INK): string => {
     const bars = count ? Math.max(1, Math.round(count / peak * 12)) : 0;
-    return `  ${ink(roleTone, label.padEnd(14))}${
+    return `${ink(roleTone, label.padEnd(14))}${
       ink(roleTone, "━".repeat(bars))
     }${ink("muted", "·".repeat(12 - bars))}  ${ink("text", String(count).padStart(3), true)} ${ink("muted", count === 1 ? "attempt" : "attempts")}`;
   };
   return [
     ...forgeBanner(verdict, color, tone, run.status === "running" ? displayState(run.currentState).toUpperCase() : undefined),
-    `  ${ink(open.length ? "red" : "green", `${open.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${
+    `${ink(open.length ? "red" : "green", `${open.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${
       ink("text", `${run.transitionCount} transitions`, true)
     }  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,
     ...(run.failureCode || run.failureMessage || run.blockedReason
-      ? ["", ...(run.failureCode ? [`  ${ink("red", run.failureCode, true)}`] : []),
-        `  ${ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")}`]
+      ? ["", ...(run.failureCode ? [ink("red", run.failureCode, true)] : []),
+        ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")]
       : []),
     ...open.slice(0, 8).map((finding) =>
-      `  ${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),
-    ...(open.length > 8 ? [`  ${ink("muted", `+ ${open.length - 8} more · /anvil findings ${run.id}`)}`] : []),
+      `${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),
+    ...(open.length > 8 ? [ink("muted", `+ ${open.length - 8} more · /anvil findings ${run.id}`)] : []),
     ...(sealed ? [
       "",
       heading("SUMMARY & NEXT STEPS"),
       ...(completionNotes.length
-        ? completionNotes.map((note) => `  ${ink("text", note)}`)
-        : [`  ${ink("muted", "No completion handoff was recorded. Review the run artifacts for verification details and remaining work.")}`]),
+        ? completionNotes.map((note) => ink("text", note))
+        : [ink("muted", "No completion handoff was recorded. Review the run artifacts for verification details and remaining work.")]),
     ] : []),
     "",
     heading("THE FORGE CREW"),
@@ -240,7 +240,7 @@ export function renderStatus(summary: RunSummary, color = false): string {
       .map(([label, count]) => roleRow(label, count, "muted")),
     "",
     heading("TOKEN LEDGER"),
-    `  ${ink("gold", `${number(run.usedTokens)} tokens`, true)}  ${ink("muted", "/")}  ${
+    `${ink("gold", `${number(run.usedTokens)} tokens`, true)}  ${ink("muted", "/")}  ${
       ink("text", `${number(run.usedRequests)} requests`, true)
     }`,
     row("LIMIT", run.maxTotalTokens === undefined ? "No token limit" : `${number(run.maxTotalTokens)} tokens`),
@@ -249,9 +249,9 @@ export function renderStatus(summary: RunSummary, color = false): string {
     row("CACHE READ", number(run.usedCacheReadTokens)),
     row("CACHE WRITE", number(run.usedCacheWriteTokens)),
     "",
-    ink("muted", "  Host aggregate; cache included when reported. Otherwise input + output."),
-    ink("muted", "  Not monetary cost. Components may be incomplete or not sum to total;"),
-    ink("muted", "  zero can mean unreported. Caps checked between stages, not mid-child."),
+    ink("muted", "Host aggregate; cache included when reported. Otherwise input + output."),
+    ink("muted", "Not monetary cost. Components may be incomplete or not sum to total;"),
+    ink("muted", "zero can mean unreported. Caps checked between stages, not mid-child."),
     "",
     heading("RUN RECORD"),
     row("RUN", run.id),

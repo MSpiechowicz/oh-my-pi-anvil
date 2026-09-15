@@ -451,7 +451,7 @@ test("run reports attribute shared-stage attempts to their actual roles", () => 
     events: [],
   } as unknown as RunSummary;
   const counts = (report: string): Record<string, number> => Object.fromEntries(
-    [...report.matchAll(/^\s+(\w+)\s+[━·]+\s+(\d+) attempts?$/gm)].map((match) => [match[1], Number(match[2])]),
+    [...report.matchAll(/^[ \t]*(\w+)\s+[━·]+\s+(\d+) attempts?$/gm)].map((match) => [match[1], Number(match[2])]),
   );
   expect(counts(renderStatus(summary))).toEqual({
     Scout: 1, Architect: 2, Smith: 1, Warden: 1, Sentinel: 1, Inquisitor: 1, Archivist: 1,

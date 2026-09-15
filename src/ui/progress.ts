@@ -107,15 +107,15 @@ function widgetLines(update: WorkflowProgressUpdate, frame: string, activeStage?
   const stages = rows.flatMap(({ marker, label, activity }, index) => {
     const color = marker === "!" ? "error" : marker === "›" ? "accent" : marker === "✓" ? "success" : "dim";
     const text = `${marker === "›" ? frame : marker} ${label.padEnd(10)}  ${activity}`;
-    const row = `  ${paint(color, text)}`;
-    return index < rows.length - 1 ? [row, `  ${paint("dim", "│")}`] : [row];
+    const row = paint(color, text);
+    return index < rows.length - 1 ? [row, paint("dim", "│")] : [row];
   });
   const title = theme ? theme.bold("FORGE") : "FORGE";
   const runId = update.run.id.replace(/^run_/, "").slice(0, 8);
   return [
-    `  ${paint("accent", title)} ${paint("dim", `· ${runId}`)}`,
+    `${paint("accent", title)} ${paint("dim", `· ${runId}`)}`,
     ...(interrupted || update.kind === "finished" || !STAGES.includes(coreStage)
-      ? [`  ${paint(interrupted ? "error" : update.kind === "finished" ? "success" : "accent", statusText(update, frame, activeStage))}`]
+      ? [paint(interrupted ? "error" : update.kind === "finished" ? "success" : "accent", statusText(update, frame, activeStage))]
       : []),
     "",
     ...stages,
@@ -146,7 +146,7 @@ export function createForgeProgressReporter(ui: ForgeProgressUI | undefined): Fo
   const renderStarting = (): void => {
     const text = `${SPINNER_FRAMES[frameIndex]} Acquiring workspace lock`;
     const title = ui?.theme ? ui.theme.fg("accent", ui.theme.bold("FORGE")) : "FORGE";
-    present(text, [`  ${title}`, `  ${text}`, ""]);
+    present(text, [title, text, ""]);
   };
 
   const render = (): void => {

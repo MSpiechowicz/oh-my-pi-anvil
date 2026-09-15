@@ -13638,13 +13638,13 @@ function forgeBanner(title, color, tone = "gold", stage) {
   const ink = (shade, text2, bold = false) => color ? `\x1B[${bold ? "1;" : ""}38;2;${FORGE_INK[shade]}m${text2}\x1B[0m` : text2;
   return [
     "",
-    ink("gold", `  ${"\u2501".repeat(52)}`),
-    `  ${ink("gold", "A N V I L", true)}`,
-    `  ${ink(tone, title, true)}`,
+    ink("gold", "\u2501".repeat(52)),
+    ink("gold", "A N V I L", true),
+    ink(tone, title, true),
     ...stage ? [
-      `  ${ink("muted", `STAGE / ${stage}`)}`
+      ink("muted", `STAGE / ${stage}`)
     ] : [],
-    ink("gold", `  ${"\u2501".repeat(52)}`),
+    ink("gold", "\u2501".repeat(52)),
     ""
   ];
 }
@@ -13657,8 +13657,8 @@ function renderIntake(message, color = false) {
 function renderStatus(summary, color = false) {
   const { run } = summary;
   const ink = (tone2, text2, bold = false) => color ? `\x1B[${bold ? "1;" : ""}38;2;${FORGE_INK[tone2]}m${text2}\x1B[0m` : text2;
-  const heading = (text2) => ink("gold", `  \u2501\u2501 ${text2} ${"\u2501".repeat(Math.max(0, 48 - text2.length))}`);
-  const row = (label, value2) => `  ${ink("muted", label.padEnd(14))}${ink("text", value2)}`;
+  const heading = (text2) => ink("gold", `\u2501\u2501 ${text2} ${"\u2501".repeat(Math.max(0, 48 - text2.length))}`);
+  const row = (label, value2) => `${ink("muted", label.padEnd(14))}${ink("text", value2)}`;
   const number = (value2) => value2?.toLocaleString() ?? "unknown";
   const attempts = summary.attempts.reduce((counts, attempt) => {
     const label = attempt.role ? ROLE_LABELS[attempt.role] : STAGE_LABELS[attempt.state] ?? attempt.state;
@@ -13711,27 +13711,27 @@ function renderStatus(summary, color = false) {
   const peak = Math.max(1, ...Object.values(attempts));
   const roleRow = (label, count, roleTone) => {
     const bars = count ? Math.max(1, Math.round(count / peak * 12)) : 0;
-    return `  ${ink(roleTone, label.padEnd(14))}${ink(roleTone, "\u2501".repeat(bars))}${ink("muted", "\xB7".repeat(12 - bars))}  ${ink("text", String(count).padStart(3), true)} ${ink("muted", count === 1 ? "attempt" : "attempts")}`;
+    return `${ink(roleTone, label.padEnd(14))}${ink(roleTone, "\u2501".repeat(bars))}${ink("muted", "\xB7".repeat(12 - bars))}  ${ink("text", String(count).padStart(3), true)} ${ink("muted", count === 1 ? "attempt" : "attempts")}`;
   };
   return [
     ...forgeBanner(verdict, color, tone, run.status === "running" ? displayState(run.currentState).toUpperCase() : void 0),
-    `  ${ink(open4.length ? "red" : "green", `${open4.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${ink("text", `${run.transitionCount} transitions`, true)}  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,
+    `${ink(open4.length ? "red" : "green", `${open4.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${ink("text", `${run.transitionCount} transitions`, true)}  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,
     ...run.failureCode || run.failureMessage || run.blockedReason ? [
       "",
       ...run.failureCode ? [
-        `  ${ink("red", run.failureCode, true)}`
+        ink("red", run.failureCode, true)
       ] : [],
-      `  ${ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")}`
+      ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")
     ] : [],
-    ...open4.slice(0, 8).map((finding) => `  ${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),
+    ...open4.slice(0, 8).map((finding) => `${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),
     ...open4.length > 8 ? [
-      `  ${ink("muted", `+ ${open4.length - 8} more \xB7 /anvil findings ${run.id}`)}`
+      ink("muted", `+ ${open4.length - 8} more \xB7 /anvil findings ${run.id}`)
     ] : [],
     ...sealed ? [
       "",
       heading("SUMMARY & NEXT STEPS"),
-      ...completionNotes.length ? completionNotes.map((note) => `  ${ink("text", note)}`) : [
-        `  ${ink("muted", "No completion handoff was recorded. Review the run artifacts for verification details and remaining work.")}`
+      ...completionNotes.length ? completionNotes.map((note) => ink("text", note)) : [
+        ink("muted", "No completion handoff was recorded. Review the run artifacts for verification details and remaining work.")
       ]
     ] : [],
     "",
@@ -13740,16 +13740,16 @@ function renderStatus(summary, color = false) {
     ...Object.entries(attempts).filter(([label]) => !roles.some(([role]) => role === label)).map(([label, count]) => roleRow(label, count, "muted")),
     "",
     heading("TOKEN LEDGER"),
-    `  ${ink("gold", `${number(run.usedTokens)} tokens`, true)}  ${ink("muted", "/")}  ${ink("text", `${number(run.usedRequests)} requests`, true)}`,
+    `${ink("gold", `${number(run.usedTokens)} tokens`, true)}  ${ink("muted", "/")}  ${ink("text", `${number(run.usedRequests)} requests`, true)}`,
     row("LIMIT", run.maxTotalTokens === void 0 ? "No token limit" : `${number(run.maxTotalTokens)} tokens`),
     row("INPUT", number(run.usedInputTokens)),
     row("OUTPUT", number(run.usedOutputTokens)),
     row("CACHE READ", number(run.usedCacheReadTokens)),
     row("CACHE WRITE", number(run.usedCacheWriteTokens)),
     "",
-    ink("muted", "  Host aggregate; cache included when reported. Otherwise input + output."),
-    ink("muted", "  Not monetary cost. Components may be incomplete or not sum to total;"),
-    ink("muted", "  zero can mean unreported. Caps checked between stages, not mid-child."),
+    ink("muted", "Host aggregate; cache included when reported. Otherwise input + output."),
+    ink("muted", "Not monetary cost. Components may be incomplete or not sum to total;"),
+    ink("muted", "zero can mean unreported. Caps checked between stages, not mid-child."),
     "",
     heading("RUN RECORD"),
     row("RUN", run.id),
@@ -14240,10 +14240,10 @@ function widgetLines(update, frame, activeStage, theme) {
   const stages = rows.flatMap(({ marker, label, activity }, index) => {
     const color = marker === "!" ? "error" : marker === "\u203A" ? "accent" : marker === "\u2713" ? "success" : "dim";
     const text2 = `${marker === "\u203A" ? frame : marker} ${label.padEnd(10)}  ${activity}`;
-    const row = `  ${paint(color, text2)}`;
+    const row = paint(color, text2);
     return index < rows.length - 1 ? [
       row,
-      `  ${paint("dim", "\u2502")}`
+      paint("dim", "\u2502")
     ] : [
       row
     ];
@@ -14251,9 +14251,9 @@ function widgetLines(update, frame, activeStage, theme) {
   const title = theme ? theme.bold("FORGE") : "FORGE";
   const runId = update.run.id.replace(/^run_/, "").slice(0, 8);
   return [
-    `  ${paint("accent", title)} ${paint("dim", `\xB7 ${runId}`)}`,
+    `${paint("accent", title)} ${paint("dim", `\xB7 ${runId}`)}`,
     ...interrupted || update.kind === "finished" || !STAGES.includes(coreStage) ? [
-      `  ${paint(interrupted ? "error" : update.kind === "finished" ? "success" : "accent", statusText(update, frame, activeStage))}`
+      paint(interrupted ? "error" : update.kind === "finished" ? "success" : "accent", statusText(update, frame, activeStage))
     ] : [],
     "",
     ...stages,
@@ -14284,8 +14284,8 @@ function createForgeProgressReporter(ui) {
     const text2 = `${SPINNER_FRAMES[frameIndex]} Acquiring workspace lock`;
     const title = ui?.theme ? ui.theme.fg("accent", ui.theme.bold("FORGE")) : "FORGE";
     present(text2, [
-      `  ${title}`,
-      `  ${text2}`,
+      title,
+      text2,
       ""
     ]);
   };

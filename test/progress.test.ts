@@ -91,7 +91,7 @@ describe("Forge progress UI", () => {
       reporter.onProgress(update("REVIEW", "stage", { scout: "completed", archivist: "running" }));
       reporter.onProgress(update("REVIEW", "stage", { scout: "completed", archivist: "completed" }));
       reporter.onProgress(update("DONE", "finished", { scout: "completed", archivist: "completed" }));
-      const rows = widgets.map((content) => content!.join("\n").split("\n").filter((line) => /^\s+[·✓!–◐◓◑◒] (Scout|Architect|Smith|Warden|Sentinel|Inquisitor|Archivist)\s/u.test(line)));
+      const rows = widgets.map((content) => content!.join("\n").split("\n").filter((line) => /^[ \t]*[·✓!–◐◓◑◒] (Scout|Architect|Smith|Warden|Sentinel|Inquisitor|Archivist)\s/u.test(line)));
       const labels = ["Scout", "Architect", "Smith", "Warden", "Sentinel", "Inquisitor", "Archivist"];
       for (const panel of rows) expect(panel.map((line) => line.trim().split(/\s+/)[1])).toEqual(labels);
       const markers = rows.map((panel) => panel.map((line) => line.trim()[0]));
