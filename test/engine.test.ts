@@ -55,6 +55,41 @@ async function initializeReviewWorkspace(root: string) {
 }
 
 describe("WorkflowEngine", () => {
+  test("refreshes readable run metadata across blocked recovery without a progress UI", async () => {
+    const root = await mkdtemp("/tmp/anvil-metadata-");
+    try {
+      const engine = await makeEngine(root, new StaticRevisionProvider(revision("rev0")), [
+        { role: "planner", structured: plan },
+      ], (config) => { config.budgets.maxTotalRequests = 1; });
+      const blocked = await engine.start({ objective: "Identify this run without SQLite", workspaceRoot: root });
+      const file = path.join(root, ".omp", "runs", blocked.run.id, "metadata.json");
+      const before = JSON.parse(await readFile(file, "utf8"));
+      expect(before.currentState).toBe("BLOCKED");
+      expect(before.failureCode).toBe("BUDGET_EXHAUSTED");
+      expect(before.objective).toBe("Identify this run without SQLite");
+      expect(before.resumeCommand).toBe(`/anvil resume ${blocked.run.id}`);
+      expect(Number.isFinite(Date.parse(before.createdAt))).toBe(true);
+      expect(Number.isFinite(Date.parse(before.startedAt))).toBe(true);
+      // A browsing file must not be trusted as recovery state.
+      await writeFile(file, JSON.stringify({ ...before, currentState: "DONE", status: "done" }));
+      const recovered = await makeEngine(root, new StaticRevisionProvider(revision("rev0")), [
+        { role: "implementation", structured: implementation },
+        { role: "security", structured: securityPass },
+        { role: "review", structured: reviewPass },
+      ]);
+      const done = await recovered.resume(blocked.run.id);
+      expect(done.run.currentState).toBe("DONE");
+      const after = JSON.parse(await readFile(file, "utf8"));
+      expect(after.currentState).toBe("DONE");
+      expect(after.status).toBe("done");
+      expect(after.createdAt).toBe(before.createdAt);
+      expect(Date.parse(after.updatedAt) >= Date.parse(before.updatedAt)).toBe(true);
+      expect(Number.isFinite(Date.parse(after.finishedAt))).toBe(true);
+      expect(after.resumeCommand).toBe(null);
+      expect(after.failureCode).toBe(null);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   test("preserves finding logs across Warden retries without a revision change", async () => {
     const root = await mkdtemp("/tmp/anvil-check-retry-");
     const state = await StateDatabase.open(path.join(root, ".omp"));

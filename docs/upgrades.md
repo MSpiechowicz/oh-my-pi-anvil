@@ -4,6 +4,8 @@ Anvil persists package version, workflow version, effective configuration hash, 
 
 A resumed run must use the non-budget workflow configuration recorded at start. Current budget settings may raise or remove limits on an existing run without resetting its usage or attempts. If checks, agent mappings, or other workflow policy changes, restore the saved settings or start a new run rather than silently changing gate policy mid-run.
 
+Run directories now include a human-readable `metadata.json` snapshot with UTC timestamps, objective, state, failure details, and the resume command. New runs create it automatically; existing runs acquire it on resume or cancellation. No database migration or configuration change is needed. Metadata is advisory and refreshed at lifecycle boundaries, not a replacement for SQLite or proof that a recorded running process is still alive.
+
 Resource caps are now opt-in: total/per-role tokens and requests, role attempts, transitions, elapsed time, plan generations, and discovered-check timeouts default to `null`. `implementation.maxParallel` remains `4`. Explicit existing caps are preserved; clear them with `null` if desired. New global configurations expose the complete supported shape.
 
 Move `implementation.maxAttempts`, `security.maxAttempts`, `review.maxAttempts`, and `planning.maxAttempts` to `budgets.perRole.implementation.maxAttempts`, `budgets.perRole.security.maxAttempts`, `budgets.perRole.review.maxAttempts`, and `budgets.perRole.planner.maxAttempts`, respectively. Old duplicate keys are rejected rather than silently combining two caps. Planner's role cap counts both plan production and repair decomposition.

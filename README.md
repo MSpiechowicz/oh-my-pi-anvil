@@ -304,6 +304,7 @@ Local persistence does **not** mean an entirely offline workflow. Agent requests
 └── runs/<run-id>/
     ├── objective.md
     ├── effective-config.json
+    ├── metadata.json
     ├── artifacts/
     │   ├── revisions/
     │   │   └── baseline.json
@@ -326,6 +327,8 @@ Local persistence does **not** mean an entirely offline workflow. Agent requests
 Directories and reports are created as needed. Scout and Archivist reports are present only when those roles produce valid output; the tree shows representative files, not every handoff, snapshot, or captured verification artifact.
 
 SQLite is authoritative for workflow state. Artifacts are hashed and written atomically. Runtime files are excluded from the workspace revision; source edits are not.
+
+Each run also has a readable `metadata.json` with its ID, objective, workspace, UTC ISO-8601 creation/start/update/finish timestamps, status, stage, revision, failure details, and a copyable `resumeCommand` (`null` for terminal runs). It is refreshed at startup, stage boundaries, completion, resume, and cancellation, even without a progress UI. Existing runs acquire the file when resumed or cancelled; there is no automatic historical backfill. This best-effort browsing snapshot is never read as recovery state or gate evidence. After an abrupt process exit it may describe the last recorded stage, not a live process; SQLite remains authoritative.
 
 Each agent invocation retains `artifacts/<role>/output-<attempt-sequence>.json`, including model, thinking level, duration, result, and usage. Smith additionally writes a revision/epoch-bound `artifacts/implementation/<attempt-id>/result.json` and captured supporting files. Warden results use `artifacts/checks/attempt-<attempt-sequence>.json`; gate dependency manifests preserve the evidence used for reuse decisions. Planner outputs are attempt-scoped so replanning does not overwrite earlier gate inputs.
 

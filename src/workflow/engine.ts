@@ -68,6 +68,7 @@ export class WorkflowEngine {
   }
   async resume(runId: string, progress?: WorkflowProgressHandler): Promise<RunSummary> {
     let run = this.runs.require(runId);
+    await this.writeMetadata(run);
     this.assertConfiguredChecks();
     await this.assertResumeConfig(run);
     if (run.planPath) await this.effectiveChecks(run);
@@ -88,7 +89,9 @@ export class WorkflowEngine {
       } catch (error) {
         const typed = asAnvilError(error);
         if (typed.code !== "BUDGET_EXHAUSTED" && typed.code !== "MAX_ATTEMPTS_EXCEEDED") throw error;
-        return this.summary(this.runs.update(runId, { blocked_reason: typed.message, failure_code: typed.code, failure_message: null, finished_at: null }));
+        run = this.runs.update(runId, { blocked_reason: typed.message, failure_code: typed.code, failure_message: null, finished_at: null });
+        await this.report(run, "finished");
+        return this.summary(run);
       }
       assertLegalTransition("BLOCKED", previous);
       run = this.runs.update(runId, { current_state: previous, status: "running", blocked_reason: null, failure_code: null, failure_message: null, finished_at: null, active_attempt_id: null }, { type: "RUN_UNBLOCKED", stateBefore: "BLOCKED", stateAfter: previous, revisionId: run.currentRevisionId });
@@ -106,7 +109,11 @@ export class WorkflowEngine {
       this.events.append({ runId, type: "SMITH_DISPATCH_RECOVERY_REQUIRED", actor: "anvil", revisionId: run.currentRevisionId });
     }
     if (run.currentState === "PLAN" || run.currentState === "IMPLEMENT") {
-      try { await this.baseline(run); } catch (error) { return this.summary(this.block(run, this.evidenceError(error))); }
+      try { await this.baseline(run); } catch (error) {
+        run = this.block(run, this.evidenceError(error));
+        await this.report(run, "finished");
+        return this.summary(run);
+      }
     }
     if (progress) this.progress.set(runId, progress);
     this.controllers.set(runId, new AbortController()); try { return await this.drive(this.runs.require(runId), this.controllers.get(runId)!.signal); } finally { this.controllers.delete(runId); this.progress.delete(runId); }
@@ -121,7 +128,12 @@ export class WorkflowEngine {
   }
 
 
-  async cancel(runId: string): Promise<void> { const controller = this.controllers.get(runId); controller?.abort(); const run = this.runs.require(runId); if (!isTerminal(run.currentState)) this.transition(run, "CANCELLED", "RUN_CANCELLED"); }
+  async cancel(runId: string): Promise<void> {
+    const controller = this.controllers.get(runId); controller?.abort();
+    let run = this.runs.require(runId);
+    if (!isTerminal(run.currentState)) run = this.transition(run, "CANCELLED", "RUN_CANCELLED");
+    await this.writeMetadata(run);
+  }
   status(runId?: string): RunSummary { const run = runId ? this.runs.require(runId) : this.runs.latest(); if (!run) throw new AnvilError("RUN_NOT_FOUND", "No Anvil runs exist"); return this.summary(run); }
 
   private async drive(initial: RunRecord, signal: AbortSignal): Promise<RunSummary> {
@@ -595,7 +607,36 @@ export class WorkflowEngine {
     const next = nextAfterSecurity(output, this.deps.config.security.failOn); if (next === "IMPLEMENT") return this.transition(run, "IMPLEMENT", "SECURITY_FINDINGS", { revisionId: before.id }); this.findings.resolveGate(run.id, "security", attempt.id); return this.transition(run, "REVIEW", "SECURITY_PASSED", { revisionId: before.id });
   }
 
+  private async writeMetadata(run: RunRecord): Promise<void> {
+    try {
+      const objective = await this.deps.artifacts.readText(run.id, this.artifact(run, "kind = ?", ["objective"]));
+      run = this.runs.require(run.id);
+      await this.deps.artifacts.putJson(run.id, "run-metadata", "metadata.json", {
+        version: 1,
+        runId: run.id,
+        workflowName: run.workflowName,
+        workspaceRoot: run.workspaceRoot,
+        objective,
+        createdAt: run.createdAt,
+        startedAt: run.startedAt ?? null,
+        updatedAt: run.updatedAt,
+        finishedAt: run.finishedAt ?? null,
+        status: run.status,
+        currentState: run.currentState,
+        currentRevisionId: run.currentRevisionId,
+        blockedReason: run.blockedReason ?? null,
+        failureCode: run.failureCode ?? null,
+        failureMessage: run.failureMessage ?? null,
+        resumeCommand: isTerminal(run.currentState) ? null : `/anvil resume ${run.id}`,
+      });
+    } catch (error) {
+      // This browsing snapshot is not workflow state or gate evidence.
+      this.advisoryFailure(run, "run-metadata", error);
+    }
+  }
+
   private async report(run: RunRecord, kind: WorkflowProgressKind): Promise<void> {
+    await this.writeMetadata(run);
     const handler = this.progress.get(run.id); if (!handler) return;
     try { await handler({ kind, run }); } catch { /* UI progress must never change workflow outcome. */ }
   }
