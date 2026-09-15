@@ -60,6 +60,38 @@ describe("workflow configuration", () => {
     }
   });
 
+  test("inherits clarification defaults and merges partial global and project overrides", async () => {
+    const repository = await mkdtemp("/tmp/anvil-config-clarification-");
+    const configHome = await mkdtemp("/tmp/anvil-config-home-");
+    const previousXdg = process.env.XDG_CONFIG_HOME;
+    try {
+      process.env.XDG_CONFIG_HOME = configHome;
+      await mkdir(path.join(repository, ".git"));
+      const globalPath = path.join(configHome, "omp", "anvil.yml");
+      const projectPath = path.join(repository, ".omp", "anvil.yml");
+      await mkdir(path.dirname(globalPath), { recursive: true });
+      await mkdir(path.dirname(projectPath), { recursive: true });
+      await writeFile(globalPath, "version: 1\n");
+      assert.deepEqual((await loadConfig(repository)).clarification, { mode: "auto", maxRounds: 2 });
+
+      await writeFile(globalPath, "clarification:\n  mode: always\n");
+      assert.deepEqual((await loadConfig(repository)).clarification, { mode: "always", maxRounds: 2 });
+      await writeFile(projectPath, "clarification:\n  maxRounds: 10\n");
+      assert.deepEqual((await loadConfig(repository)).clarification, { mode: "always", maxRounds: 10 });
+
+      await writeFile(globalPath, JSON.stringify({ clarification: { mode: "always", maxRounds: 1 } }));
+      await writeFile(projectPath, JSON.stringify({ clarification: { mode: "off" } }));
+      assert.deepEqual((await loadConfig(repository)).clarification, { mode: "off", maxRounds: 1 });
+      await writeFile(projectPath, "clarification:\n  mode: auto\n");
+      assert.deepEqual((await loadConfig(repository)).clarification, { mode: "auto", maxRounds: 1 });
+    } finally {
+      if (previousXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = previousXdg;
+      await rm(repository, { recursive: true, force: true });
+      await rm(configHome, { recursive: true, force: true });
+    }
+  });
+
   test("initializes global and repository configuration files", async () => {
     const repository = await mkdtemp("/tmp/anvil-config-init-");
     const configHome = await mkdtemp("/tmp/anvil-config-home-");
@@ -444,6 +476,30 @@ describe("workflow configuration", () => {
     for (const maxParallel of [0, -1, 33, 1.5, NaN, Infinity, "4", null, true]) {
       const config = structuredClone(DEFAULT_CONFIG);
       Object.assign(config.implementation, { maxParallel });
+      assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
+    }
+  });
+
+  test("rejects unsupported clarification modes without coercion", () => {
+    for (const mode of ["sometimes", "AUTO", "", " off ", null, undefined, false, 1, {}, []]) {
+      const config = structuredClone(DEFAULT_CONFIG);
+      Object.assign(config.clarification, { mode });
+      assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
+    }
+  });
+
+  test("rejects clarification round limits outside the bounded integer contract", () => {
+    for (const maxRounds of [0, -1, 11, 1.5, NaN, Infinity, -Infinity, "2", null, undefined, true, {}, []]) {
+      const config = structuredClone(DEFAULT_CONFIG);
+      Object.assign(config.clarification, { maxRounds });
+      assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
+    }
+  });
+
+  test("rejects malformed clarification sections and unknown clarification keys", () => {
+    for (const clarification of [null, undefined, false, "auto", [], { mode: "auto", maxRounds: 2, enabled: true }]) {
+      const config = structuredClone(DEFAULT_CONFIG);
+      Object.assign(config, { clarification });
       assert.throws(() => validateConfig(config), { code: "CONFIG_INVALID" });
     }
   });

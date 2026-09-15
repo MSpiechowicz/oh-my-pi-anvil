@@ -127,6 +127,30 @@ Use `/anvil` for configuration and run management:
 ```
 
 
+## Pre-run clarification
+
+```yaml
+clarification:
+  mode: auto
+  maxRounds: 2
+```
+
+`/forge [--clarify=auto|always|off] <objective>` overrides the configured mode for one invocation. `--clarify auto` is also accepted; use `/forge -- <objective>` when the literal objective begins with `--clarify`.
+
+- **auto** (default): inspect relevant repository context with the configured Architect before asking about material unresolved decisions. If there are no questions, execute the original objective unchanged—not the model's proposed rewrite.
+- **always**: perform the same assessment and require explicit approval of the resulting brief, even if no questions are needed.
+- **off**: skip the intake model call and execute the supplied objective directly.
+
+The intake is outside the execution state machine, before Scout and planning. Independent questions are generated together in rounds and presented through OMP selection/input dialogs, with options, consequences, a recommendation, custom answers, and “I don't know.” Unresolved answers cannot disappear merely because a later model output omits them. Choosing a prototype requires explicit non-production scope and success criteria, not permission to guess a production default.
+
+`maxRounds` is an integer from `1` to `10`, default `2`. It counts model assessments, including the assessment that produces a final brief. At the checkpoint, the user must explicitly continue another bounded block, narrow the scope, or cancel. Reaching it never approves unanswered questions. After any interview, the complete brief—including non-goals, constraints, acceptance criteria, decisions, assumptions, and explicit answers—requires approval before execution.
+
+Without both interactive selection and input support, `auto` may proceed only for a clear objective; unresolved questions return without starting a run. `always` stops for approval. Use `off` for prepared automation objectives. Escape or cancellation never starts a workflow.
+
+Intake uses `agents.planner` model settings, but does not consume planning generations or planner attempt limits. Aggregate token/request limits are checked before each intake model call. Usage is retained in standalone `.anvil/intake/<intake-id>.json` records and added to run totals on execution; a reported request count below one still charges one invocation. Intake is not a run, so workflow elapsed-time limits and `/anvil resume` begin with execution, not time spent answering questions. A cancelled or failed intake is restarted with `/forge`, not resumed as a workflow.
+
+The workspace lock remains held throughout intake. Repository changes during assessment or while awaiting approval invalidate the brief. Ready records are copied into the run's `artifacts/intake.json`, and the accepted objective is persisted as `objective.md`; workers do not receive a conversation transcript. `/anvil resume` reuses that objective without re-interviewing. Clarification settings may change on resume because they do not affect execution or gate policy; historical config hashes are preserved.
+
 ## Configuration responsibilities
 
 The V1 configuration controls:

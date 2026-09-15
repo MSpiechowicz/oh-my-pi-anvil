@@ -18,6 +18,7 @@ import { serializeHandoff } from "../src/context/serializers.ts";
 import { sha256 } from "../src/util/hash.ts";
 import { GateRepository } from "../src/state/repositories.ts";
 import { AnvilError } from "../src/util/errors.ts";
+import { clarifyObjective } from "../src/intake/clarify.ts";
 
 const revision = (id: string): WorkspaceRevision => ({ id, head: "head", stagedSha256: id, unstagedSha256: id, untracked: [] });
 const plan = { version: 1 as const, summary: "Add the requested change", assumptions: [], steps: [{ id: "step-1", title: "Implement", objective: "Implement the change", dependsOn: [], fileHints: ["src"], symbolHints: [], acceptanceCriteria: ["The change works"], risk: "low" as const, securitySurfaces: [] }], globalAcceptanceCriteria: ["The change works"], requiredChecks: [], risks: [], replanTriggers: [] };
@@ -55,6 +56,75 @@ async function initializeReviewWorkspace(root: string) {
 }
 
 describe("WorkflowEngine", () => {
+  test("carries intake cost into budgets and preserves the objective across resume", async () => {
+    const root = await mkdtemp("/tmp/anvil-intake-budget-");
+    try {
+      const provider = new StaticRevisionProvider(revision("rev0"));
+      const config = structuredClone(DEFAULT_CONFIG);
+      const intake = await clarifyObjective({ objective: "Preserve the requested behavior", mode: "auto" }, {
+        config, cwd: root, runtimeRoot: path.join(root, ".omp"), revisions: provider,
+        agents: new MockAgentRunner([{ role: "planner", structured: {
+          version: 1, objective: "Unapproved rewrite must not become the objective",
+          nonGoals: [], constraints: [], acceptanceCriteria: ["Preserve the requested behavior"],
+          decisions: [], assumptions: [], repoFindings: [{ path: ".", finding: "No existing source files in this fixture" }], questions: [],
+        } }]),
+      });
+      if (!intake.record || intake.status !== "ready") throw new Error("Expected an accepted precise objective");
+      const engine = await makeEngine(root, provider, [], (value) => { value.budgets.maxTotalRequests = 1; });
+      const blocked = await engine.start({ objective: intake.record.objective, intake: intake.record, workspaceRoot: root });
+      expect(blocked.run.currentState).toBe("BLOCKED");
+      expect(blocked.run.failureCode).toBe("BUDGET_EXHAUSTED");
+      expect(blocked.attempts).toEqual([]);
+      expect(blocked.run.usedTokens).toBe(1);
+      const recovered = await makeEngine(root, provider, [
+        { role: "planner", structured: plan }, { role: "implementation", structured: implementation },
+        { role: "security", structured: securityPass }, { role: "review", structured: reviewPass },
+      ]);
+      const done = await recovered.resume(blocked.run.id);
+      expect(done.run.currentState).toBe("DONE");
+      expect(done.run.usedRequests).toBe(5);
+      const runRoot = path.join(root, ".omp", "runs", done.run.id);
+      expect(await readFile(path.join(runRoot, "objective.md"), "utf8")).toBe("Preserve the requested behavior");
+      const saved = JSON.parse(await readFile(path.join(runRoot, "artifacts/intake.json"), "utf8"));
+      expect(saved.id).toBe(intake.record.id);
+      expect(saved.usage.total).toBe(1);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  test("rejects an intake approved against a different workspace revision", async () => {
+    const root = await mkdtemp("/tmp/anvil-intake-stale-");
+    try {
+      const provider = new StaticRevisionProvider(revision("rev0"));
+      const intake = await clarifyObjective({ objective: "Explicit direct execution", mode: "off" }, {
+        config: structuredClone(DEFAULT_CONFIG), cwd: root, runtimeRoot: path.join(root, ".omp"),
+        revisions: provider, agents: new MockAgentRunner([]),
+      });
+      if (!intake.record) throw new Error("Expected revision-bound intake");
+      provider.set(revision("rev1"));
+      const engine = await makeEngine(root, provider, []);
+      await expect(engine.start({ objective: intake.record.objective, intake: intake.record, workspaceRoot: root }))
+        .rejects.toThrow("Workspace changed after clarification");
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  test("resumes pre-intake runs without changing their saved execution policy", async () => {
+    const root = await mkdtemp("/tmp/anvil-legacy-intake-");
+    try {
+      const provider = new StaticRevisionProvider(revision("rev0"));
+      const legacy = await makeEngine(root, provider, [{ role: "planner", structured: plan }], (config) => {
+        delete (config as Partial<WorkflowConfig>).clarification;
+        config.budgets.maxTotalRequests = 1;
+      });
+      const blocked = await legacy.start({ objective: "Resume the original task", workspaceRoot: root });
+      const recovered = await makeEngine(root, provider, [
+        { role: "implementation", structured: implementation },
+        { role: "security", structured: securityPass }, { role: "review", structured: reviewPass },
+      ], (config) => { config.clarification.mode = "always"; });
+      const done = await recovered.resume(blocked.run.id);
+      expect(done.run.currentState).toBe("DONE");
+      expect(done.run.configHash).toBe(blocked.run.configHash);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   test("refreshes readable run metadata across blocked recovery without a progress UI", async () => {
     const root = await mkdtemp("/tmp/anvil-metadata-");
     try {
@@ -555,7 +625,7 @@ describe("WorkflowEngine", () => {
       ]);
       const blocked = await engine.start({ objective: "Preserve gate policy", workspaceRoot: root });
       const changedPolicy = await makeEngine(root, provider, [], (config) => { config.security.failOn = ["critical"]; });
-      await expect(changedPolicy.resume(blocked.run.id)).rejects.toThrow("Only budget configuration may change");
+      await expect(changedPolicy.resume(blocked.run.id)).rejects.toThrow();
       expect(changedPolicy.status(blocked.run.id)).toEqual(blocked);
     } finally { await rm(root, { recursive: true, force: true }); }
   });

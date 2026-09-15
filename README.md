@@ -93,6 +93,15 @@ omp plugin install oh-my-pi-anvil@omp-anvil --scope user
 /forge "Add scoped API-key rotation with a backwards-compatible rollout"
 ```
 
+Before execution, Forge uses the configured Architect for a read-only, repo-aware intake. The default `auto` mode asks only about material unresolved decisions; a precise objective proceeds unchanged. After an interview, you approve the resulting objective, non-goals, constraints, acceptance criteria, decisions, and assumptions before the existing workflow starts.
+
+```text
+/forge --clarify=always Explore the notification feature
+/forge --clarify=off Implement the fully specified change
+```
+
+Questioning uses bounded rounds (default two), then requires explicit continuation, scope narrowing, or cancellation. “I don't know” never accepts a default; you can leave the decision unresolved or explicitly scope a reversible prototype. Noninteractive calls stop before execution if answers or approval are needed. See [clarification configuration](docs/configuration.md#pre-run-clarification).
+
 The automatic first-run setup creates the global file at `$XDG_CONFIG_HOME/omp/anvil.yml` when `XDG_CONFIG_HOME` is set, or at `~/.config/omp/anvil.yml` otherwise. If the file already exists, startup leaves it unchanged and shows no repeated setup notification. `/anvil init` creates the optional project overlay at the repository root as `.omp/anvil.yml`. Missing files are created as editable text; existing settings are preserved.
 
 Forge loads settings in this order, with later values taking precedence:
@@ -239,6 +248,10 @@ implementation:
 planning:
   maxGenerations: null
 
+clarification:
+  mode: auto # auto, always, or off
+  maxRounds: 2 # Consent checkpoint after this many assessment rounds (1..10).
+
 budgets:
   maxTotalTokens: null
   maxTotalRequests: null
@@ -301,11 +314,13 @@ Local persistence does **not** mean an entirely offline workflow. Agent requests
 .anvil/
 ├── anvil.db
 ├── lock.json
+├── intake/<intake-id>.json
 └── runs/<run-id>/
     ├── objective.md
     ├── effective-config.json
     ├── metadata.json
     ├── artifacts/
+    │   ├── intake.json
     │   ├── revisions/
     │   │   └── baseline.json
     │   ├── scout/
@@ -325,6 +340,8 @@ Local persistence does **not** mean an entirely offline workflow. Agent requests
 </details>
 
 Directories and reports are created as needed. Scout and Archivist reports are present only when those roles produce valid output; the tree shows representative files, not every handoff, snapshot, or captured verification artifact.
+
+Intake records retain the original objective, bounded questions/answers and proposed brief, outcome, revision, and usage, including cancelled and failed assessments. A ready record is copied into the run as `artifacts/intake.json`; its accepted execution objective becomes `objective.md`. Run totals include intake usage, but intake does not count as a planning attempt. Resume uses the persisted objective and does not repeat the interview.
 
 SQLite is authoritative for workflow state. Artifacts are hashed and written atomically. Runtime files are excluded from the workspace revision; source edits are not.
 

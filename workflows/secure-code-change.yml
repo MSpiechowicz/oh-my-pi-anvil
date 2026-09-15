@@ -23,6 +23,9 @@ implementation:
   maxParallel: 4
 planning:
   maxGenerations: null
+clarification:
+  mode: auto
+  maxRounds: 2
 budgets:
   maxTotalTokens: null
   maxTotalRequests: null

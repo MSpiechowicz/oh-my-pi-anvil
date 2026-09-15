@@ -2,7 +2,9 @@
 
 Anvil persists package version, workflow version, effective configuration hash, and gate policy hashes in run state and artifacts.
 
-A resumed run must use the non-budget workflow configuration recorded at start. Current budget settings may raise or remove limits on an existing run without resetting its usage or attempts. If checks, agent mappings, or other workflow policy changes, restore the saved settings or start a new run rather than silently changing gate policy mid-run.
+A resumed run must use the execution policy recorded at start. Current budget settings may raise or remove limits without resetting usage or attempts. Pre-run clarification settings may also differ: resume never repeats intake. If checks, agent mappings, or other execution policy changes, restore the saved settings or start a new run rather than silently changing gate policy mid-run.
+
+Forge now defaults to repo-aware clarification before execution (`clarification.mode: auto`, `maxRounds: 2`). Use `/forge --clarify=always <objective>` for deliberate discovery or `--clarify=off` for a prepared objective. Interviews require explicit brief approval; noninteractive calls with unresolved decisions stop without starting a run. Intake records and usage survive ordinary completion, cancellation, and failure; accepted intake costs count toward the run budget. Existing configurations inherit the defaults without rewriting user files. Runs saved before the clarification field existed remain resumable when their execution policy matches; no historical artifact or gate hash is relabeled.
 
 Run directories now include a human-readable `metadata.json` snapshot with UTC timestamps, objective, state, failure details, and the resume command. New runs create it automatically; existing runs acquire it on resume or cancellation. No database migration or configuration change is needed. Metadata is advisory and refreshed at lifecycle boundaries, not a replacement for SQLite or proof that a recorded running process is still alive.
 

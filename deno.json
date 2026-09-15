@@ -2,7 +2,7 @@
   "nodeModulesDir": "none",
   "tasks": {
     "test": "deno test --allow-all test/",
-    "typecheck": "deno check src/index.ts src/extension.ts src/update-cli.ts test/artifact.test.ts test/command.test.ts test/config.test.ts test/contracts.test.ts test/engine.test.ts test/findings.test.ts test/invariants.test.ts test/lock.test.ts test/omp-smoke.test.ts test/optional-flows.test.ts test/plugin.test.ts test/progress.test.ts test/revision.test.ts test/smith-dispatch.test.ts test/update.test.ts",
+    "typecheck": "deno check src/index.ts src/extension.ts src/update-cli.ts test/artifact.test.ts test/command.test.ts test/config.test.ts test/contracts.test.ts test/engine.test.ts test/findings.test.ts test/intake.test.ts test/invariants.test.ts test/lock.test.ts test/omp-smoke.test.ts test/optional-flows.test.ts test/plugin.test.ts test/progress.test.ts test/revision.test.ts test/smith-dispatch.test.ts test/update.test.ts",
     "build": "deno eval \"await Deno.mkdir('dist', { recursive: true })\" && deno bundle src/index.ts -o dist/index.js && deno bundle src/extension.ts -o dist/extension.js && deno bundle src/update-cli.ts -o dist/update-cli.js && deno bundle src/extension.ts -o extension.js",
     "update": "deno run --allow-all src/update-cli.ts"
   },

@@ -17,6 +17,7 @@ export const DEFAULT_CONFIG: WorkflowConfig = {
   review: { blockOn: ["blocking", "major"], policyVersion: 1 },
   implementation: { maxParallel: 4, isolation: { enabled: false, merge: "patch" } },
   planning: { maxGenerations: null },
+  clarification: { mode: "auto", maxRounds: 2 },
   scouting: { enabled: true },
   budgets: { maxTotalTokens: null, maxTotalRequests: null, maxTransitions: null, maxWallClockMs: null, perRole: { planner: { maxTokens: null, maxAttempts: null, maxRequests: null }, implementation: { maxTokens: null, maxAttempts: null, maxRequests: null }, security: { maxTokens: null, maxAttempts: null, maxRequests: null }, review: { maxTokens: null, maxAttempts: null, maxRequests: null }, scout: { maxTokens: null, maxAttempts: null, maxRequests: null }, archivist: { maxTokens: null, maxAttempts: null, maxRequests: null } } },
   context: { maxInlineChars: 12000, maxMemoryItems: 5, maxMemoryChars: 5000, maxFindingSummaryChars: 6000, maxChangedFiles: 200 },

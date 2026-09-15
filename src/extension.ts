@@ -70,9 +70,16 @@ export default function anvilExtension(pi: ExtensionAPI): void {
   const forgeHandler = async (args: string, context: ExtensionContext): Promise<void> => {
     const input = args.trim().replace(/^\/forge\s*/, "");
     const progress = input && input !== "help" ? createForgeProgressReporter(context.ui) : undefined;
-    progress?.begin();
     try {
-      await notifyOutput(context, await router.handle(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi, progress: progress?.onProgress, summaryColor: context.hasUI !== false && !!context.ui?.theme && !!context.ui?.notify }));
+      await notifyOutput(context, await router.handle(input, {
+        cwd: context.cwd, runtimeContext: context, host: pi.pi,
+        progress: progress?.onProgress,
+        summaryColor: context.hasUI !== false && !!context.ui?.theme && !!context.ui?.notify,
+        intakeUI: context.hasUI !== false && context.ui?.select && context.ui?.input ? {
+          select: (title, options) => context.ui!.select!(title, options),
+          input: (prompt, defaultValue) => context.ui!.input!(prompt, defaultValue),
+        } : undefined,
+      }));
     } finally {
       progress?.close();
     }

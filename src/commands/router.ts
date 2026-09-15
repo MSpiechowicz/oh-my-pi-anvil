@@ -27,18 +27,25 @@ import { runUpdate, UpdateError, type UpdateAction } from "../update.ts";
 import type { WorkflowEngine } from "../workflow/engine.ts";
 import type { WorkflowProgressHandler, WorkflowProgressUpdate } from "../workflow/types.ts";
 import type { WorkspaceLock } from "../state/lock.ts";
+import type { IntakeResult, IntakeUI } from "../intake/clarify.ts";
 
-export interface CommandContext { cwd: string; runtimeContext?: unknown; host?: unknown; respond?: (message: string) => void | Promise<void>; progress?: WorkflowProgressHandler; summaryColor?: boolean; }
+export interface CommandContext { cwd: string; runtimeContext?: unknown; host?: unknown; respond?: (message: string) => void | Promise<void>; progress?: WorkflowProgressHandler; summaryColor?: boolean; intakeUI?: IntakeUI; }
 function isRunActive(runtime: RuntimeHandle, lockRunId: string): boolean {
   try {
-    const runId = lockRunId.startsWith("pending_") ? undefined : lockRunId;
-    const state = runtime.engine.status(runId).run.currentState;
+    if (lockRunId.startsWith("pending_")) return true;
+    const state = runtime.engine.status(lockRunId).run.currentState;
     return state !== "BLOCKED" && !isTerminal(state);
   } catch {
     return true;
   }
 }
-interface RuntimeHandle { engine: WorkflowEngine; state: { close(): void }; lock: WorkspaceLock; runtimeRoot?: string; }
+interface RuntimeHandle {
+  engine: WorkflowEngine;
+  clarify(input: { objective: string; mode?: "auto" | "always" | "off"; ui?: IntakeUI }): Promise<IntakeResult>;
+  state: { close(): void };
+  lock: WorkspaceLock;
+  runtimeRoot?: string;
+}
 
 async function configurationLocations(cwd: string): Promise<ConfigurationLocations> {
   const projectRoot = await findRepositoryRoot(cwd);
@@ -78,8 +85,18 @@ export class CommandRouter {
   constructor(private readonly engineFactory: (context: CommandContext) => Promise<RuntimeHandle>) {}
 
   async handle(raw: string, context: CommandContext): Promise<string> {
-    const objective = raw.trim();
+    let objective = raw.trim();
     if (!objective || objective === "help") return renderForgeHelp();
+    let mode: "auto" | "always" | "off" | undefined;
+    if (objective.startsWith("--clarify")) {
+      const match = /^--clarify(?:=|\s+)(auto|always|off)(?:\s+|$)/.exec(objective);
+      if (!match) return "ANVIL · CONFIG_INVALID\n\nUsage: /forge [--clarify=auto|always|off] <objective>";
+      mode = match[1] as typeof mode;
+      objective = objective.slice(match[0].length).trim();
+    } else if (objective.startsWith("-- ")) {
+      objective = objective.slice(3).trim();
+    }
+    if (!objective) return renderForgeHelp();
     let runtime: RuntimeHandle | undefined;
     let lockHeld = false;
     let heartbeatTimer: NodeJS.Timeout | undefined;
@@ -88,13 +105,20 @@ export class CommandRouter {
       await runtime.lock.acquire(`pending_${crypto.randomUUID()}`, undefined, (lockRunId) => isRunActive(runtime!, lockRunId));
       lockHeld = true;
       heartbeatTimer = setInterval(() => { void runtime?.lock.heartbeat().catch(() => undefined); }, 10_000);
+      const intake = await runtime.clarify({ objective, mode, ui: context.intakeUI });
+      if (intake.status !== "ready") return intake.message;
       const progress: WorkflowProgressHandler = async (update: WorkflowProgressUpdate): Promise<void> => {
         if (update.kind === "started") {
           try { await runtime?.lock.bindRun(update.run.id); } catch { /* Lock metadata is best effort. */ }
         }
         await context.progress?.(update);
       };
-      return renderStatus(await runtime.engine.start({ objective, workspaceRoot: context.cwd, progress }), context.summaryColor);
+      return renderStatus(await runtime.engine.start({
+        objective: intake.record?.objective ?? objective,
+        intake: intake.record,
+        workspaceRoot: context.cwd,
+        progress,
+      }), context.summaryColor);
     } catch (error) {
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL · ${typed.code}\n\n${typed.message}`;

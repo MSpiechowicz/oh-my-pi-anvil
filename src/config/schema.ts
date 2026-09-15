@@ -3,7 +3,7 @@ import type { FindingSeverity, WorkflowConfig } from "../workflow/types.ts";
 
 import { WORKFLOW_ROLE_ORDER as ROLES } from "../agents/roles.ts";
 const SEVERITIES = ["critical", "high", "medium", "low", "info"] as const;
-const TOP_LEVEL_KEYS = ["version", "workflow", "agents", "checks", "checksFailFast", "security", "review", "implementation", "planning", "scouting", "budgets", "context", "memory", "persistence", "safety"] as const;
+const TOP_LEVEL_KEYS = ["version", "workflow", "agents", "checks", "checksFailFast", "security", "review", "implementation", "planning", "clarification", "scouting", "budgets", "context", "memory", "persistence", "safety"] as const;
 function rejectUnknownKeys(value: object, allowed: readonly string[], label: string): void {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new AnvilError("CONFIG_INVALID", `${label} must be an object`);
   for (const key of Object.keys(value)) {
@@ -46,6 +46,9 @@ export function validateConfig(config: WorkflowConfig): WorkflowConfig {
   rejectUnknownKeys(config.implementation.isolation, ["enabled", "merge"], "implementation.isolation");
   rejectUnknownKeys(config.planning, ["maxGenerations"], "planning");
   config.planning.maxGenerations = normalizeLimit(config.planning.maxGenerations, "planning.maxGenerations", true);
+  rejectUnknownKeys(config.clarification, ["mode", "maxRounds"], "clarification");
+  if (!["auto", "always", "off"].includes(config.clarification.mode)) throw new AnvilError("CONFIG_INVALID", "clarification.mode must be auto, always, or off");
+  if (!Number.isInteger(config.clarification.maxRounds) || config.clarification.maxRounds < 1 || config.clarification.maxRounds > 10) throw new AnvilError("CONFIG_INVALID", "clarification.maxRounds must be an integer from 1 to 10");
   if (!config.scouting || typeof config.scouting !== "object" || Array.isArray(config.scouting)) throw new AnvilError("CONFIG_INVALID", "scouting must be an object");
   rejectUnknownKeys(config.scouting, ["enabled"], "scouting");
   if (typeof config.scouting.enabled !== "boolean") throw new AnvilError("CONFIG_INVALID", "scouting.enabled must be a boolean");

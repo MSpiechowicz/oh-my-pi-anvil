@@ -17,9 +17,10 @@ import { requireArchivist, requireScout, requireImplementation, requirePlan, req
 import { ARCHIVIST_OUTPUT_SCHEMA, SCOUT_OUTPUT_SCHEMA, IMPLEMENTATION_OUTPUT_SCHEMA, PLAN_OUTPUT_SCHEMA, REVIEW_OUTPUT_SCHEMA, SECURITY_OUTPUT_SCHEMA, SMITH_DISPATCH_OUTPUT_SCHEMA } from "../schemas/outputs.ts";
 import { filterLessons } from "../memory/retain.ts";
 import { memoryQuery } from "../memory/recall.ts";
+import type { IntakeRecord } from "../intake/clarify.ts";
 
 export interface WorkflowEngineDependencies { config: WorkflowConfig; state: StateDatabase; artifacts: ArtifactStore; revisions: RevisionProvider; agents: AgentRunner; checks: CheckRunner; memory?: MemoryAdapter; clock?: Clock; }
-export interface StartRunInput { objective: string; workspaceRoot: string; progress?: WorkflowProgressHandler; }
+export interface StartRunInput { objective: string; workspaceRoot: string; progress?: WorkflowProgressHandler; intake?: IntakeRecord; }
 export interface RunSummary { run: RunRecord; events: Array<Record<string, unknown>>; findings: FindingRecord[]; attempts: AttemptRecord[]; }
 
 const SYSTEM_CLOCK: Clock = { now: () => new Date() };
@@ -51,7 +52,27 @@ export class WorkflowEngine {
     const objective = input.objective.trim(); if (!objective) throw new AnvilError("CONFIG_INVALID", "Objective cannot be empty");
     this.assertConfiguredChecks();
     const revision = await this.deps.revisions.current(); const runId = `run_${crypto.randomUUID()}`;
-    const run = this.runs.create({ id: runId, workflowName: this.deps.config.workflow.name, workflowVersion: 1, configHash: configHash(this.deps.config), workspaceRoot: input.workspaceRoot, objectivePath: path.join("runs", runId, "objective.md"), baseRevisionId: revision.id, currentRevisionId: revision.id, mutationEpoch: 0, initialHead: revision.head, maxTotalTokens: this.deps.config.budgets.maxTotalTokens ?? undefined, maxTotalRequests: this.deps.config.budgets.maxTotalRequests ?? undefined, maxTransitions: this.deps.config.budgets.maxTransitions ?? undefined, maxWallClockMs: this.deps.config.budgets.maxWallClockMs ?? undefined });
+    if (input.intake) {
+      if (input.intake.status !== "ready" || input.intake.objective !== objective) {
+        throw new AnvilError("CONFIG_INVALID", "Forge requires a ready intake matching the execution objective.");
+      }
+      if (input.intake.revisionId !== revision.id) {
+        throw new AnvilError("WORKSPACE_REVISION_MISMATCH", "Workspace changed after clarification. Run /forge again to reassess the objective.");
+      }
+    }
+    let run = this.runs.create({ id: runId, workflowName: this.deps.config.workflow.name, workflowVersion: 1, configHash: configHash(this.deps.config), workspaceRoot: input.workspaceRoot, objectivePath: path.join("runs", runId, "objective.md"), baseRevisionId: revision.id, currentRevisionId: revision.id, mutationEpoch: 0, initialHead: revision.head, maxTotalTokens: this.deps.config.budgets.maxTotalTokens ?? undefined, maxTotalRequests: this.deps.config.budgets.maxTotalRequests ?? undefined, maxTransitions: this.deps.config.budgets.maxTransitions ?? undefined, maxWallClockMs: this.deps.config.budgets.maxWallClockMs ?? undefined });
+    if (input.intake) {
+      const pointer = await this.deps.artifacts.putJson(run.id, "intake", "artifacts/intake.json", input.intake);
+      const usage = input.intake.usage;
+      run = this.runs.update(run.id, {
+        used_tokens: usage.total ?? ((usage.input ?? 0) + (usage.output ?? 0)),
+        used_input_tokens: usage.input ?? 0,
+        used_output_tokens: usage.output ?? 0,
+        used_cache_read_tokens: usage.cacheRead ?? 0,
+        used_cache_write_tokens: usage.cacheWrite ?? 0,
+        used_requests: usage.requests ?? 0,
+      }, { type: "INTAKE_ACCEPTED", actor: "anvil", revisionId: revision.id, payload: { intake: pointer.path, intakeId: input.intake.id } });
+    }
     let baselineError: AnvilError | undefined;
     try {
       const snapshot = await this.deps.revisions.captureSnapshot(run.baseRevisionId);
@@ -124,7 +145,7 @@ export class WorkflowEngine {
     const artifact = this.deps.state.db.query<{ id: string; relative_path: string; sha256: string }>("SELECT id, relative_path, sha256 FROM artifacts WHERE run_id = ? AND kind = 'config' AND relative_path = 'effective-config.json' ORDER BY created_at DESC LIMIT 1").get(run.id);
     if (!artifact) throw new AnvilError("CONFIG_INVALID", "Cannot resume with changed configuration without the saved effective config");
     const saved = await this.deps.artifacts.readJson<WorkflowConfig>(run.id, { id: artifact.id, path: artifact.relative_path, sha256: artifact.sha256 });
-    if (configHash(saved) !== run.configHash || configHash({ ...saved, budgets: this.deps.config.budgets }) !== configHash(this.deps.config)) throw new AnvilError("CONFIG_INVALID", "Only budget configuration may change when resuming a run; restore the saved workflow policy or start a new run");
+    if (configHash(saved) !== run.configHash || configHash({ ...saved, budgets: this.deps.config.budgets, clarification: this.deps.config.clarification }) !== configHash(this.deps.config)) throw new AnvilError("CONFIG_INVALID", "Execution policy cannot change when resuming a run; only budgets and pre-run clarification settings may differ. Restore the saved workflow policy or start a new run.");
   }
 
 

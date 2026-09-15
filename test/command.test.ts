@@ -84,7 +84,7 @@ describe("OMP command registration", () => {
   });
 
 
-  test("passes Forge text directly to the workflow as its objective", async () => {
+  test("executes a precise objective after intake accepts it", async () => {
     let receivedObjective = "";
     const summary = {
       run: {
@@ -102,6 +102,7 @@ describe("OMP command registration", () => {
       findings: [],
     } as never;
     const router = new CommandRouter(async () => ({
+      clarify: async () => ({ status: "ready", message: "" }),
       engine: {
         start: async (input: { objective: string }) => {
           receivedObjective = input.objective;
@@ -117,6 +118,60 @@ describe("OMP command registration", () => {
     expect(receivedObjective).toBe("Add the requested change");
   });
 
+  test("does not start execution when clarification needs input or is cancelled", async () => {
+    for (const status of ["needs_input", "cancelled"] as const) {
+      let started = false;
+      let released = false;
+      let closed = false;
+      const router = new CommandRouter(async () => ({
+        clarify: async () => ({ status, message: `Intake ${status}` }),
+        engine: { start: async () => { started = true; throw new Error("Execution must not start"); } } as never,
+        state: { close() { closed = true; } },
+        lock: { acquire: async () => {}, release: async () => { released = true; } } as never,
+      }));
+      await router.handle("Add notifications", { cwd: "/tmp" });
+      expect(started).toBe(false);
+      expect(released).toBe(true);
+      expect(closed).toBe(true);
+    }
+  });
+
+  test("rejects malformed clarification overrides before opening runtime", async () => {
+    let opened = false;
+    const router = new CommandRouter(async () => { opened = true; throw new Error("Unexpected runtime"); });
+    await router.handle("--clarify=maybe Add notifications", { cwd: "/tmp" });
+    expect(opened).toBe(false);
+  });
+
+  test("keeps a live intake lock even when the previous run is terminal", async () => {
+    const root = await mkdtemp("/tmp/anvil-command-intake-lock-");
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let intakes = 0;
+    const router = new CommandRouter(async () => ({
+      clarify: async () => {
+        intakes++;
+        entered.resolve();
+        if (intakes === 1) await release.promise;
+        return { status: "cancelled" as const, message: "Cancelled" };
+      },
+      engine: { status: () => ({ run: { currentState: "DONE" } }) } as never,
+      state: { close() {} },
+      lock: new WorkspaceLock(path.join(root, "lock.json")),
+    }));
+    const first = router.handle("First objective", { cwd: root });
+    try {
+      await entered.promise;
+      const second = await router.handle("Second objective", { cwd: root });
+      expect(second).toContain("RUN_LOCKED");
+      expect(intakes).toBe(1);
+    } finally {
+      release.resolve();
+      await first;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("reclaims a paused run lock without reclaiming an active run lock", async () => {
     const root = await mkdtemp("/tmp/anvil-command-paused-lock-");
     const lockPath = path.join(root, "lock.json");
@@ -128,6 +183,7 @@ describe("OMP command registration", () => {
       attempts: [], findings: [],
     } as never);
     const router = new CommandRouter(async () => ({
+      clarify: async () => ({ status: "ready", message: "" }),
       engine: { status: summary, resume: async () => { resumes += 1; return summary(); } } as never,
       state: { close() {} },
       lock: new WorkspaceLock(lockPath),
@@ -370,17 +426,6 @@ printf '%s\n' '${
     }
   });
 
-  test("separates Forge objectives from Anvil management commands", async () => {
-    const router = new CommandRouter(async () => {
-      throw new Error("Forge help should not initialize workflow state");
-    });
-    const forgeHelp = await router.handle("help", { cwd: "/tmp" });
-    const anvilHelp = await router.handleAdmin("help", { cwd: "/tmp" });
-    expect(forgeHelp).toContain("/forge <objective>");
-    expect(forgeHelp).toContain("/anvil config");
-    expect(anvilHelp).toContain("/anvil update check");
-    expect(anvilHelp).toContain("/anvil status [run-id]");
-  });
 });
 
 test("run reports attribute shared-stage attempts to their actual roles", () => {

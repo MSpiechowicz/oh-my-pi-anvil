@@ -19,7 +19,11 @@ When used without arguments in an interactive OMP session, `/anvil` opens a menu
 - `/anvil cancel <run-id>` requests cancellation.
 - `/anvil update check|install` checks or installs a managed update.
 
-Use `/forge <objective>` as the bounded workflow surface. The objective text starts the Forge run; there is no `start` subcommand.
+Use `/forge [--clarify=auto|always|off] <objective>` as the bounded workflow surface; there is no `start` subcommand. Before creating a run, the default `auto` intake uses the configured Architect for read-only repository assessment and asks only about material unresolved decisions. A clear objective proceeds unchanged. `always` requires brief approval even without questions; `off` skips the intake model call for a prepared objective.
+
+Intake generates independent questions in bounded rounds, presents consequences and recommendations, and supports custom answers and explicit unknown/prototype decisions. `clarification.maxRounds` defaults to 2 (range 1..10); reaching it requires continuation, scope narrowing, or cancellation, never implicit approval. Any interviewed brief requires explicit approval with no unresolved questions. Noninteractive calls stop if answers or approval are required. The workspace lock is held and repository mutations invalidate the assessment.
+
+Standalone intake records under `.anvil/intake/` retain bounded decisions and usage on completion, cancellation, or failure. On execution, Forge copies the ready record to `artifacts/intake.json`, persists its execution objective as `objective.md`, and includes intake token/request usage in run totals without consuming planner attempts. Resume uses the saved objective and never re-interviews; changing pre-run clarification settings does not change execution policy.
 
 Use the global settings and optional `.omp/anvil.yml` overlay to map the logical Architect, Smith, Sentinel, and Inquisitor roles to OMP agent names. Warden runs deterministic checks and has no model. When the merged `checks` list is empty, Forge discovers supported finite verification scripts from root project manifests; a nonempty explicit list overrides discovery. Discovered checks affect only the effective configuration, never persisted settings. If discovery finds no supported checks, configure commands explicitly: Forge fails closed before model work. See `docs/configuration.md` for supported manifests and discovery rules. Model selection stays in normal OMP model-role configuration. Runtime state is stored under `.anvil/`.
 
