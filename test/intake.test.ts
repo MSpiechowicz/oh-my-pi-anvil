@@ -5,6 +5,7 @@ import { DEFAULT_CONFIG } from "../src/config/defaults.ts";
 import { StaticRevisionProvider } from "../src/git/revision.ts";
 import { clarifyObjective, type IntakeRecord, type IntakeResult, type IntakeUI } from "../src/intake/clarify.ts";
 import type { AgentRunRequest, AgentRunResult } from "../src/workflow/types.ts";
+import { CommandRouter } from "../src/commands/router.ts";
 
 const question = {
   id: "compatibility",
@@ -88,6 +89,31 @@ test("auto clear objective proceeds without UI and never adopts the proposed rew
     expect((await f.persisted(result)).objective).toBe(objective);
     expect(result.record!.usage.total).toBe(10);
     expect(f.requests.length).toBe(1);
+  } finally { await f.close(); }
+});
+
+test("command exposes assessment before model work and explains a question-free intake before execution", async () => {
+  const notices: string[] = [];
+  const f = await fixture(() => {
+    expect(notices.join("\n")).toContain("FORGE INTAKE");
+    return { status: "completed", agentName: "architect", structured: brief(), usage: { requests: 1 } };
+  });
+  let started = false;
+  const router = new CommandRouter(async () => ({
+    clarify: (input) => clarifyObjective({ ...input, mode: input.mode ?? "auto" }, f.deps),
+    engine: {
+      start: async () => {
+        expect(notices.at(-1)).toContain("no material questions");
+        started = true;
+        throw new Error("Stop after observing the execution boundary");
+      },
+    } as never,
+    state: { close() {} },
+    lock: { acquire: async () => {}, release: async () => {} } as never,
+  }));
+  try {
+    await router.handle("Fix compatibility", { cwd: f.cwd, respond: (message) => { notices.push(message); } });
+    expect(started).toBe(true);
   } finally { await f.close(); }
 });
 

@@ -18,6 +18,7 @@ import {
   renderFindings,
   renderForgeHelp,
   renderInit,
+  renderIntake,
   renderStatus,
   renderUpdate,
   type ConfigurationLocations,
@@ -86,7 +87,7 @@ export class CommandRouter {
 
   async handle(raw: string, context: CommandContext): Promise<string> {
     let objective = raw.trim();
-    if (!objective || objective === "help") return renderForgeHelp();
+    if (!objective || objective === "help") return renderForgeHelp(context.summaryColor);
     let mode: "auto" | "always" | "off" | undefined;
     if (objective.startsWith("--clarify")) {
       const match = /^--clarify(?:=|\s+)(auto|always|off)(?:\s+|$)/.exec(objective);
@@ -96,7 +97,7 @@ export class CommandRouter {
     } else if (objective.startsWith("-- ")) {
       objective = objective.slice(3).trim();
     }
-    if (!objective) return renderForgeHelp();
+    if (!objective) return renderForgeHelp(context.summaryColor);
     let runtime: RuntimeHandle | undefined;
     let lockHeld = false;
     let heartbeatTimer: NodeJS.Timeout | undefined;
@@ -105,20 +106,33 @@ export class CommandRouter {
       await runtime.lock.acquire(`pending_${crypto.randomUUID()}`, undefined, (lockRunId) => isRunActive(runtime!, lockRunId));
       lockHeld = true;
       heartbeatTimer = setInterval(() => { void runtime?.lock.heartbeat().catch(() => undefined); }, 10_000);
+      if (context.respond) {
+        try {
+          await context.respond(renderIntake(
+            "Checking clarification requirements before Forge starts. When enabled, Architect inspects the repository first; questions appear only for material unresolved decisions.",
+            context.summaryColor,
+          ));
+        } catch { /* Display failures must not prevent intake. */ }
+      }
       const intake = await runtime.clarify({ objective, mode, ui: context.intakeUI });
-      if (intake.status !== "ready") return intake.message;
+      if (intake.status !== "ready") return renderIntake(intake.message, context.summaryColor);
+      if (context.respond) {
+        try { await context.respond(renderIntake(intake.message, context.summaryColor)); }
+        catch { /* Display failures must not prevent execution. */ }
+      }
       const progress: WorkflowProgressHandler = async (update: WorkflowProgressUpdate): Promise<void> => {
         if (update.kind === "started") {
           try { await runtime?.lock.bindRun(update.run.id); } catch { /* Lock metadata is best effort. */ }
         }
         await context.progress?.(update);
       };
-      return renderStatus(await runtime.engine.start({
+      const summary = renderStatus(await runtime.engine.start({
         objective: intake.record?.objective ?? objective,
         intake: intake.record,
         workspaceRoot: context.cwd,
         progress,
       }), context.summaryColor);
+      return context.respond ? summary : `${renderIntake(intake.message, context.summaryColor)}\n${summary}`;
     } catch (error) {
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL · ${typed.code}\n\n${typed.message}`;

@@ -23,10 +23,9 @@ const STAGE_LABELS: Record<string, string> = {
   REVIEW: "Inquisitor",
 };
 
-export function renderForgeHelp(): string {
+export function renderForgeHelp(color = false): string {
   return [
-    "ANVIL · FORGE",
-    "",
+    ...forgeBanner("FORGE", color),
     "Run the bounded Architect → Smith → Warden → Sentinel → Inquisitor workflow.",
     "",
     "/forge [--clarify=auto|always|off] <objective>",
@@ -158,6 +157,24 @@ const FORGE_INK = {
   red: "245;123;123",
 } as const;
 
+function forgeBanner(title: string, color: boolean, tone: keyof typeof FORGE_INK = "gold", stage?: string): string[] {
+  const ink = (shade: keyof typeof FORGE_INK, text: string, bold = false): string =>
+    color ? `\x1b[${bold ? "1;" : ""}38;2;${FORGE_INK[shade]}m${text}\x1b[0m` : text;
+  return [
+    "",
+    ink("gold", `  ${"━".repeat(52)}`),
+    `  ${ink("gold", "A N V I L", true)}`,
+    `  ${ink(tone, title, true)}`,
+    ...(stage ? [`  ${ink("muted", `STAGE / ${stage}`)}`] : []),
+    ink("gold", `  ${"━".repeat(52)}`),
+    "",
+  ];
+}
+
+export function renderIntake(message: string, color = false): string {
+  return [...forgeBanner("FORGE INTAKE", color), message].join("\n");
+}
+
 export function renderStatus(summary: RunSummary, color = false): string {
   const { run } = summary;
   const ink = (tone: keyof typeof FORGE_INK, text: string, bold = false): string =>
@@ -198,13 +215,7 @@ export function renderStatus(summary: RunSummary, color = false): string {
     }${ink("muted", "·".repeat(12 - bars))}  ${ink("text", String(count).padStart(3), true)} ${ink("muted", count === 1 ? "attempt" : "attempts")}`;
   };
   return [
-    "",
-    ink("gold", `  ${"━".repeat(52)}`),
-    `  ${ink("gold", "A N V I L", true)}`,
-    `  ${ink(tone, verdict, true)}`,
-    ...(run.status === "running" ? [`  ${ink("muted", `STAGE / ${displayState(run.currentState).toUpperCase()}`)}`] : []),
-    ink("gold", `  ${"━".repeat(52)}`),
-    "",
+    ...forgeBanner(verdict, color, tone, run.status === "running" ? displayState(run.currentState).toUpperCase() : undefined),
     `  ${ink(open.length ? "red" : "green", `${open.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${
       ink("text", `${run.transitionCount} transitions`, true)
     }  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,

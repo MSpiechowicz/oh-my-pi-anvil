@@ -73,6 +73,7 @@ export default function anvilExtension(pi: ExtensionAPI): void {
     try {
       await notifyOutput(context, await router.handle(input, {
         cwd: context.cwd, runtimeContext: context, host: pi.pi,
+        respond: (message) => notifyOutput(context, message),
         progress: progress?.onProgress,
         summaryColor: context.hasUI !== false && !!context.ui?.theme && !!context.ui?.notify,
         intakeUI: context.hasUI !== false && context.ui?.select && context.ui?.input ? {
