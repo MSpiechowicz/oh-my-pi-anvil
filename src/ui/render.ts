@@ -172,6 +172,16 @@ export function renderStatus(summary: RunSummary, color = false): string {
   }, {});
   const open = summary.findings.filter((finding) => finding.status === "open");
   const sealed = run.status === "done";
+  const completion = sealed
+    ? summary.events.findLast((event) => event.type === "RUN_DONE" && event.revision_id === run.currentRevisionId)
+    : undefined;
+  let completionNotes: string[] = [];
+  if (typeof completion?.payload_json === "string") {
+    try {
+      const payload = JSON.parse(completion.payload_json);
+      if (Array.isArray(payload?.notes)) completionNotes = payload.notes.filter((note: unknown): note is string => typeof note === "string" && note.trim().length > 0);
+    } catch { /* Historical or damaged advisory text must not hide run status. */ }
+  }
   const tone = sealed ? "green" : run.status === "running" ? "gold" : "red";
   const verdict = sealed ? "FORGE SUCCESS" : `FORGE ${run.status.toUpperCase()}`;
   const roles = [
@@ -205,6 +215,13 @@ export function renderStatus(summary: RunSummary, color = false): string {
     ...open.slice(0, 8).map((finding) =>
       `  ${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),
     ...(open.length > 8 ? [`  ${ink("muted", `+ ${open.length - 8} more · /anvil findings ${run.id}`)}`] : []),
+    ...(sealed ? [
+      "",
+      heading("SUMMARY & NEXT STEPS"),
+      ...(completionNotes.length
+        ? completionNotes.map((note) => `  ${ink("text", note)}`)
+        : [`  ${ink("muted", "No completion handoff was recorded. Review the run artifacts for verification details and remaining work.")}`]),
+    ] : []),
     "",
     heading("THE FORGE CREW"),
     ...roles.map(([label, roleTone]) => roleRow(label, attempts[label] ?? 0, roleTone)),

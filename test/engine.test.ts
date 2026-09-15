@@ -19,6 +19,7 @@ import { sha256 } from "../src/util/hash.ts";
 import { GateRepository } from "../src/state/repositories.ts";
 import { AnvilError } from "../src/util/errors.ts";
 import { clarifyObjective } from "../src/intake/clarify.ts";
+import { renderStatus } from "../src/ui/render.ts";
 
 const revision = (id: string): WorkspaceRevision => ({ id, head: "head", stagedSha256: id, unstagedSha256: id, untracked: [] });
 const plan = { version: 1 as const, summary: "Add the requested change", assumptions: [], steps: [{ id: "step-1", title: "Implement", objective: "Implement the change", dependsOn: [], fileHints: ["src"], symbolHints: [], acceptanceCriteria: ["The change works"], risk: "low" as const, securitySurfaces: [] }], globalAcceptanceCriteria: ["The change works"], requiredChecks: [], risks: [], replanTriggers: [] };
@@ -56,6 +57,30 @@ async function initializeReviewWorkspace(root: string) {
 }
 
 describe("WorkflowEngine", () => {
+  test("persists the final review handoff for completion and later status", async () => {
+    const root = await mkdtemp("/tmp/anvil-handoff-");
+    try {
+      const provider = new StaticRevisionProvider(revision("rev0"));
+      const notes = [
+        "Implemented the requested change; Warden verification passed.",
+        "Next: run test-runner from the workspace root after further edits.",
+        "Open points: browser acceptance remains a manual follow-up.",
+      ];
+      const engine = await makeEngine(root, provider, [
+        { role: "planner", structured: plan }, { role: "implementation", structured: implementation },
+        { role: "security", structured: securityPass }, { role: "review", structured: { ...reviewPass, notes } },
+      ]);
+      const completed = await engine.start({ objective: "Add a change", workspaceRoot: root });
+      expect(completed.run.currentState).toBe("DONE");
+      const recovered = await makeEngine(root, provider, []);
+      for (const summary of [completed, recovered.status(completed.run.id), await recovered.resume(completed.run.id)]) {
+        const report = renderStatus(summary);
+        for (const note of notes) expect(report).toContain(note);
+        expect(report.indexOf(notes[0]) < report.indexOf("THE FORGE CREW")).toBe(true);
+      }
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   test("carries intake cost into budgets and preserves the objective across resume", async () => {
     const root = await mkdtemp("/tmp/anvil-intake-budget-");
     try {

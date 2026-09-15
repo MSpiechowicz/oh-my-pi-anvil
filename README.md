@@ -351,6 +351,8 @@ Forge results and `/anvil status` show a gold text header, the run verdict, open
 
 Terminal reports use `FORGE FAILED`, `FORGE BLOCKED`, or `FORGE SUCCESS` without a stage subtitle; running reports retain the current stage. Diagnostic error codes and failure or blocker details remain visible. New finding IDs include a UUID so separate runs can record the same issue without colliding; existing IDs and run-scoped deduplication remain unchanged.
 
+Successful reports include **SUMMARY & NEXT STEPS** before the crew and token ledger. Inquisitor writes this handoff in its existing review `notes`: what changed, observed verification, recommended commands and working directories, remaining risks, and manual follow-ups. Recommendations are not claims that checks ran. The accepted final review notes are saved with the revision-bound completion event, so `/anvil status` and `/anvil resume` retain the same handoff without another model call. Older runs without saved notes explicitly report that no completion handoff was recorded.
+
 Each agent invocation retains `artifacts/<role>/output-<attempt-sequence>.json`, including model, thinking level, duration, result, and usage. Smith additionally writes a revision/epoch-bound `artifacts/implementation/<attempt-id>/result.json` and captured supporting files. Warden results use `artifacts/checks/attempt-<attempt-sequence>.json`; gate dependency manifests preserve the evidence used for reuse decisions. Planner outputs are attempt-scoped so replanning does not overwrite earlier gate inputs.
 
 ### Data storage and privacy
