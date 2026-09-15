@@ -1,6 +1,6 @@
 {
   "name": "@anvil/omp-anvil",
-  "version": "0.1.33",
+  "version": "0.1.34",
   "description": "Forge: a persistent, bounded multi-agent workflow for Oh My Pi",
   "type": "module",
   "private": false,
