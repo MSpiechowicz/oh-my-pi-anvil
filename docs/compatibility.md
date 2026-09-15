@@ -14,6 +14,12 @@ Bundled Sentinel and Inquisitor definitions include `bash`, `eval`, and `github`
 
 These are instruction-restricted inspection roles, not execution sandboxes. Shell, Eval, browser JavaScript, and GitHub operations can have side effects; reviewer instructions prohibit source changes and unauthorized remote writes, and Forge rejects changed repository revisions. That detection cannot undo external effects. Older direct executors own their tool/session setup rather than using the native adapter's filtering and browser defaults.
 
+### Dashboard usage reporting
+
+On native hosts exposing `sessionManager.appendModelUsage` (verified with OMP 18.2.0), Forge records each child assistant `message_end` usage event as a parent-session `model_usage` entry. Both subprocess and isolated TaskTool execution use this bridge. Entries preserve the request's actual provider, model, token/cache counters, and cost, including reported usage from failed or cancelled requests and requests before a model fallback. Aggregate task results are not recorded again.
+
+The usage dashboard consumes these standard session entries without a dashboard-specific API or database write from Forge. Entries are bound to the originating session and branch; late events cannot be charged to a different active session. Hosts without the native session writer retain Forge's run-local usage accounting only. This does not backfill historical runs or recover usage that the host never emitted.
+
 ## Agent output contracts
 
 Forge passes complete JSON Schema draft-07 contracts to both OMP subprocesses and isolated tasks. Architect, Smith, Sentinel, Inquisitor, Scout, and Archivist each receive their role's schema from `src/schemas/outputs.ts`; Forge compiles those same schemas with Ajv for local validation. Required fields, nested types, enum values, and unknown fields are checked without coercion, defaults, or field removal. Errors identify the role and failing field path.

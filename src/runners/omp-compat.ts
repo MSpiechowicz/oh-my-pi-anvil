@@ -164,6 +164,31 @@ function effectiveAgent(agent: AnyRecord, request: AgentRunRequest): AnyRecord {
   return { ...agent, tools };
 }
 
+function nativeUsageBus(context: unknown): AnyRecord | undefined {
+  const manager = asRecord(asRecord(context)?.sessionManager);
+  if (!manager || typeof manager.appendModelUsage !== "function" ||
+    typeof manager.getSessionId !== "function" || typeof manager.getLeafId !== "function") return undefined;
+  // Bind to the originating session/branch before spawning, not whichever
+  // session happens to be active when a parallel child finishes.
+  const target = {
+    sessionId: invoke(manager, "getSessionId", []),
+    parentId: invoke(manager, "getLeafId", []),
+  };
+  return {
+    emit(name: string, payload: unknown) {
+      if (name !== "task:subagent:event") return;
+      const event = asRecord(asRecord(payload)?.event);
+      const message = asRecord(event?.message);
+      if (event?.type !== "message_end" || message?.role !== "assistant") return;
+      const usage = asRecord(message.usage);
+      const provider = stringValue(message.provider);
+      const model = stringValue(message.model);
+      if (!usage || !provider || !model) return;
+      invoke(manager, "appendModelUsage", [{ purpose: "forge", provider, model, usage }, target]);
+    },
+  };
+}
+
 function nativeExecutorOptions(context: unknown, request: AgentRunRequest, agent: AnyRecord, settings: NativeSettings): AnyRecord {
   const contextRecord = asRecord(context);
   const options: AnyRecord = {
@@ -186,6 +211,7 @@ function nativeExecutorOptions(context: unknown, request: AgentRunRequest, agent
     keepAlive: false,
     parentAgentId: "Main",
     sessionFile: null,
+    eventBus: nativeUsageBus(context),
     signal: request.signal,
     settings,
     modelOverride: requestModel(request),
@@ -208,6 +234,7 @@ function nativeTaskSession(context: unknown, request: AgentRunRequest, settings:
     hasUI: false,
     canPromptUser: false,
     settings,
+    eventBus: nativeUsageBus(context),
     getSessionFile: () => null,
     getSessionSpawns: () => "*",
     enableLsp: true,

@@ -32,6 +32,104 @@ function hasIsolatedHandoff(params: unknown): boolean {
 
 
 describe("OMP adapter", () => {
+  test("records each child request by its serving model without counting result totals twice", async () => {
+    for (const isolated of [false, true]) {
+      const entries: Array<Record<string, unknown>> = [];
+      let sessionId = "origin";
+      const manager = {
+        getSessionId: () => sessionId,
+        getLeafId: () => "branch",
+        appendModelUsage(entry: Record<string, unknown>, target: { sessionId: string; parentId: string }) {
+          if (target.sessionId === sessionId && target.parentId === "branch") entries.push(entry);
+        },
+      };
+      type Bus = { emit: (name: string, payload: unknown) => void };
+      let bus: Bus;
+      const usage = {
+        input: 2, output: 3, cacheRead: 5, cacheWrite: 7, totalTokens: 17,
+        cost: { input: 0.1, output: 0.2, cacheRead: 0.3, cacheWrite: 0.4, total: 1 },
+      };
+      const finish = () => {
+        for (const [provider, model, stopReason] of [["first", "original", "error"], ["second", "fallback", "stop"]]) {
+          const message = { role: "assistant", provider, model, stopReason, usage };
+          bus.emit("task:subagent:event", { event: { type: "message_update", message } });
+          bus.emit("task:subagent:event", { event: { type: "message_end", message } });
+          bus.emit("task:subagent:event", { event: { type: "agent_end", messages: [message] } });
+        }
+        bus.emit("task:subagent:event", { event: { type: "message_end", message: { role: "toolResult", usage } } });
+        return { exitCode: 1, aborted: true, usage: { ...usage, totalTokens: 34 } };
+      };
+      const compat = createOmpCompat({ sessionManager: manager }, {
+        Settings: { loadReadOnly: () => ({ get: () => ({}), override: () => {} }) },
+        discoverAgents: () => ({ agents: [{ name: "architect", tools: ["read"] }] }),
+        runSubprocess: (options: { eventBus: Bus }) => { bus = options.eventBus; return finish(); },
+        TaskTool: { create: (session: { eventBus: Bus }) => {
+          bus = session.eventBus;
+          return { execute: () => ({ details: { results: [finish()] } }) };
+        } },
+      });
+      const result = await compat.execute!({ ...request, ...(isolated ? { isolation: { requested: true, apply: true, merge: "patch" as const } } : {}) });
+      expect(result.status).toBe("aborted");
+      expect(entries).toEqual([
+        { purpose: "forge", provider: "first", model: "original", usage },
+        { purpose: "forge", provider: "second", model: "fallback", usage },
+      ]);
+      sessionId = "another-session";
+      bus!.emit("task:subagent:event", { event: {
+        type: "message_end", message: { role: "assistant", provider: "late", model: "response", usage },
+      } });
+      expect(entries.length).toBe(2);
+    }
+  });
+
+  test("concurrent Smiths retain interleaved usage across models and sibling cancellation", async () => {
+    const entries: Array<{ model: string; usage: { totalTokens: number } }> = [];
+    const joined = Promise.withResolvers<void>();
+    const firstFinished = Promise.withResolvers<void>();
+    let started = 0;
+    const compat = createOmpCompat({
+      sessionManager: {
+        getSessionId: () => "smith-batch",
+        getLeafId: () => "origin",
+        appendModelUsage(entry: { model: string; usage: { totalTokens: number } }) { entries.push(entry); },
+      },
+    }, {
+      Settings: { loadReadOnly: () => ({ get: () => ({}), override: () => {} }) },
+      discoverAgents: () => ({ agents: [{ name: "smith", tools: ["read", "edit"] }] }),
+      async runSubprocess(options: { id: string; eventBus: { emit: (name: string, payload: unknown) => void } }) {
+        const emit = (model: string, totalTokens: number) => {
+          options.eventBus.emit("task:subagent:event", { id: options.id, event: {
+            type: "message_end",
+            message: { role: "assistant", provider: "provider", model,
+              usage: { input: totalTokens, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens,
+                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } },
+          } });
+        };
+        emit("shared-model", options.id === "smith-a" ? 10 : 20);
+        if (++started === 2) joined.resolve();
+        await joined.promise;
+        if (options.id === "smith-a") {
+          emit("fallback-model", 30);
+          firstFinished.resolve();
+          return { exitCode: 0, structuredOutput: { status: "valid", data: { completed: true } },
+            usage: { totalTokens: 40 } };
+        }
+        await firstFinished.promise;
+        emit("shared-model", 40);
+        return { exitCode: 1, aborted: true, usage: { totalTokens: 60 } };
+      },
+    });
+    const runner = new OmpSubprocessRunner(compat);
+    const results = await Promise.all(["smith-a", "smith-b"].map((attemptId) => runner.run({
+      ...request, attemptId, role: "implementation", agentName: "smith", readOnly: false,
+    })));
+    expect(results.map((result) => result.status)).toEqual(["completed", "aborted"]);
+    const totals: Record<string, number> = {};
+    for (const entry of entries) totals[entry.model] = (totals[entry.model] ?? 0) + entry.usage.totalTokens;
+    expect(totals).toEqual({ "shared-model": 70, "fallback-model": 30 });
+    expect(entries.length).toBe(4);
+  });
+
   test("retains unresolved inheritance as null in the effective snapshot", async () => {
     const config = structuredClone(DEFAULT_CONFIG);
     await resolveAgentSettings(config, "/tmp", {});

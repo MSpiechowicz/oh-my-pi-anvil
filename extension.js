@@ -9122,6 +9122,35 @@ function effectiveAgent(agent, request) {
     tools
   };
 }
+function nativeUsageBus(context) {
+  const manager = asRecord(asRecord(context)?.sessionManager);
+  if (!manager || typeof manager.appendModelUsage !== "function" || typeof manager.getSessionId !== "function" || typeof manager.getLeafId !== "function") return void 0;
+  const target = {
+    sessionId: invoke(manager, "getSessionId", []),
+    parentId: invoke(manager, "getLeafId", [])
+  };
+  return {
+    emit(name, payload) {
+      if (name !== "task:subagent:event") return;
+      const event = asRecord(asRecord(payload)?.event);
+      const message = asRecord(event?.message);
+      if (event?.type !== "message_end" || message?.role !== "assistant") return;
+      const usage = asRecord(message.usage);
+      const provider = stringValue(message.provider);
+      const model = stringValue(message.model);
+      if (!usage || !provider || !model) return;
+      invoke(manager, "appendModelUsage", [
+        {
+          purpose: "forge",
+          provider,
+          model,
+          usage
+        },
+        target
+      ]);
+    }
+  };
+}
 function nativeExecutorOptions(context, request, agent, settings) {
   const contextRecord = asRecord(context);
   const options = {
@@ -9144,6 +9173,7 @@ function nativeExecutorOptions(context, request, agent, settings) {
     keepAlive: false,
     parentAgentId: "Main",
     sessionFile: null,
+    eventBus: nativeUsageBus(context),
     signal: request.signal,
     settings,
     modelOverride: requestModel(request),
@@ -9167,6 +9197,7 @@ function nativeTaskSession(context, request, settings) {
     hasUI: false,
     canPromptUser: false,
     settings,
+    eventBus: nativeUsageBus(context),
     getSessionFile: () => null,
     getSessionSpawns: () => "*",
     enableLsp: true,
