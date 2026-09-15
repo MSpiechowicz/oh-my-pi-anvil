@@ -95,6 +95,8 @@ omp plugin install oh-my-pi-anvil@omp-anvil --scope user
 
 Before execution, Forge uses the configured Architect for a read-only, repo-aware intake. The default `auto` mode asks only about material unresolved decisions; a precise objective proceeds unchanged. After an interview, you approve the resulting objective, non-goals, constraints, acceptance criteria, decisions, and assumptions before the existing workflow starts.
 
+Forge announces intake before assessment and reports its outcome before execution. If no material questions remain, it explicitly says that the original objective is proceeding unchanged; disabled clarification and approved briefs are also reported. Help and intake messages use the same Anvil banner as run status reports. Forge banners, report bodies, and live progress share a column-zero left edge, including failed, blocked, cancelled, and successful outcomes; multiline details retain their supplied indentation.
+
 ```text
 /forge --clarify=always Explore the notification feature
 /forge --clarify=off Implement the fully specified change

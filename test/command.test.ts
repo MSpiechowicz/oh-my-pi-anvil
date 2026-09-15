@@ -100,11 +100,14 @@ describe("OMP command registration", () => {
       },
       attempts: [],
       findings: [],
+      events: [],
     } as never;
+    const notices: string[] = [];
     const router = new CommandRouter(async () => ({
-      clarify: async () => ({ status: "ready", message: "" }),
+      clarify: async () => ({ status: "ready", message: "Clarification disabled; using the original objective." }),
       engine: {
         start: async (input: { objective: string }) => {
+          expect(notices.at(-1)).toContain("Clarification disabled");
           receivedObjective = input.objective;
           return summary;
         },
@@ -113,7 +116,7 @@ describe("OMP command registration", () => {
       lock: { acquire: async () => {}, release: async () => {} } as never,
     }));
 
-    await router.handle("Add the requested change", { cwd: "/tmp" });
+    await router.handle("Add the requested change", { cwd: "/tmp", respond: (message) => { notices.push(message); } });
 
     expect(receivedObjective).toBe("Add the requested change");
   });
@@ -448,7 +451,7 @@ test("run reports attribute shared-stage attempts to their actual roles", () => 
     events: [],
   } as unknown as RunSummary;
   const counts = (report: string): Record<string, number> => Object.fromEntries(
-    [...report.matchAll(/^\s+(\w+)\s+[━·]+\s+(\d+) attempts?$/gm)].map((match) => [match[1], Number(match[2])]),
+    [...report.matchAll(/^[ \t]*(\w+)\s+[━·]+\s+(\d+) attempts?$/gm)].map((match) => [match[1], Number(match[2])]),
   );
   expect(counts(renderStatus(summary))).toEqual({
     Scout: 1, Architect: 2, Smith: 1, Warden: 1, Sentinel: 1, Inquisitor: 1, Archivist: 1,

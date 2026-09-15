@@ -13501,10 +13501,9 @@ var STAGE_LABELS = {
   SECURITY: "Sentinel",
   REVIEW: "Inquisitor"
 };
-function renderForgeHelp() {
+function renderForgeHelp(color = false) {
   return [
-    "ANVIL \xB7 FORGE",
-    "",
+    ...forgeBanner("FORGE", color),
     "Run the bounded Architect \u2192 Smith \u2192 Warden \u2192 Sentinel \u2192 Inquisitor workflow.",
     "",
     "/forge [--clarify=auto|always|off] <objective>",
@@ -13635,11 +13634,31 @@ var FORGE_INK = {
   ivory: "239;229;207",
   red: "245;123;123"
 };
+function forgeBanner(title, color, tone = "gold", stage) {
+  const ink = (shade, text2, bold = false) => color ? `\x1B[${bold ? "1;" : ""}38;2;${FORGE_INK[shade]}m${text2}\x1B[0m` : text2;
+  return [
+    "",
+    ink("gold", "\u2501".repeat(52)),
+    ink("gold", "A N V I L", true),
+    ink(tone, title, true),
+    ...stage ? [
+      ink("muted", `STAGE / ${stage}`)
+    ] : [],
+    ink("gold", "\u2501".repeat(52)),
+    ""
+  ];
+}
+function renderIntake(message, color = false) {
+  return [
+    ...forgeBanner("FORGE INTAKE", color),
+    message
+  ].join("\n");
+}
 function renderStatus(summary, color = false) {
   const { run } = summary;
   const ink = (tone2, text2, bold = false) => color ? `\x1B[${bold ? "1;" : ""}38;2;${FORGE_INK[tone2]}m${text2}\x1B[0m` : text2;
-  const heading = (text2) => ink("gold", `  \u2501\u2501 ${text2} ${"\u2501".repeat(Math.max(0, 48 - text2.length))}`);
-  const row = (label, value2) => `  ${ink("muted", label.padEnd(14))}${ink("text", value2)}`;
+  const heading = (text2) => ink("gold", `\u2501\u2501 ${text2} ${"\u2501".repeat(Math.max(0, 48 - text2.length))}`);
+  const row = (label, value2) => `${ink("muted", label.padEnd(14))}${ink("text", value2)}`;
   const number = (value2) => value2?.toLocaleString() ?? "unknown";
   const attempts = summary.attempts.reduce((counts, attempt) => {
     const label = attempt.role ? ROLE_LABELS[attempt.role] : STAGE_LABELS[attempt.state] ?? attempt.state;
@@ -13692,35 +13711,27 @@ function renderStatus(summary, color = false) {
   const peak = Math.max(1, ...Object.values(attempts));
   const roleRow = (label, count, roleTone) => {
     const bars = count ? Math.max(1, Math.round(count / peak * 12)) : 0;
-    return `  ${ink(roleTone, label.padEnd(14))}${ink(roleTone, "\u2501".repeat(bars))}${ink("muted", "\xB7".repeat(12 - bars))}  ${ink("text", String(count).padStart(3), true)} ${ink("muted", count === 1 ? "attempt" : "attempts")}`;
+    return `${ink(roleTone, label.padEnd(14))}${ink(roleTone, "\u2501".repeat(bars))}${ink("muted", "\xB7".repeat(12 - bars))}  ${ink("text", String(count).padStart(3), true)} ${ink("muted", count === 1 ? "attempt" : "attempts")}`;
   };
   return [
-    "",
-    ink("gold", `  ${"\u2501".repeat(52)}`),
-    `  ${ink("gold", "A N V I L", true)}`,
-    `  ${ink(tone, verdict, true)}`,
-    ...run.status === "running" ? [
-      `  ${ink("muted", `STAGE / ${displayState(run.currentState).toUpperCase()}`)}`
-    ] : [],
-    ink("gold", `  ${"\u2501".repeat(52)}`),
-    "",
-    `  ${ink(open4.length ? "red" : "green", `${open4.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${ink("text", `${run.transitionCount} transitions`, true)}  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,
+    ...forgeBanner(verdict, color, tone, run.status === "running" ? displayState(run.currentState).toUpperCase() : void 0),
+    `${ink(open4.length ? "red" : "green", `${open4.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${ink("text", `${run.transitionCount} transitions`, true)}  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,
     ...run.failureCode || run.failureMessage || run.blockedReason ? [
       "",
       ...run.failureCode ? [
-        `  ${ink("red", run.failureCode, true)}`
+        ink("red", run.failureCode, true)
       ] : [],
-      `  ${ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")}`
+      ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")
     ] : [],
-    ...open4.slice(0, 8).map((finding) => `  ${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),
+    ...open4.slice(0, 8).map((finding) => `${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),
     ...open4.length > 8 ? [
-      `  ${ink("muted", `+ ${open4.length - 8} more \xB7 /anvil findings ${run.id}`)}`
+      ink("muted", `+ ${open4.length - 8} more \xB7 /anvil findings ${run.id}`)
     ] : [],
     ...sealed ? [
       "",
       heading("SUMMARY & NEXT STEPS"),
-      ...completionNotes.length ? completionNotes.map((note) => `  ${ink("text", note)}`) : [
-        `  ${ink("muted", "No completion handoff was recorded. Review the run artifacts for verification details and remaining work.")}`
+      ...completionNotes.length ? completionNotes.map((note) => ink("text", note)) : [
+        ink("muted", "No completion handoff was recorded. Review the run artifacts for verification details and remaining work.")
       ]
     ] : [],
     "",
@@ -13729,16 +13740,16 @@ function renderStatus(summary, color = false) {
     ...Object.entries(attempts).filter(([label]) => !roles.some(([role]) => role === label)).map(([label, count]) => roleRow(label, count, "muted")),
     "",
     heading("TOKEN LEDGER"),
-    `  ${ink("gold", `${number(run.usedTokens)} tokens`, true)}  ${ink("muted", "/")}  ${ink("text", `${number(run.usedRequests)} requests`, true)}`,
+    `${ink("gold", `${number(run.usedTokens)} tokens`, true)}  ${ink("muted", "/")}  ${ink("text", `${number(run.usedRequests)} requests`, true)}`,
     row("LIMIT", run.maxTotalTokens === void 0 ? "No token limit" : `${number(run.maxTotalTokens)} tokens`),
     row("INPUT", number(run.usedInputTokens)),
     row("OUTPUT", number(run.usedOutputTokens)),
     row("CACHE READ", number(run.usedCacheReadTokens)),
     row("CACHE WRITE", number(run.usedCacheWriteTokens)),
     "",
-    ink("muted", "  Host aggregate; cache included when reported. Otherwise input + output."),
-    ink("muted", "  Not monetary cost. Components may be incomplete or not sum to total;"),
-    ink("muted", "  zero can mean unreported. Caps checked between stages, not mid-child."),
+    ink("muted", "Host aggregate; cache included when reported. Otherwise input + output."),
+    ink("muted", "Not monetary cost. Components may be incomplete or not sum to total;"),
+    ink("muted", "zero can mean unreported. Caps checked between stages, not mid-child."),
     "",
     heading("RUN RECORD"),
     row("RUN", run.id),
@@ -13992,7 +14003,7 @@ var CommandRouter = class {
   }
   async handle(raw, context) {
     let objective = raw.trim();
-    if (!objective || objective === "help") return renderForgeHelp();
+    if (!objective || objective === "help") return renderForgeHelp(context.summaryColor);
     let mode;
     if (objective.startsWith("--clarify")) {
       const match = /^--clarify(?:=|\s+)(auto|always|off)(?:\s+|$)/.exec(objective);
@@ -14002,7 +14013,7 @@ var CommandRouter = class {
     } else if (objective.startsWith("-- ")) {
       objective = objective.slice(3).trim();
     }
-    if (!objective) return renderForgeHelp();
+    if (!objective) return renderForgeHelp(context.summaryColor);
     let runtime;
     let lockHeld = false;
     let heartbeatTimer;
@@ -14013,12 +14024,24 @@ var CommandRouter = class {
       heartbeatTimer = setInterval(() => {
         void runtime?.lock.heartbeat().catch(() => void 0);
       }, 1e4);
+      if (context.respond) {
+        try {
+          await context.respond(renderIntake("Checking clarification requirements before Forge starts. When enabled, Architect inspects the repository first; questions appear only for material unresolved decisions.", context.summaryColor));
+        } catch {
+        }
+      }
       const intake = await runtime.clarify({
         objective,
         mode,
         ui: context.intakeUI
       });
-      if (intake.status !== "ready") return intake.message;
+      if (intake.status !== "ready") return renderIntake(intake.message, context.summaryColor);
+      if (context.respond) {
+        try {
+          await context.respond(renderIntake(intake.message, context.summaryColor));
+        } catch {
+        }
+      }
       const progress = async (update) => {
         if (update.kind === "started") {
           try {
@@ -14028,12 +14051,14 @@ var CommandRouter = class {
         }
         await context.progress?.(update);
       };
-      return renderStatus(await runtime.engine.start({
+      const summary = renderStatus(await runtime.engine.start({
         objective: intake.record?.objective ?? objective,
         intake: intake.record,
         workspaceRoot: context.cwd,
         progress
       }), context.summaryColor);
+      return context.respond ? summary : `${renderIntake(intake.message, context.summaryColor)}
+${summary}`;
     } catch (error) {
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL \xB7 ${typed.code}
@@ -14215,10 +14240,10 @@ function widgetLines(update, frame, activeStage, theme) {
   const stages = rows.flatMap(({ marker, label, activity }, index) => {
     const color = marker === "!" ? "error" : marker === "\u203A" ? "accent" : marker === "\u2713" ? "success" : "dim";
     const text2 = `${marker === "\u203A" ? frame : marker} ${label.padEnd(10)}  ${activity}`;
-    const row = `  ${paint(color, text2)}`;
+    const row = paint(color, text2);
     return index < rows.length - 1 ? [
       row,
-      `  ${paint("dim", "\u2502")}`
+      paint("dim", "\u2502")
     ] : [
       row
     ];
@@ -14226,9 +14251,9 @@ function widgetLines(update, frame, activeStage, theme) {
   const title = theme ? theme.bold("FORGE") : "FORGE";
   const runId = update.run.id.replace(/^run_/, "").slice(0, 8);
   return [
-    `  ${paint("accent", title)} ${paint("dim", `\xB7 ${runId}`)}`,
+    `${paint("accent", title)} ${paint("dim", `\xB7 ${runId}`)}`,
     ...interrupted || update.kind === "finished" || !STAGES.includes(coreStage) ? [
-      `  ${paint(interrupted ? "error" : update.kind === "finished" ? "success" : "accent", statusText(update, frame, activeStage))}`
+      paint(interrupted ? "error" : update.kind === "finished" ? "success" : "accent", statusText(update, frame, activeStage))
     ] : [],
     "",
     ...stages,
@@ -14259,8 +14284,8 @@ function createForgeProgressReporter(ui) {
     const text2 = `${SPINNER_FRAMES[frameIndex]} Acquiring workspace lock`;
     const title = ui?.theme ? ui.theme.fg("accent", ui.theme.bold("FORGE")) : "FORGE";
     present(text2, [
-      `  ${title}`,
-      `  ${text2}`,
+      title,
+      text2,
       ""
     ]);
   };
@@ -14378,6 +14403,7 @@ function anvilExtension(pi) {
         cwd: context.cwd,
         runtimeContext: context,
         host: pi.pi,
+        respond: (message) => notifyOutput(context, message),
         progress: progress?.onProgress,
         summaryColor: context.hasUI !== false && !!context.ui?.theme && !!context.ui?.notify,
         intakeUI: context.hasUI !== false && context.ui?.select && context.ui?.input ? {
