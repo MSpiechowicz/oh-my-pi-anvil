@@ -10203,7 +10203,7 @@ var FindingRepository = class {
     if (!existing) {
       const finding = {
         ...input,
-        id: `${input.sourceGate.slice(0, 3).toUpperCase()}-${String(this.list(input.runId).length + 1).padStart(4, "0")}`,
+        id: `${input.sourceGate.slice(0, 3).toUpperCase()}-${crypto.randomUUID()}`,
         status: "open",
         timesSeen: 1,
         reopenCount: 0,
@@ -13539,7 +13539,7 @@ function renderStatus(summary, color = false) {
   const open4 = summary.findings.filter((finding) => finding.status === "open");
   const sealed = run.status === "done";
   const tone = sealed ? "green" : run.status === "running" ? "gold" : "red";
-  const verdict = sealed ? "FORGE SEALED" : `FORGE ${run.status.toUpperCase()}`;
+  const verdict = sealed ? "FORGE SUCCESS" : `FORGE ${run.status.toUpperCase()}`;
   const roles = [
     [
       ROLE_LABELS.scout,
@@ -13580,13 +13580,17 @@ function renderStatus(summary, color = false) {
     ink("gold", `  ${"\u2501".repeat(52)}`),
     `  ${ink("gold", "A N V I L", true)}`,
     `  ${ink(tone, verdict, true)}`,
-    `  ${ink("muted", sealed ? "CHECKS \xB7 SECURITY \xB7 REVIEW" : `STAGE / ${displayState(run.currentState).toUpperCase()}`)}`,
+    ...run.status === "running" ? [
+      `  ${ink("muted", `STAGE / ${displayState(run.currentState).toUpperCase()}`)}`
+    ] : [],
     ink("gold", `  ${"\u2501".repeat(52)}`),
     "",
     `  ${ink(open4.length ? "red" : "green", `${open4.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${ink("text", `${run.transitionCount} transitions`, true)}  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,
     ...run.failureCode || run.failureMessage || run.blockedReason ? [
       "",
-      `  ${ink("red", run.failureCode ?? run.status.toUpperCase(), true)}`,
+      ...run.failureCode ? [
+        `  ${ink("red", run.failureCode, true)}`
+      ] : [],
       `  ${ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")}`
     ] : [],
     ...open4.slice(0, 8).map((finding) => `  ${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),

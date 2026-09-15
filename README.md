@@ -349,6 +349,8 @@ Each run also has a readable `metadata.json` with its ID, objective, workspace, 
 
 Forge results and `/anvil status` show a gold text header, the run verdict, open findings, role-colored attempt counts, and a token ledger. The crew includes Scout (cyan), Architect, Smith, Warden, Sentinel, Inquisitor, and Archivist (ivory); roles with no recorded attempts show zero. Agent attempts are counted by role, so advisory work and Architect dispatches do not inflate the surrounding stage's count. Full run IDs, revisions, artifact paths, and accounting caveats remain in the report. Non-UI responses retain the same information without ANSI color.
 
+Terminal reports use `FORGE FAILED`, `FORGE BLOCKED`, or `FORGE SUCCESS` without a stage subtitle; running reports retain the current stage. Diagnostic error codes and failure or blocker details remain visible. New finding IDs include a UUID so separate runs can record the same issue without colliding; existing IDs and run-scoped deduplication remain unchanged.
+
 Each agent invocation retains `artifacts/<role>/output-<attempt-sequence>.json`, including model, thinking level, duration, result, and usage. Smith additionally writes a revision/epoch-bound `artifacts/implementation/<attempt-id>/result.json` and captured supporting files. Warden results use `artifacts/checks/attempt-<attempt-sequence>.json`; gate dependency manifests preserve the evidence used for reuse decisions. Planner outputs are attempt-scoped so replanning does not overwrite earlier gate inputs.
 
 ### Data storage and privacy

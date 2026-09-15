@@ -173,7 +173,7 @@ export function renderStatus(summary: RunSummary, color = false): string {
   const open = summary.findings.filter((finding) => finding.status === "open");
   const sealed = run.status === "done";
   const tone = sealed ? "green" : run.status === "running" ? "gold" : "red";
-  const verdict = sealed ? "FORGE SEALED" : `FORGE ${run.status.toUpperCase()}`;
+  const verdict = sealed ? "FORGE SUCCESS" : `FORGE ${run.status.toUpperCase()}`;
   const roles = [
     [ROLE_LABELS.scout, "cyan"], [ROLE_LABELS.planner, "blue"],
     [ROLE_LABELS.implementation, "ember"], ["Warden", "gold"],
@@ -192,14 +192,14 @@ export function renderStatus(summary: RunSummary, color = false): string {
     ink("gold", `  ${"━".repeat(52)}`),
     `  ${ink("gold", "A N V I L", true)}`,
     `  ${ink(tone, verdict, true)}`,
-    `  ${ink("muted", sealed ? "CHECKS · SECURITY · REVIEW" : `STAGE / ${displayState(run.currentState).toUpperCase()}`)}`,
+    ...(run.status === "running" ? [`  ${ink("muted", `STAGE / ${displayState(run.currentState).toUpperCase()}`)}`] : []),
     ink("gold", `  ${"━".repeat(52)}`),
     "",
     `  ${ink(open.length ? "red" : "green", `${open.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${
       ink("text", `${run.transitionCount} transitions`, true)
     }  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,
     ...(run.failureCode || run.failureMessage || run.blockedReason
-      ? ["", `  ${ink("red", run.failureCode ?? run.status.toUpperCase(), true)}`,
+      ? ["", ...(run.failureCode ? [`  ${ink("red", run.failureCode, true)}`] : []),
         `  ${ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")}`]
       : []),
     ...open.slice(0, 8).map((finding) =>
