@@ -72,7 +72,7 @@ export default function anvilExtension(pi: ExtensionAPI): void {
     const progress = input && input !== "help" ? createForgeProgressReporter(context.ui) : undefined;
     progress?.begin();
     try {
-      await notifyOutput(context, await router.handle(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi, progress: progress?.onProgress }));
+      await notifyOutput(context, await router.handle(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi, progress: progress?.onProgress, summaryColor: context.hasUI !== false && !!context.ui?.theme && !!context.ui?.notify }));
     } finally {
       progress?.close();
     }
@@ -86,7 +86,7 @@ export default function anvilExtension(pi: ExtensionAPI): void {
       if (/^update\s+install$/.test(input)) {
         await notifyOutput(context, "Installing Anvil update via the OMP plugin pipeline…");
       }
-      await notifyOutput(context, await router.handleAdmin(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi, progress: progress?.onProgress }));
+      await notifyOutput(context, await router.handleAdmin(input, { cwd: context.cwd, runtimeContext: context, host: pi.pi, progress: progress?.onProgress, summaryColor: context.hasUI !== false && !!context.ui?.theme && !!context.ui?.notify }));
     } finally {
       progress?.close();
     }

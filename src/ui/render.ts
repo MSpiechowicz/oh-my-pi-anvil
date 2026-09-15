@@ -141,51 +141,86 @@ export function renderUpdate(report: UpdateReport): string {
   return `Anvil ${report.currentVersion}: No newer release available.`;
 }
 
-const STATUS_LABEL_WIDTH = 14;
+const FORGE_INK = {
+  gold: "231;185;102",
+  text: "232;228;218",
+  muted: "151;153;160",
+  blue: "115;190;245",
+  ember: "255;151;92",
+  green: "128;211;163",
+  violet: "195;156;239",
+  red: "245;123;123",
+} as const;
 
-function statusRow(label: string, value: string): string {
-  return `  ${label.padEnd(STATUS_LABEL_WIDTH)}${value}`;
-}
-
-export function renderStatus(summary: RunSummary): string {
-  const run = summary.run;
+export function renderStatus(summary: RunSummary, color = false): string {
+  const { run } = summary;
+  const ink = (tone: keyof typeof FORGE_INK, text: string, bold = false): string =>
+    color ? `\x1b[${bold ? "1;" : ""}38;2;${FORGE_INK[tone]}m${text}\x1b[0m` : text;
+  const heading = (text: string): string => ink("gold", `  ━━ ${text} ${"━".repeat(Math.max(0, 48 - text.length))}`);
+  const row = (label: string, value: string): string => `  ${ink("muted", label.padEnd(14))}${ink("text", value)}`;
+  const number = (value: number | undefined): string => value?.toLocaleString() ?? "unknown";
   const attempts = summary.attempts.reduce<Record<string, number>>((counts, attempt) => {
     counts[attempt.state] = (counts[attempt.state] ?? 0) + 1;
     return counts;
   }, {});
   const open = summary.findings.filter((finding) => finding.status === "open");
-  const failure = run.failureCode || run.failureMessage || run.blockedReason
-    ? [
-        "",
-        statusRow("FAILURE", run.failureCode ?? run.status.toUpperCase()),
-        statusRow("REASON", run.failureMessage ?? run.blockedReason ?? "No details recorded"),
-      ]
-    : [];
+  const sealed = run.status === "done";
+  const tone = sealed ? "green" : run.status === "running" ? "gold" : "red";
+  const verdict = sealed ? "FORGE SEALED" : `FORGE ${run.status.toUpperCase()}`;
+  const roles = [
+    ["PLAN", "blue"], ["IMPLEMENT", "ember"], ["CHECKS", "gold"],
+    ["SECURITY", "green"], ["REVIEW", "violet"],
+  ] as const;
+  const peak = Math.max(1, ...Object.values(attempts));
+  const roleRow = (state: string, count: number, roleTone: keyof typeof FORGE_INK): string => {
+    const bars = count ? Math.max(1, Math.round(count / peak * 12)) : 0;
+    return `  ${ink(roleTone, (STAGE_LABELS[state] ?? state).padEnd(14))}${
+      ink(roleTone, "━".repeat(bars))
+    }${ink("muted", "·".repeat(12 - bars))}  ${ink("text", String(count).padStart(3), true)} ${ink("muted", count === 1 ? "attempt" : "attempts")}`;
+  };
   return [
-    `ANVIL · FORGE RUN ${run.id}`,
     "",
-    statusRow("STATUS", run.status.toUpperCase()),
-    statusRow("STAGE", displayState(run.currentState).toUpperCase()),
-    statusRow("REVISION", run.currentRevisionId),
-    statusRow("EPOCH", String(run.mutationEpoch)),
-    statusRow("TRANSITIONS", String(run.transitionCount)),
-    ...failure,
+    ink("gold", `  ${"━".repeat(52)}`),
+    `  ${ink("gold", "A N V I L", true)}`,
+    `  ${ink(tone, verdict, true)}`,
+    `  ${ink("muted", sealed ? "CHECKS · SECURITY · REVIEW" : `STAGE / ${displayState(run.currentState).toUpperCase()}`)}`,
+    ink("gold", `  ${"━".repeat(52)}`),
     "",
-    "ATTEMPTS",
-    ...Object.entries(attempts).map(([state, count]) => statusRow(STAGE_LABELS[state] ?? state, String(count))),
+    `  ${ink(open.length ? "red" : "green", `${open.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${
+      ink("text", `${run.transitionCount} transitions`, true)
+    }  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,
+    ...(run.failureCode || run.failureMessage || run.blockedReason
+      ? ["", `  ${ink("red", run.failureCode ?? run.status.toUpperCase(), true)}`,
+        `  ${ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")}`]
+      : []),
+    ...open.slice(0, 8).map((finding) =>
+      `  ${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),
+    ...(open.length > 8 ? [`  ${ink("muted", `+ ${open.length - 8} more · /anvil findings ${run.id}`)}`] : []),
     "",
-    statusRow("FINDINGS", String(open.length)),
-    ...open.slice(0, 8).map((finding) => `    ${finding.id}  ${finding.severity.toUpperCase()}  ${finding.title}`),
+    heading("THE FORGE CREW"),
+    ...roles.map(([state, roleTone]) => roleRow(state, attempts[state] ?? 0, roleTone)),
+    ...Object.entries(attempts).filter(([state]) => !roles.some(([role]) => role === state))
+      .map(([state, count]) => roleRow(state, count, "muted")),
     "",
-    statusRow("USAGE", `${run.usedTokens.toLocaleString()} tokens consumed / ${run.maxTotalTokens === undefined ? "no token limit" : `${run.maxTotalTokens.toLocaleString()} token limit`} · ${run.usedRequests} requests`),
-    statusRow("TOKEN BASIS", "Executor-reported aggregate, including cache when the host includes it; input + output fallback if no total is reported. Not monetary cost."),
-    statusRow("INPUT", `${run.usedInputTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
-    statusRow("OUTPUT", `${run.usedOutputTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
-    statusRow("CACHE-READ", `${run.usedCacheReadTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
-    statusRow("CACHE-WRITE", `${run.usedCacheWriteTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
-    statusRow("REPORTING", "Components may be incomplete; zero can mean unreported. They need not sum to the aggregate."),
-    statusRow("LIMIT CHECK", "Between stages; an in-flight child is not interrupted by token caps."),
-    statusRow("ARTIFACTS", `${run.workspaceRoot}/.anvil/runs/${run.id}`),
+    heading("TOKEN LEDGER"),
+    `  ${ink("gold", `${number(run.usedTokens)} tokens`, true)}  ${ink("muted", "/")}  ${
+      ink("text", `${number(run.usedRequests)} requests`, true)
+    }`,
+    row("LIMIT", run.maxTotalTokens === undefined ? "No token limit" : `${number(run.maxTotalTokens)} tokens`),
+    row("INPUT", number(run.usedInputTokens)),
+    row("OUTPUT", number(run.usedOutputTokens)),
+    row("CACHE READ", number(run.usedCacheReadTokens)),
+    row("CACHE WRITE", number(run.usedCacheWriteTokens)),
+    "",
+    ink("muted", "  Host aggregate; cache included when reported. Otherwise input + output."),
+    ink("muted", "  Not monetary cost. Components may be incomplete or not sum to total;"),
+    ink("muted", "  zero can mean unreported. Caps checked between stages, not mid-child."),
+    "",
+    heading("RUN RECORD"),
+    row("RUN", run.id),
+    row("REVISION", run.currentRevisionId),
+    row("ARTIFACTS", `${run.workspaceRoot}/.anvil/runs/${run.id}`),
+    "",
   ].join("\n");
 }
 

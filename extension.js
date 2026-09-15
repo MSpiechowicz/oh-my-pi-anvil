@@ -12978,47 +12978,97 @@ function renderUpdate(report) {
   if (report.message) return `Anvil ${report.currentVersion}: ${report.message}`;
   return `Anvil ${report.currentVersion}: No newer release available.`;
 }
-var STATUS_LABEL_WIDTH = 14;
-function statusRow(label, value2) {
-  return `  ${label.padEnd(STATUS_LABEL_WIDTH)}${value2}`;
-}
-function renderStatus(summary) {
-  const run = summary.run;
+var FORGE_INK = {
+  gold: "231;185;102",
+  text: "232;228;218",
+  muted: "151;153;160",
+  blue: "115;190;245",
+  ember: "255;151;92",
+  green: "128;211;163",
+  violet: "195;156;239",
+  red: "245;123;123"
+};
+function renderStatus(summary, color = false) {
+  const { run } = summary;
+  const ink = (tone2, text, bold = false) => color ? `\x1B[${bold ? "1;" : ""}38;2;${FORGE_INK[tone2]}m${text}\x1B[0m` : text;
+  const heading = (text) => ink("gold", `  \u2501\u2501 ${text} ${"\u2501".repeat(Math.max(0, 48 - text.length))}`);
+  const row = (label, value2) => `  ${ink("muted", label.padEnd(14))}${ink("text", value2)}`;
+  const number = (value2) => value2?.toLocaleString() ?? "unknown";
   const attempts = summary.attempts.reduce((counts, attempt) => {
     counts[attempt.state] = (counts[attempt.state] ?? 0) + 1;
     return counts;
   }, {});
   const open4 = summary.findings.filter((finding) => finding.status === "open");
-  const failure2 = run.failureCode || run.failureMessage || run.blockedReason ? [
-    "",
-    statusRow("FAILURE", run.failureCode ?? run.status.toUpperCase()),
-    statusRow("REASON", run.failureMessage ?? run.blockedReason ?? "No details recorded")
-  ] : [];
+  const sealed = run.status === "done";
+  const tone = sealed ? "green" : run.status === "running" ? "gold" : "red";
+  const verdict = sealed ? "FORGE SEALED" : `FORGE ${run.status.toUpperCase()}`;
+  const roles = [
+    [
+      "PLAN",
+      "blue"
+    ],
+    [
+      "IMPLEMENT",
+      "ember"
+    ],
+    [
+      "CHECKS",
+      "gold"
+    ],
+    [
+      "SECURITY",
+      "green"
+    ],
+    [
+      "REVIEW",
+      "violet"
+    ]
+  ];
+  const peak = Math.max(1, ...Object.values(attempts));
+  const roleRow = (state, count, roleTone) => {
+    const bars = count ? Math.max(1, Math.round(count / peak * 12)) : 0;
+    return `  ${ink(roleTone, (STAGE_LABELS[state] ?? state).padEnd(14))}${ink(roleTone, "\u2501".repeat(bars))}${ink("muted", "\xB7".repeat(12 - bars))}  ${ink("text", String(count).padStart(3), true)} ${ink("muted", count === 1 ? "attempt" : "attempts")}`;
+  };
   return [
-    `ANVIL \xB7 FORGE RUN ${run.id}`,
     "",
-    statusRow("STATUS", run.status.toUpperCase()),
-    statusRow("STAGE", displayState(run.currentState).toUpperCase()),
-    statusRow("REVISION", run.currentRevisionId),
-    statusRow("EPOCH", String(run.mutationEpoch)),
-    statusRow("TRANSITIONS", String(run.transitionCount)),
-    ...failure2,
+    ink("gold", `  ${"\u2501".repeat(52)}`),
+    `  ${ink("gold", "A N V I L", true)}`,
+    `  ${ink(tone, verdict, true)}`,
+    `  ${ink("muted", sealed ? "CHECKS \xB7 SECURITY \xB7 REVIEW" : `STAGE / ${displayState(run.currentState).toUpperCase()}`)}`,
+    ink("gold", `  ${"\u2501".repeat(52)}`),
     "",
-    "ATTEMPTS",
-    ...Object.entries(attempts).map(([state, count]) => statusRow(STAGE_LABELS[state] ?? state, String(count))),
+    `  ${ink(open4.length ? "red" : "green", `${open4.length} OPEN FINDINGS`, true)}  ${ink("muted", " / ")}  ${ink("text", `${run.transitionCount} transitions`, true)}  ${ink("muted", ` /  epoch ${run.mutationEpoch}`)}`,
+    ...run.failureCode || run.failureMessage || run.blockedReason ? [
+      "",
+      `  ${ink("red", run.failureCode ?? run.status.toUpperCase(), true)}`,
+      `  ${ink("text", run.failureMessage ?? run.blockedReason ?? "No details recorded")}`
+    ] : [],
+    ...open4.slice(0, 8).map((finding) => `  ${ink("red", finding.severity.toUpperCase(), true)} ${ink("text", finding.title)} ${ink("muted", `[${finding.id}]`)}`),
+    ...open4.length > 8 ? [
+      `  ${ink("muted", `+ ${open4.length - 8} more \xB7 /anvil findings ${run.id}`)}`
+    ] : [],
     "",
-    statusRow("FINDINGS", String(open4.length)),
-    ...open4.slice(0, 8).map((finding) => `    ${finding.id}  ${finding.severity.toUpperCase()}  ${finding.title}`),
+    heading("THE FORGE CREW"),
+    ...roles.map(([state, roleTone]) => roleRow(state, attempts[state] ?? 0, roleTone)),
+    ...Object.entries(attempts).filter(([state]) => !roles.some(([role]) => role === state)).map(([state, count]) => roleRow(state, count, "muted")),
     "",
-    statusRow("USAGE", `${run.usedTokens.toLocaleString()} tokens consumed / ${run.maxTotalTokens === void 0 ? "no token limit" : `${run.maxTotalTokens.toLocaleString()} token limit`} \xB7 ${run.usedRequests} requests`),
-    statusRow("TOKEN BASIS", "Executor-reported aggregate, including cache when the host includes it; input + output fallback if no total is reported. Not monetary cost."),
-    statusRow("INPUT", `${run.usedInputTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
-    statusRow("OUTPUT", `${run.usedOutputTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
-    statusRow("CACHE-READ", `${run.usedCacheReadTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
-    statusRow("CACHE-WRITE", `${run.usedCacheWriteTokens?.toLocaleString() ?? "unknown"} tokens recorded`),
-    statusRow("REPORTING", "Components may be incomplete; zero can mean unreported. They need not sum to the aggregate."),
-    statusRow("LIMIT CHECK", "Between stages; an in-flight child is not interrupted by token caps."),
-    statusRow("ARTIFACTS", `${run.workspaceRoot}/.anvil/runs/${run.id}`)
+    heading("TOKEN LEDGER"),
+    `  ${ink("gold", `${number(run.usedTokens)} tokens`, true)}  ${ink("muted", "/")}  ${ink("text", `${number(run.usedRequests)} requests`, true)}`,
+    row("LIMIT", run.maxTotalTokens === void 0 ? "No token limit" : `${number(run.maxTotalTokens)} tokens`),
+    row("INPUT", number(run.usedInputTokens)),
+    row("OUTPUT", number(run.usedOutputTokens)),
+    row("CACHE READ", number(run.usedCacheReadTokens)),
+    row("CACHE WRITE", number(run.usedCacheWriteTokens)),
+    "",
+    ink("muted", "  Host aggregate; cache included when reported. Otherwise input + output."),
+    ink("muted", "  Not monetary cost. Components may be incomplete or not sum to total;"),
+    ink("muted", "  zero can mean unreported. Caps checked between stages, not mid-child."),
+    "",
+    heading("RUN RECORD"),
+    row("RUN", run.id),
+    row("REVISION", run.currentRevisionId),
+    row("ARTIFACTS", `${run.workspaceRoot}/.anvil/runs/${run.id}`),
+    ""
   ].join("\n");
 }
 function renderFindings(summary) {
@@ -13290,7 +13340,7 @@ var CommandRouter = class {
         objective,
         workspaceRoot: context.cwd,
         progress
-      }));
+      }), context.summaryColor);
     } catch (error) {
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL \xB7 ${typed.code}
@@ -13336,7 +13386,7 @@ ${typed.message}`;
         if (rest.length > 1) throw new AnvilError("CONFIG_INVALID", `Usage: /anvil ${command} [run-id]`);
         runtime = await this.engineFactory(context);
         const summary = runtime.engine.status(rest[0]);
-        return command === "status" ? renderStatus(summary) : renderFindings(summary);
+        return command === "status" ? renderStatus(summary, context.summaryColor) : renderFindings(summary);
       }
       if (command === "resume" || command === "cancel") {
         if (rest.length !== 1) throw new AnvilError("CONFIG_INVALID", `Usage: /anvil ${command} <run-id>`);
@@ -13346,9 +13396,9 @@ ${typed.message}`;
         heartbeatTimer = setInterval(() => {
           void runtime?.lock.heartbeat().catch(() => void 0);
         }, 1e4);
-        if (command === "resume") return renderStatus(await runtime.engine.resume(rest[0], context.progress));
+        if (command === "resume") return renderStatus(await runtime.engine.resume(rest[0], context.progress), context.summaryColor);
         await runtime.engine.cancel(rest[0]);
-        return renderStatus(runtime.engine.status(rest[0]));
+        return renderStatus(runtime.engine.status(rest[0]), context.summaryColor);
       }
       throw new AnvilError("CONFIG_INVALID", `Unknown /anvil command: ${command}`);
     } catch (error) {
@@ -13592,7 +13642,8 @@ function anvilExtension(pi) {
         cwd: context.cwd,
         runtimeContext: context,
         host: pi.pi,
-        progress: progress?.onProgress
+        progress: progress?.onProgress,
+        summaryColor: context.hasUI !== false && !!context.ui?.theme && !!context.ui?.notify
       }));
     } finally {
       progress?.close();
@@ -13611,7 +13662,8 @@ function anvilExtension(pi) {
         cwd: context.cwd,
         runtimeContext: context,
         host: pi.pi,
-        progress: progress?.onProgress
+        progress: progress?.onProgress,
+        summaryColor: context.hasUI !== false && !!context.ui?.theme && !!context.ui?.notify
       }));
     } finally {
       progress?.close();

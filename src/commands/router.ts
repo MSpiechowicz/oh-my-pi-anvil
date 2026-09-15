@@ -28,7 +28,7 @@ import type { WorkflowEngine } from "../workflow/engine.ts";
 import type { WorkflowProgressHandler, WorkflowProgressUpdate } from "../workflow/types.ts";
 import type { WorkspaceLock } from "../state/lock.ts";
 
-export interface CommandContext { cwd: string; runtimeContext?: unknown; host?: unknown; respond?: (message: string) => void | Promise<void>; progress?: WorkflowProgressHandler; }
+export interface CommandContext { cwd: string; runtimeContext?: unknown; host?: unknown; respond?: (message: string) => void | Promise<void>; progress?: WorkflowProgressHandler; summaryColor?: boolean; }
 function isRunActive(runtime: RuntimeHandle, lockRunId: string): boolean {
   try {
     const runId = lockRunId.startsWith("pending_") ? undefined : lockRunId;
@@ -94,7 +94,7 @@ export class CommandRouter {
         }
         await context.progress?.(update);
       };
-      return renderStatus(await runtime.engine.start({ objective, workspaceRoot: context.cwd, progress }));
+      return renderStatus(await runtime.engine.start({ objective, workspaceRoot: context.cwd, progress }), context.summaryColor);
     } catch (error) {
       const typed = error instanceof AnvilError ? error : new AnvilError("PERSISTENCE_ERROR", error instanceof Error ? error.message : String(error));
       return `ANVIL · ${typed.code}\n\n${typed.message}`;
@@ -136,7 +136,7 @@ export class CommandRouter {
         if (rest.length > 1) throw new AnvilError("CONFIG_INVALID", `Usage: /anvil ${command} [run-id]`);
         runtime = await this.engineFactory(context);
         const summary = runtime.engine.status(rest[0]);
-        return command === "status" ? renderStatus(summary) : renderFindings(summary);
+        return command === "status" ? renderStatus(summary, context.summaryColor) : renderFindings(summary);
       }
       if (command === "resume" || command === "cancel") {
         if (rest.length !== 1) throw new AnvilError("CONFIG_INVALID", `Usage: /anvil ${command} <run-id>`);
@@ -144,9 +144,9 @@ export class CommandRouter {
         await runtime.lock.acquire(rest[0], undefined, (lockRunId) => isRunActive(runtime!, lockRunId));
         lockHeld = true;
         heartbeatTimer = setInterval(() => { void runtime?.lock.heartbeat().catch(() => undefined); }, 10_000);
-        if (command === "resume") return renderStatus(await runtime.engine.resume(rest[0], context.progress));
+        if (command === "resume") return renderStatus(await runtime.engine.resume(rest[0], context.progress), context.summaryColor);
         await runtime.engine.cancel(rest[0]);
-        return renderStatus(runtime.engine.status(rest[0]));
+        return renderStatus(runtime.engine.status(rest[0]), context.summaryColor);
       }
       throw new AnvilError("CONFIG_INVALID", `Unknown /anvil command: ${command}`);
     } catch (error) {

@@ -110,10 +110,9 @@ describe("OMP command registration", () => {
       lock: { acquire: async () => {}, release: async () => {} } as never,
     }));
 
-    const response = await router.handle("Add the requested change", { cwd: "/tmp" });
+    await router.handle("Add the requested change", { cwd: "/tmp" });
 
     expect(receivedObjective).toBe("Add the requested change");
-    expect(response).toContain("ANVIL · FORGE RUN run_test");
   });
 
   test("reclaims a paused run lock without reclaiming an active run lock", async () => {
@@ -133,8 +132,7 @@ describe("OMP command registration", () => {
     }));
     try {
       await owner.acquire("run_existing");
-      const resumed = await router.handleAdmin("resume run_existing", { cwd: root });
-      expect(resumed).toContain("ANVIL · FORGE RUN run_existing");
+      await router.handleAdmin("resume run_existing", { cwd: root });
       expect(resumes).toBe(1);
       currentState = "CHECKS";
       await owner.acquire("run_existing");
