@@ -44,6 +44,14 @@ const plan: PlanOutput = {
   requiredChecks: [{ id: "tenant-isolation", reason: "Exercise cross-tenant requests" }],
   risks: [{ category: "authorization", description: "Unscoped legacy lookups", mitigation: "Audit lookup callers" }],
   replanTriggers: ["The request has no trusted tenant identity"],
+  smithTasks: [{
+    id: "tenant-isolation",
+    objective: "Implement tenant authorization and its regression coverage",
+    dependsOn: [],
+    ownedFiles: ["src/records.ts", "test/records.test.ts"],
+    acceptanceCriteria: ["Only the owning tenant can read a record"],
+    findingIds: [],
+  }],
 };
 
 const implementation: ImplementationOutput = {
@@ -193,6 +201,13 @@ for (const contract of [plannerContract, smithContract, sentinelContract, review
 }
 
 describe("Architect nested plan contract", () => {
+  test("requires an explicit Smith dispatch instead of silently choosing one worker", () => {
+    const omitted = { ...plan } as Partial<PlanOutput>;
+    delete omitted.smithTasks;
+    rejects(plannerContract, omitted, "smithTasks");
+    rejects(plannerContract, { ...plan, smithTasks: [] }, "smithTasks");
+  });
+
   test("requires nested check fields and correctly typed risk details", () => {
     rejects(plannerContract, { ...plan, requiredChecks: [{ id: "tenant-isolation" }] }, "reason");
     rejects(plannerContract, { ...plan, risks: [{ ...plan.risks[0], mitigation: ["Audit callers"] }] }, "mitigation");
@@ -370,7 +385,7 @@ describe("Smith dispatch contract", () => {
     });
 
     if (contract !== dispatchContract) {
-      test(`${contract.title} preserves opt-in dispatch and enforces nested task structure`, () => {
+      test(`${contract.title} accepts explicit dispatch and enforces nested task structure`, () => {
         accepts(contract, withTasks(dispatch.tasks));
         rejects(contract, withTasks([]));
         rejects(contract, withTasks(null));

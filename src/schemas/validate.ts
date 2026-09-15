@@ -88,7 +88,7 @@ export function requirePlan(value: unknown): PlanOutput {
       }
     }
   }
-  if (plan.smithTasks) requireTaskGraph(plan.smithTasks, "Architect", "/smithTasks");
+  requireTaskGraph(plan.smithTasks, "Architect", "/smithTasks");
   return plan;
 }
 
