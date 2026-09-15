@@ -6,6 +6,14 @@ Large command logs and structured reports remain artifacts. Historical events ne
 
 The workflow also avoids expensive gates when required deterministic checks fail. Usage counters are recorded per attempt and rolled into the run ledger.
 
+## Review preparation overhead
+
+Sentinel and Inquisitor receive references to persisted exact-baseline diff artifacts, not an inline copy of the patch. Their own Git inspection supplements this evidence; it does not replace it. A run can start with dirty files or move HEAD during implementation, so a fresh `git diff` need not represent the change from the run's original baseline.
+
+Diff generation validates both complete snapshots, then materializes only entries whose path, mode, or raw content changed in the disposable Git object store. Unchanged files do not require Git blob or subtree creation; identical snapshots return an empty diff after validation. Rename detection remains disabled, preserving explicit additions and deletions. Full snapshots, checksum validation, revision identity checks, and both review gates remain unchanged.
+
+This reduces local evidence-preparation time, especially for small changes in large repositories. It does not reduce model inference time or skip agent stages. Per-role model and thinking settings remain available when model latency dominates.
+
 ## What the token budget measures
 
 Total and per-role token caps are optional and disabled by default. The ledger consumes the executor-reported aggregate: each attempt uses its reported total when available, otherwise input plus output (missing values contribute zero). It does **not** universally compute input + output + cache-read + cache-write.

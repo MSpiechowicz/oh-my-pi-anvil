@@ -8455,12 +8455,17 @@ function makeSnapshot(format, revisionId2, head, files) {
 function verifySnapshot(snapshot, format) {
   if (!snapshot || snapshot.format !== format || typeof snapshot.revisionId !== "string" || typeof snapshot.head !== "string" || !Array.isArray(snapshot.files)) throw failure("Review snapshot is missing or has an unsupported format. Restore the original evidence artifacts or start a new run.");
   let previous;
+  const paths = /* @__PURE__ */ new Set();
   for (const file of snapshot.files) {
     if (!file || typeof file.path !== "string" || !validPath(file.path) || previous !== void 0 && previous >= file.path || ![
       "100644",
       "100755",
       "120000"
     ].includes(file.mode) || typeof file.contentBase64 !== "string" || Buffer.from(file.contentBase64, "base64").toString("base64") !== file.contentBase64) throw failure("Review snapshot contains invalid paths, modes, or contents. Restore the original evidence artifacts or start a new run.");
+    for (let slash = file.path.lastIndexOf("/"); slash !== -1; slash = file.path.lastIndexOf("/", slash - 1)) {
+      if (paths.has(file.path.slice(0, slash))) throw failure("Snapshot contains a file/directory path collision.");
+    }
+    paths.add(file.path);
     previous = file.path;
   }
   const { revisionId: revisionId2, head, files } = snapshot;
@@ -8619,6 +8624,32 @@ var GitRevisionProvider = class {
     return evidenceOperation("render the exact-workspace review diff", async () => {
       verifySnapshot(base, "git-tree-v1");
       verifySnapshot(target, "git-tree-v1");
+      const baseFiles = [];
+      const targetFiles = [];
+      let left = 0;
+      let right = 0;
+      while (left < base.files.length || right < target.files.length) {
+        const before = base.files[left];
+        const after = target.files[right];
+        if (!after || before && before.path < after.path) {
+          baseFiles.push(before);
+          left++;
+        } else if (!before || after.path < before.path) {
+          targetFiles.push(after);
+          right++;
+        } else {
+          if (before.mode !== after.mode || before.contentBase64 !== after.contentBase64) {
+            baseFiles.push(before);
+            targetFiles.push(after);
+          }
+          left++;
+          right++;
+        }
+      }
+      if (!baseFiles.length && !targetFiles.length) return {
+        patch: "",
+        changedFiles: []
+      };
       const directory = await mkdtemp(path7.join(os.tmpdir(), "anvil-review-diff-"));
       try {
         gitBytes(directory, [
@@ -8629,8 +8660,8 @@ var GitRevisionProvider = class {
           "."
         ]);
         const objects = /* @__PURE__ */ new Map();
-        const before = this.writeTree(directory, base.files, objects);
-        const after = this.writeTree(directory, target.files, objects);
+        const before = this.writeTree(directory, baseFiles, objects);
+        const after = this.writeTree(directory, targetFiles, objects);
         const bytes = gitBytes(directory, [
           "diff",
           ...DIFF_OPTIONS,

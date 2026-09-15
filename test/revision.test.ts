@@ -97,6 +97,49 @@ describe("durable exact-workspace revision evidence", () => {
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
+  test("sparse review trees produce the full-tree patch for content, mode and path changes", async () => {
+    const root = await repository();
+    try {
+      await mkdir(path.join(root, "nested"));
+      await writeFile(path.join(root, "nested", "stable.txt"), "unchanged sibling\n");
+      await writeFile(path.join(root, "nested", "edit.txt"), "old content\n");
+      await writeFile(path.join(root, "nested", "mode.sh"), "echo unchanged\n");
+      await writeFile(path.join(root, "rename.txt"), "renamed content\n");
+      await writeFile(path.join(root, "binary"), new Uint8Array([0, 1, 255]));
+      await writeFile(path.join(root, "empty"), "");
+      git(root, "add", "."); git(root, "commit", "-m", "baseline");
+      const provider = new GitRevisionProvider(root);
+      const baseline = await provider.captureSnapshot((await provider.current()).id);
+      assert.deepEqual(await provider.reviewDiff(baseline, structuredClone(baseline)), { patch: "", changedFiles: [] });
+
+      await writeFile(path.join(root, "nested", "edit.txt"), "new content\n");
+      await chmod(path.join(root, "nested", "mode.sh"), 0o755);
+      git(root, "mv", "rename.txt", "nested/renamed.txt");
+      await writeFile(path.join(root, "binary"), new Uint8Array([0, 2, 254]));
+      await rm(path.join(root, "empty"));
+      await mkdir(path.join(root, "empty"));
+      await writeFile(path.join(root, "empty", "child"), "");
+      git(root, "add", "."); git(root, "commit", "-m", "target");
+      const target = await provider.captureSnapshot((await provider.current()).id);
+      const expectedPatch = git(root, "diff", "--binary", "--no-ext-diff", "--no-textconv", "--no-color", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/", baseline.head, target.head);
+      const expectedFiles = git(root, "diff", "--name-only", "-z", "--no-renames", baseline.head, target.head).split("\0").filter(Boolean);
+      assert.deepEqual(await provider.reviewDiff(baseline, target), { patch: expectedPatch, changedFiles: expectedFiles });
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  test("rejects unchanged path collisions before omitting identical snapshot entries", async () => {
+    const root = await repository();
+    try {
+      const provider = new GitRevisionProvider(root);
+      const baseline = await provider.captureSnapshot((await provider.current()).id);
+      const invalid = structuredClone(baseline);
+      invalid.files = ["a", "a.b", "a/child"].map((relative) => ({ ...baseline.files[0], path: relative }));
+      const { revisionId, head, format, files } = invalid;
+      invalid.checksum = sha256(JSON.stringify({ revisionId, head, format, files }));
+      await assert.rejects(provider.reviewDiff(invalid, structuredClone(invalid)), evidenceError);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   test("recovers only clean legacy history or an exactly restored strengthened baseline", async () => {
     const root = await repository();
     try {
