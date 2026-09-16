@@ -73,6 +73,9 @@ Scout and Archivist are enabled by default. Set `scouting.enabled: false` to ski
 ## Quick start
 
 Install Anvil through OMP. A new OMP session or restart of OMP is required after installation so it loads Anvil. In that first session, Anvil automatically creates the editable global settings template and shows its exact path in the OMP notification area; it does not modify the current repository during this first-run setup.
+
+The same installation includes the **Forge skill** (`skills/forge/SKILL.md`) and specialist agents. OMP exposes the skill's name and description to the LLM, which can read `skill://forge` and select only the agents a development task needs. When skill commands are enabled, `/skill:forge <objective>` loads this guidance for session-led development; it is distinct from `/forge <objective>`, which executes Anvil's persistent, revision-gated workflow. No separate skill installation or `/anvil init` is needed for skill discovery.
+
 ```bash
 # Register the Anvil marketplace and install the stable release
 omp plugin marketplace add MSpiechowicz/oh-my-pi-anvil
@@ -151,6 +154,7 @@ anvil-update install
 ```
 
 Updates verify the published stable GitHub release, refresh the registered marketplace, upgrade only the active unambiguous Anvil installation, and confirm that OMP installed a newer version. Source checkouts are never overwritten; update those with `git pull --ff-only`, then run `deno task build`.
+The Forge skill updates with the plugin. Open a new OMP session after installation or update to refresh discovery and the model's skill metadata. If `skill://forge` is missing or resolves to an unexpected copy, check that Anvil and skills are enabled, inspect skill include/ignore filters, and check for a higher-precedence user or project skill also named `forge`; Anvil does not overwrite those user-owned copies.
 Interactive OMP startups also request a fresh public release check in the background. A managed installation shows `Anvil update available. Run /anvil update install to update it.` as a warning when a newer stable release exists; `/anvil update check` reports its result as a single plain line such as `Anvil 0.1.12: No newer release available.` Startup failures stay quiet and no code is installed automatically. Source checkouts do not show this marketplace-update warning.
 
 ## Configuration
