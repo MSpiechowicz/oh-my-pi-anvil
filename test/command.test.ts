@@ -385,7 +385,7 @@ printf '%s\n' '${
 
       await scheduled[0]();
       expect(notices).toHaveLength(1);
-      expect(notices[0].message).toBe("Anvil update available. Run `/anvil update install` to update it.");
+      expect(notices[0].message).toContain(`${packageVersion} → 999.0.0`);
       expect(notices[0].level).toBe("warning");
       await anvilHandler("/anvil update check", {
         cwd: packageRoot,

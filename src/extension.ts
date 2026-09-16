@@ -33,7 +33,7 @@ async function selectAnvilCommand(args: string, context: ExtensionContext): Prom
   let input = args.trim().replace(/^\/anvil\s*/, "");
   if (input === "help" || context.hasUI === false || typeof context.ui?.select !== "function") return input;
   if (!input) {
-    const section = await context.ui.select("Anvil", ["Configuration", "Initialize", "Doctor", "Run management", "Update"]);
+    const section = await context.ui.select("Anvil", ["Configuration", "Doctor", "Initialize", "Run management", "Update"]);
     if (!section) return undefined;
     if (section === "Configuration") return "config";
     if (section === "Initialize") return "init";
@@ -42,7 +42,7 @@ async function selectAnvilCommand(args: string, context: ExtensionContext): Prom
     else input = "update";
   }
   if (input === "runs") {
-    const action = await context.ui.select("Anvil / Run management", ["Status", "Resume", "Cancel", "Findings"]);
+    const action = await context.ui.select("Anvil / Run management", ["Cancel", "Findings", "Resume", "Status"]);
     if (!action) return undefined;
     if (action === "Status") return "status";
     if (action === "Findings") return "findings";
@@ -113,7 +113,7 @@ export default function anvilExtension(pi: ExtensionAPI): void {
     try {
       const report = await checkUpdate(process.env.OMP_PROFILE ?? process.env.PI_PROFILE, context.cwd);
       if (report.updateAvailable && report.managed) {
-        await notify(context, "Anvil update available. Run `/anvil update install` to update it.", "warning");
+        await notify(context, `Anvil update available: ${report.currentVersion} → ${report.latestVersion}. Run \`/anvil update install\` to update it.`, "warning");
       }
     } catch {
       // Background startup update checks are best effort and remain quiet.
