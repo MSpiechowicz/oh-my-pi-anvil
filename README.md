@@ -4,6 +4,8 @@
   <p><strong>Forge reliable software with a team of specialized AI agents.</strong></p>
   <p>
     <a href="#quick-start">Quick start</a> ·
+    <a href="#installation">Install</a> ·
+    <a href="#removal">Remove</a> ·
     <a href="#the-forge">The Forge</a> ·
     <a href="#configuration">Configuration</a> ·
     <a href="#safety-invariants">Safety</a>
@@ -76,12 +78,17 @@ Install Anvil through OMP. A new OMP session or restart of OMP is required after
 
 The same installation includes the **Forge skill** (`skills/forge/SKILL.md`) and specialist agents. OMP exposes the skill's name and description to the LLM, which can read `skill://forge` and select only the agents a development task needs. When skill commands are enabled, `/skill:forge <objective>` loads this guidance for session-led development; it is distinct from `/forge <objective>`, which executes Anvil's persistent, revision-gated workflow. No separate skill installation or `/anvil init` is needed for skill discovery.
 
+Run these commands in your terminal (requires `omp` on your `PATH`):
+
 ```bash
 # Register the Anvil marketplace and install the stable release
 omp plugin marketplace add MSpiechowicz/oh-my-pi-anvil
 omp plugin install oh-my-pi-anvil@omp-anvil --scope user
+```
 
-# After installing, open a new OMP session or restart OMP so Anvil loads.
+Open a new OMP session or restart OMP so Anvil loads. Run the following slash commands **inside OMP**, not in your terminal:
+
+```text
 # Inspect the global configuration and both global storage paths:
 /anvil config
 
@@ -130,14 +137,35 @@ Inspect and control an existing run through `/anvil`:
 /anvil cancel run_<id>
 ```
 
-## Marketplace installation and updates
+## Installation
 
-Register the Anvil marketplace and install the stable release through OMP:
+Prerequisite: install [Oh My Pi](https://github.com/can1357/oh-my-pi) and make sure `omp --version` works in your terminal.
+
+Register the Anvil marketplace and install the stable release from your terminal:
 
 ```bash
 omp plugin marketplace add MSpiechowicz/oh-my-pi-anvil
 omp plugin install oh-my-pi-anvil@omp-anvil --scope user
 ```
+
+`--scope user` makes Anvil available across your projects. Restart OMP or open a new session, then run `/anvil doctor` inside OMP to check the installation. Run `/anvil config` to inspect the active settings and storage paths. The plugin includes the extension, Forge skill, and specialist agents; no separate installation is needed for those components.
+
+## Removal
+
+Before uninstalling, finish any active Forge run or cancel it inside OMP with `/anvil cancel <run-id>`. If you intend to remove saved data too, first run `/anvil config` and note the active paths.
+
+Run these commands in your terminal to remove the user-scoped installation shown above:
+
+```bash
+omp plugin uninstall oh-my-pi-anvil@omp-anvil --scope user
+omp plugin list --json
+```
+
+Confirm that `oh-my-pi-anvil@omp-anvil` is no longer listed for the user scope, then restart OMP or open a new session to unload its commands, skill, and agents. If you installed Anvil with `--scope project`, run the uninstall command with `--scope project` from that project instead.
+
+Uninstalling the plugin is separate from deleting Anvil settings and run history. Keep those files if you may reinstall or need the evidence later. For an optional full cleanup, close OMP and remove only the Anvil-specific settings and state paths you identified with `/anvil config`, including any project `.omp/anvil.yml` overlay and configured run artifacts. See [Data storage and privacy](#data-storage-and-privacy) for what is retained. Do not delete shared OMP configuration directories; durable lessons in OMP's memory backend must be managed separately through that backend.
+
+## Updates
 
 Anvil exposes the native update path from inside OMP:
 
